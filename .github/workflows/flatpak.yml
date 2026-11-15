@@ -1,0 +1,56 @@
+# À chaque envoi sur « main » : fabrique Cadence.flatpak et le publie dans les Releases GitHub.
+# Le dépôt Flatpak FlatKein (Jeff12873/FlatKein) récupère ensuite cette Release, la signe et la distribue.
+#
+# Secret facultatif : FLATKEIN_JETON, pour prévenir FlatKein tout de suite (voir son README).
+# Sans lui, FlatKein vérifie les nouvelles versions toutes les 6 heures.
+
+name: Flatpak
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  construire:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Outils Flatpak
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.freedesktop.Platform//25.08 org.electronjs.Electron2.BaseApp//25.08
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Cadence.flatpak
+        run: PUBLIER=1 sh outils/flatpak.sh
+
+      - name: Release
+        run: |
+          version="v$(node -p "require('./package.json').version").${{ github.run_number }}"
+          gh release create "$version" Cadence.flatpak --title "Cadence $version" --notes "${{ github.event.head_commit.message }}"
+          # On garde les 3 dernières versions
+          gh release list --limit 100 --json tagName --jq '.[3:][].tagName' | while read -r ancienne; do
+            gh release delete "$ancienne" --yes --cleanup-tag
+          done
+
+      - name: Prévenir FlatKein
+        env:
+          JETON: ${{ secrets.FLATKEIN_JETON }}
+        if: env.JETON != ''
+        run: GH_TOKEN="$JETON" gh api repos/Jeff12873/FlatKein/dispatches -f event_type=nouvelle-version

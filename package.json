@@ -1,0 +1,39 @@
+{
+  "name": "cadence",
+  "productName": "Cadence",
+  "version": "1.0.0",
+  "description": "Semaine type et tâches Obsidian (TaskNotes) : routines, créneaux, planification par glisser-déposer.",
+  "main": "bureau/main.js",
+  "private": true,
+  "scripts": {
+    "demarrer": "electron .",
+    "appimage": "electron-builder --linux AppImage"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "fr.cadence.app",
+    "productName": "Cadence",
+    "artifactName": "Cadence-${version}.AppImage",
+    "files": [
+      "index.html",
+      "icone.svg",
+      "bureau/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Office",
+      "icon": "bureau/icone.png",
+      "synopsis": "Semaine type et tâches Obsidian",
+      "syncDesktopName": true
+    }
+  },
+  "author": "Cadence",
+  "desktopName": "cadence.desktop"
+}

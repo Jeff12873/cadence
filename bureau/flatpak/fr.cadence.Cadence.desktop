@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Cadence
+Comment=Semaine type et tâches Obsidian : routines, créneaux, planification
+Exec=cadence %U
+Icon=fr.cadence.Cadence
+Categories=Office;Calendar;ProjectManagement;
+Keywords=semaine;planning;routines;obsidian;tasknotes;tâches;agenda;
+StartupWMClass=cadence
+Terminal=false

@@ -1,0 +1,320 @@
+// Cadence — application de bureau (Electron).
+// Une fenêtre qui affiche index.html, plus un pont vers le coffre Obsidian choisi par l'utilisateur :
+// lecture des tâches TaskNotes, suivi en direct, et quelques écritures précises
+// (cocher une ligne de checklist, fixer le jour planifié, créer une tâche, enregistrer la semaine type).
+//
+// Rien de personnel n'est stocké dans l'application : le chemin du coffre vit dans le dossier
+// de configuration de l'utilisateur, la semaine type dans un fichier du coffre.
+
+const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell } = require('electron');
+const path = require('node:path');
+const fs = require('node:fs');
+const fsp = require('node:fs/promises');
+const { pathToFileURL } = require('node:url');
+
+const RACINE = path.join(__dirname, '..');
+const FICHIER_CONFIG = () => path.join(app.getPath('userData'), 'config.json');
+
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+]);
+
+// --- Configuration (chemin du coffre, fichier de données) ---------------------
+
+let config = { coffre: null, donnees: 'Cadence.json' };
+
+function chargerConfig() {
+  try { config = { ...config, ...JSON.parse(fs.readFileSync(FICHIER_CONFIG(), 'utf8')) }; } catch { /* premier lancement */ }
+}
+async function enregistrerConfig() {
+  await fsp.mkdir(path.dirname(FICHIER_CONFIG()), { recursive: true });
+  await ecrireAtomique(FICHIER_CONFIG(), JSON.stringify(config, null, 2));
+}
+
+// Réglages du plugin TaskNotes du coffre : dossier des tâches, identification, champs, priorités.
+function reglagesTaskNotes() {
+  const defaut = {
+    dossier: 'TaskNotes/Tasks', methode: 'tag', tag: 'task', propriete: '', valeur: '',
+    statutParDefaut: 'open', prioriteParDefaut: 'normal', priorites: [], statuts: [], champs: {},
+  };
+  if (!config.coffre) return defaut;
+  try {
+    const d = JSON.parse(fs.readFileSync(path.join(config.coffre, '.obsidian/plugins/tasknotes/data.json'), 'utf8'));
+    return {
+      dossier: d.tasksFolder || defaut.dossier,
+      methode: d.taskIdentificationMethod || 'tag',
+      tag: d.taskTag || 'task',
+      propriete: d.taskPropertyName || '',
+      valeur: d.taskPropertyValue || '',
+      statutParDefaut: d.defaultTaskStatus || 'open',
+      prioriteParDefaut: d.defaultTaskPriority || 'normal',
+      priorites: (d.customPriorities || []).map(p => ({ valeur: p.value, libelle: p.label || p.value, couleur: p.color })),
+      statuts: (d.customStatuses || []).map(s => ({ valeur: s.value, libelle: s.label || s.value, termine: !!s.isCompleted })),
+      champs: d.fieldMapping || {},
+    };
+  } catch {
+    return defaut;
+  }
+}
+const champ = (tn, nom) => (tn.champs && tn.champs[nom]) || nom;
+
+// --- Chemins autorisés --------------------------------------------------------
+
+function dossierTaches() {
+  if (!config.coffre) throw new Error('Aucun coffre Obsidian choisi.');
+  return path.join(config.coffre, reglagesTaskNotes().dossier);
+}
+function fichierTache(nom) {
+  if (typeof nom !== 'string' || !nom || /[\\/]/.test(nom) || nom.startsWith('.')) throw new Error('Nom de tâche invalide.');
+  return path.join(dossierTaches(), nom.endsWith('.md') ? nom : nom + '.md');
+}
+function fichierDonnees() {
+  if (!config.coffre) throw new Error('Aucun coffre Obsidian choisi.');
+  const f = path.normalize(path.join(config.coffre, config.donnees || 'Cadence.json'));
+  if (!f.startsWith(path.normalize(config.coffre) + path.sep) || !f.endsWith('.json')) throw new Error('Fichier de données invalide.');
+  return f;
+}
+
+// Écriture « atomique » : fichier temporaire puis renommage, pour ne jamais laisser
+// un fichier à moitié écrit dans un dossier synchronisé (Syncthing, Nextcloud…).
+async function ecrireAtomique(chemin, contenu) {
+  const temporaire = path.join(path.dirname(chemin), `.${path.basename(chemin)}.cadence-tmp`);
+  await fsp.writeFile(temporaire, contenu);
+  await fsp.rename(temporaire, chemin);
+}
+
+// --- Frontmatter YAML : modifications ligne à ligne, sans réécrire le reste ----
+
+const RE_FM = /^---\r?\n([\s\S]*?)\r?\n---/;
+
+function changerCle(texte, cle, valeur) {
+  const m = texte.match(RE_FM);
+  if (!m) throw new Error('Tâche sans frontmatter.');
+  const lignes = m[1].split(/\r?\n/);
+  const i = lignes.findIndex(l => l.startsWith(cle + ':'));
+  if (i >= 0) {
+    let j = i + 1;
+    while (j < lignes.length && /^\s+\S/.test(lignes[j])) j++;   // valeurs en liste ou indentées
+    lignes.splice(i, j - i, ...(valeur == null ? [] : [`${cle}: ${valeur}`]));
+  } else if (valeur != null) {
+    lignes.push(`${cle}: ${valeur}`);
+  }
+  return texte.replace(m[0], '---\n' + lignes.join('\n') + '\n---');
+}
+
+function maintenant() {
+  const d = new Date(), z = -d.getTimezoneOffset(), s = z >= 0 ? '+' : '-', p = n => String(Math.abs(n)).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.000${s}${p(Math.trunc(z / 60))}:${p(z % 60)}`;
+}
+const yamlTexte = (v) => /^[\w\- .àâäéèêëîïôöùûüç'/]+$/i.test(v) && !/^\d/.test(v) ? v : JSON.stringify(v);
+
+async function lireVerifie(nom, mtimeAttendu) {
+  const chemin = fichierTache(nom);
+  const info = await fsp.stat(chemin);
+  if (mtimeAttendu && Math.abs(info.mtimeMs - mtimeAttendu) > 1) {
+    const e = new Error('La tâche a été modifiée ailleurs entre-temps : la liste est rechargée, réessaie.');
+    e.modifie = true; throw e;
+  }
+  return { chemin, texte: await fsp.readFile(chemin, 'utf8') };
+}
+
+// --- IPC ----------------------------------------------------------------------
+
+ipcMain.handle('config', () => {
+  const tn = reglagesTaskNotes();
+  return {
+    coffre: config.coffre, nomCoffre: config.coffre ? path.basename(config.coffre) : null,
+    donnees: config.donnees, tasknotes: tn,
+  };
+});
+
+ipcMain.handle('choisir-coffre', async (evenement) => {
+  const fenetre = BrowserWindow.fromWebContents(evenement.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(fenetre, {
+    title: 'Choisir le dossier du coffre Obsidian', properties: ['openDirectory'],
+    defaultPath: config.coffre || app.getPath('home'),
+  });
+  if (canceled || !filePaths[0]) return null;
+  if (!fs.existsSync(path.join(filePaths[0], '.obsidian'))) {
+    throw new Error("Ce dossier n'est pas un coffre Obsidian (pas de dossier .obsidian).");
+  }
+  config.coffre = filePaths[0];
+  await enregistrerConfig();
+  surveiller();
+  return config.coffre;
+});
+
+ipcMain.handle('regler-donnees', async (evenement, relatif) => {
+  if (typeof relatif !== 'string' || !relatif.endsWith('.json') || relatif.includes('..')) throw new Error('Chemin invalide (un fichier .json dans le coffre).');
+  config.donnees = relatif.replace(/^\/+/, '');
+  await enregistrerConfig();
+  surveiller();
+  return config.donnees;
+});
+
+ipcMain.handle('lire-donnees', async () => {
+  try { return JSON.parse(await fsp.readFile(fichierDonnees(), 'utf8')); }
+  catch (e) { if (e.code === 'ENOENT' || !config.coffre) return null; throw e; }
+});
+
+ipcMain.handle('ecrire-donnees', async (evenement, donnees) => {
+  const f = fichierDonnees();
+  await fsp.mkdir(path.dirname(f), { recursive: true });
+  dernierEcritDonnees = Date.now();
+  await ecrireAtomique(f, JSON.stringify(donnees, null, 2) + '\n');
+});
+
+ipcMain.handle('lire-taches', async () => {
+  if (!config.coffre) return [];
+  const dossier = dossierTaches();
+  let noms = [];
+  try { noms = await fsp.readdir(dossier); } catch { return []; }
+  const fichiers = [];
+  for (const nom of noms) {
+    if (!nom.endsWith('.md') || nom.includes('sync-conflict') || nom.startsWith('.')) continue;
+    try {
+      const chemin = path.join(dossier, nom);
+      const [texte, info] = await Promise.all([fsp.readFile(chemin, 'utf8'), fsp.stat(chemin)]);
+      fichiers.push({ name: nom, text: texte, mtime: info.mtimeMs });
+    } catch { /* fichier en cours de synchronisation : il reviendra au prochain changement */ }
+  }
+  return fichiers;
+});
+
+// Cocher / décocher la n-ième case « - [ ] » du corps de la tâche
+ipcMain.handle('cocher', async (evenement, nom, index, fait, mtime) => {
+  const { chemin, texte } = await lireVerifie(nom, mtime);
+  const m = texte.match(RE_FM);
+  const debut = m ? m[0].length : 0;
+  const lignes = texte.slice(debut).split('\n');
+  let n = -1;
+  for (let i = 0; i < lignes.length; i++) {
+    if (/^\s*- \[( |x|X)\]/.test(lignes[i]) && ++n === index) {
+      lignes[i] = lignes[i].replace(/- \[( |x|X)\]/, fait ? '- [x]' : '- [ ]');
+      let nouveau = texte.slice(0, debut) + lignes.join('\n');
+      nouveau = changerCle(nouveau, champ(reglagesTaskNotes(), 'dateModified'), maintenant());
+      await ecrireAtomique(chemin, nouveau);
+      return true;
+    }
+  }
+  throw new Error('Ligne de checklist introuvable : la liste est rechargée.');
+});
+
+// Fixer (ou retirer) le jour planifié : AAAA-MM-JJ ou AAAA-MM-JJTHH:MM
+ipcMain.handle('planifier', async (evenement, nom, valeur, mtime) => {
+  if (valeur != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(valeur)) throw new Error('Date invalide.');
+  const tn = reglagesTaskNotes();
+  const { chemin, texte } = await lireVerifie(nom, mtime);
+  let nouveau = changerCle(texte, champ(tn, 'scheduled'), valeur);
+  nouveau = changerCle(nouveau, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, nouveau);
+  return true;
+});
+
+// Créer une tâche TaskNotes
+ipcMain.handle('creer-tache', async (evenement, t) => {
+  const tn = reglagesTaskNotes();
+  const titre = String(t.titre || '').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (!titre) throw new Error('Il faut un titre.');
+  const chemin = fichierTache(titre);
+  if (fs.existsSync(chemin)) throw new Error('Une tâche porte déjà ce nom.');
+  const tags = [...(t.tags || [])].filter(Boolean);
+  if (tn.methode === 'tag' && tn.tag && !tags.includes(tn.tag)) tags.unshift(tn.tag);
+  const l = [
+    `${champ(tn, 'status')}: ${yamlTexte(tn.statutParDefaut)}`,
+    `${champ(tn, 'priority')}: ${yamlTexte(t.priorite || tn.prioriteParDefaut)}`,
+  ];
+  if (t.planifie) l.push(`${champ(tn, 'scheduled')}: ${t.planifie}`);
+  l.push(`${champ(tn, 'dateCreated')}: ${maintenant()}`);
+  if (tn.methode === 'property' && tn.propriete) l.push(`${tn.propriete}: ${JSON.stringify(tn.valeur)}`);
+  if (tags.length) l.push('tags:', ...tags.map(x => `  - ${yamlTexte(x)}`));
+  if ((t.projets || []).length) l.push(`${champ(tn, 'projects')}:`, ...t.projets.map(p => `  - "[[${p}]]"`));
+  l.push(`${champ(tn, 'title')}: ${yamlTexte(titre)}`);
+  const corps = t.note ? `\n${String(t.note).trim()}\n` : '';
+  await fsp.mkdir(path.dirname(chemin), { recursive: true });
+  await fsp.writeFile(chemin, `---\n${l.join('\n')}\n---\n${corps}`, { flag: 'wx' });
+  return path.basename(chemin, '.md');
+});
+
+ipcMain.handle('ouvrir-lien', (evenement, url) => {
+  if (typeof url === 'string' && url.startsWith('obsidian://')) shell.openExternal(url);
+});
+
+// --- Suivi en direct du dossier des tâches et du fichier de données -------------
+
+let veilleurs = [], minuterie = null, dernierEcritDonnees = 0;
+
+function prevenir(canal) {
+  clearTimeout(minuterie);
+  minuterie = setTimeout(() => BrowserWindow.getAllWindows().forEach(f => f.webContents.send(canal)), 250);
+}
+
+function surveiller() {
+  veilleurs.forEach(v => v.close()); veilleurs = [];
+  if (!config.coffre) return;
+  try { veilleurs.push(fs.watch(dossierTaches(), () => prevenir('taches-changees'))); } catch { /* dossier absent */ }
+  try {
+    const f = fichierDonnees();
+    veilleurs.push(fs.watch(path.dirname(f), (type, nom) => {
+      if (nom === path.basename(f) && Date.now() - dernierEcritDonnees > 1500) prevenir('donnees-changees');
+    }));
+  } catch { /* dossier absent */ }
+}
+
+// --- Fenêtre ------------------------------------------------------------------
+
+function servirFichiers() {
+  protocol.handle('app', requete => {
+    const chemin = decodeURIComponent(new URL(requete.url).pathname);
+    const fichier = path.normalize(path.join(RACINE, chemin));
+    if (!fichier.startsWith(RACINE + path.sep)) return new Response('Interdit', { status: 403 });
+    return net.fetch(pathToFileURL(fichier).toString());
+  });
+}
+
+function creerFenetre() {
+  const fenetre = new BrowserWindow({
+    width: 1440, height: 900, minWidth: 900, minHeight: 560,
+    title: 'Cadence',
+    icon: path.join(__dirname, 'icone.png'),
+    backgroundColor: '#FAFAF7',
+    autoHideMenuBar: true,
+    show: !process.env.CADENCE_CAPTURE,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true },
+  });
+  fenetre.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('obsidian://')) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  fenetre.webContents.on('will-navigate', (evenement, url) => {
+    if (url.startsWith('obsidian://')) shell.openExternal(url);
+    if (!url.startsWith('app://cadence/')) evenement.preventDefault();
+  });
+  fenetre.loadURL('app://cadence/index.html');
+  if (process.env.CADENCE_CAPTURE) capturer(fenetre, process.env.CADENCE_CAPTURE);
+}
+
+// Capture pour les tests : CADENCE_CAPTURE=/chemin/ecran.png
+function capturer(fenetre, sortie) {
+  fenetre.webContents.on('console-message', ({ level, message }) => console.log(`[console:${level}] ${message}`));
+  fenetre.webContents.on('did-finish-load', () => setTimeout(async () => {
+    if (process.env.CADENCE_SCRIPT) {   // tests : script exécuté dans la page avant la capture
+      try { console.log('[script]', JSON.stringify(await fenetre.webContents.executeJavaScript(fs.readFileSync(process.env.CADENCE_SCRIPT, 'utf8')))); }
+      catch (e) { console.log('[script] erreur', e.message); }
+      await new Promise(r => setTimeout(r, 1200));
+    }
+    const image = await fenetre.webContents.capturePage();
+    await fsp.writeFile(sortie, image.toPNG());
+    console.log(`Capture : ${sortie}`);
+    app.quit();
+  }, 3000));
+}
+
+app.setName('Cadence');
+app.whenReady().then(() => {
+  chargerConfig();
+  servirFichiers();
+  creerFenetre();
+  surveiller();
+});
+app.on('window-all-closed', () => app.quit());

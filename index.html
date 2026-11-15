@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadence</title>
+<style>
+:root{
+  --paper:#FAFAF7; --card:#FFFFFF; --ink:#1F2937; --muted:#6B7280; --line:#E5E7EB; --head:#374151; --headwe:#9CA3AF;
+  --accent:#2B4C7E; --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05); --weekend:#F1F1EC;
+  --routine-bg:#E8EEF6; --routine-fg:#2B4C7E; --bilan-bg:#DCD6F7; --bilan-fg:#3F2E8C; --ordi-bg:#D4F0EC; --ordi-fg:#0F6B5F;
+  --corvee-bg:#FCEBC7; --corvee-fg:#8A5A00; --courses-bg:#D9F2D9; --courses-fg:#1E6B2A; --sport-bg:#FADAD7; --sport-fg:#9B2C22;
+  --travaux-bg:#F6DEC9; --travaux-fg:#8A4512; --loisir-bg:#F3D9F0; --loisir-fg:#7E2A73; --soir-bg:#DDE3F0; --soir-fg:#26324F;
+  --pause-bg:transparent; --pause-fg:#9CA3AF;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#15171C; --card:#1D2027; --ink:#E5E7EB; --muted:#9CA3AF; --line:#2C303A; --head:#3B4252; --headwe:#2C303A;
+  --accent:#9DB8E6; --shadow:0 1px 2px rgba(0,0,0,.4); --weekend:#1A1C21;
+  --routine-bg:#22304A; --routine-fg:#B7CBEE; --bilan-bg:#2E2850; --bilan-fg:#CFC6FF; --ordi-bg:#173B37; --ordi-fg:#9EE3D8;
+  --corvee-bg:#3D3016; --corvee-fg:#F2CF83; --courses-bg:#1B3A21; --courses-fg:#A6E3AF; --sport-bg:#46201D; --sport-fg:#F5B3AC;
+  --travaux-bg:#43301F; --travaux-fg:#F1C29B; --loisir-bg:#3D2140; --loisir-fg:#EDB8E6; --soir-bg:#262E42; --soir-fg:#C3CDE6;
+}}
+:root[data-theme="dark"]{
+  --paper:#15171C; --card:#1D2027; --ink:#E5E7EB; --muted:#9CA3AF; --line:#2C303A; --head:#3B4252; --headwe:#2C303A;
+  --accent:#9DB8E6; --shadow:0 1px 2px rgba(0,0,0,.4); --weekend:#1A1C21;
+  --routine-bg:#22304A; --routine-fg:#B7CBEE; --bilan-bg:#2E2850; --bilan-fg:#CFC6FF; --ordi-bg:#173B37; --ordi-fg:#9EE3D8;
+  --corvee-bg:#3D3016; --corvee-fg:#F2CF83; --courses-bg:#1B3A21; --courses-fg:#A6E3AF; --sport-bg:#46201D; --sport-fg:#F5B3AC;
+  --travaux-bg:#43301F; --travaux-fg:#F1C29B; --loisir-bg:#3D2140; --loisir-fg:#EDB8E6; --soir-bg:#262E42; --soir-fg:#C3CDE6;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:14px/1.4 "Inter","Noto Sans",system-ui,sans-serif}
+button,select,input{font:inherit;color:inherit}
+.wrap{max-width:1500px;margin:0 auto;padding:20px 16px 40px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 24px;justify-content:space-between;margin-bottom:14px}
+h1{margin:0;font-size:28px;letter-spacing:-.02em}
+.subtitle{color:var(--muted);font-size:13px;margin-top:2px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line);background:var(--card);padding:7px 12px;border-radius:8px;cursor:pointer;box-shadow:var(--shadow);white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.on{background:var(--accent);color:var(--card);border-color:var(--accent)}
+.layout{display:grid;grid-template-columns:1fr;gap:16px}
+.layout.with-tasks{grid-template-columns:minmax(0,1fr) 340px}
+@media (max-width:1100px){.layout.with-tasks{grid-template-columns:1fr}}
+.cal-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.cal{display:grid;grid-template-columns:58px repeat(7,minmax(118px,1fr));gap:4px;min-width:900px}
+.dayhead{background:var(--head);color:#fff;border-radius:6px;text-align:center;font-weight:700;font-size:12px;letter-spacing:.06em;padding:6px 4px}
+.dayhead.we{background:var(--headwe)}
+.dayhead small{display:block;font-weight:500;letter-spacing:0;opacity:.8;font-size:10.5px}
+.dayhead.today{outline:2px solid var(--accent);outline-offset:2px}
+.time{min-height:var(--h,46px);color:var(--muted);font-weight:700;font-size:12px;text-align:right;padding:8px 6px 0 0;position:relative}
+.time input{width:52px;text-align:right;border:1px solid var(--line);border-radius:6px;background:var(--card);padding:2px 4px;font-weight:700;font-size:12px}
+.rowtools{display:flex;gap:2px;justify-content:flex-end;margin-top:4px}
+.rowtools button{border:none;background:none;cursor:pointer;color:var(--muted);padding:0 2px;font-size:12px}
+.slot{min-height:var(--h,46px);border-radius:7px;position:relative}
+.rz{position:absolute;left:0;right:0;bottom:-5px;height:9px;cursor:row-resize;z-index:3;touch-action:none}
+.rz::after{content:"";position:absolute;left:35%;right:35%;top:3px;height:3px;border-radius:3px;background:var(--accent);opacity:0;transition:opacity .15s}
+.rz:hover::after,.rz.drag::after{opacity:.8}
+body.resizing{cursor:row-resize;user-select:none}
+.slot.empty.we{background:var(--weekend)}
+.edit .slot.empty{border:1px dashed var(--line);cursor:pointer}
+.edit .slot.empty:hover{border-color:var(--accent)}
+.block{height:100%;border-radius:7px;padding:7px 9px 7px 12px;position:relative;cursor:default;display:flex;flex-direction:column;justify-content:center;gap:2px;overflow:hidden}
+.block::before{content:"";position:absolute;left:3px;top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--fg)}
+.block.pause::before{display:none}
+.block .t{font-weight:700;font-size:12.5px;color:var(--fg)}
+.block .s{font-size:11px;color:var(--fg);opacity:.85;white-space:pre-line}
+.edit .block{cursor:pointer;outline:1px dashed transparent}
+.edit .block:hover{outline-color:var(--fg)}
+.badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px;order:-1;margin:-2px -3px 1px 0}
+.block.has-badge{justify-content:flex-start}
+.badge{background:var(--fg);color:var(--bg);border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 7px;cursor:pointer;border:none}
+.weeknav{display:flex;align-items:center;gap:6px}
+.weeknav span{font-weight:700;min-width:170px;text-align:center}
+.weeknav .btn{padding:5px 10px}
+.dayhead .dnum{font-weight:500;opacity:.8;letter-spacing:0}
+.badge.plan{background:var(--accent);color:var(--card)}
+.dayplan{display:grid;gap:6px;margin-top:5px;font-size:11px;color:var(--fg);line-height:1.3}
+.dp{min-width:0}
+.dp .badge{margin-bottom:2px}
+.dp .pi{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dp .more{opacity:.7}
+.zones{position:absolute;inset:0;display:grid;pointer-events:none;border-radius:7px;overflow:hidden}
+body.dragging-task .zones{pointer-events:auto}
+body.dragging-task .zone{border-left:1px dashed color-mix(in srgb, var(--fg) 35%, transparent)}
+body.dragging-task .zone:first-child{border-left:none}
+.zone.over{background:color-mix(in srgb, var(--accent) 22%, transparent);outline:2px dashed var(--accent);outline-offset:-2px}
+.zone.over::after{content:attr(data-label);position:absolute;margin:4px 6px;font-size:10.5px;font-weight:700;color:var(--accent)}
+.zone{position:relative}
+.task.dragging{opacity:.4}
+.task[draggable=true]{cursor:grab}
+.task .unplan{border:none;background:none;color:var(--muted);cursor:pointer;padding:0 0 0 8px;font-size:12px}
+.task .unplan:hover{color:#C2410C}
+.badge.proj{background:transparent;color:var(--fg);box-shadow:inset 0 0 0 1.5px var(--fg)}
+.badge.zero{opacity:.45}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:14px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:10px;border-radius:3px;background:var(--bg);border-left:3px solid var(--fg)}
+.note{font-size:12px;color:var(--muted);margin-top:6px}
+/* panneau tâches */
+aside{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;align-self:start;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+aside h2{margin:0 0 2px;font-size:16px}
+aside .meta{font-size:11.5px;color:var(--muted);margin-bottom:10px}
+.toggles{display:flex;flex-wrap:wrap;gap:4px 14px;margin:-4px 0 10px;font-size:12px;color:var(--muted)}
+.toggles label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.filters{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 9px;font-size:12px;cursor:pointer}
+.chip.on{background:var(--bg,var(--accent));color:var(--fg,#fff);border-color:var(--fg,var(--accent));font-weight:700}
+.group h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg);margin:12px 0 6px;display:flex;justify-content:space-between}
+.task{display:block;text-decoration:none;color:inherit;border:1px solid var(--line);border-left:3px solid var(--fg);border-radius:8px;padding:7px 9px;margin-bottom:6px;background:var(--paper)}
+.task:hover{border-color:var(--fg)}
+.task .tt{font-weight:600;font-size:13px}
+.task .tm{font-size:11px;color:var(--muted);margin-top:2px;display:flex;flex-wrap:wrap;gap:4px 10px}
+.task{cursor:pointer}
+.task .tt{display:flex;align-items:baseline;gap:0}
+.task .tl{flex:1}
+.task .chev{color:var(--fg);width:14px;flex:none;font-size:11px}
+.task .ob{color:var(--muted);text-decoration:none;padding:0 2px 0 8px;font-size:13px;flex:none}
+.task .ob:hover{color:var(--fg)}
+.subs{margin:7px 0 2px 14px;border-top:1px dashed var(--line);padding-top:6px}
+.subh{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--fg);margin:6px 0 3px}
+.sub{display:flex;gap:6px;font-size:12px;line-height:1.35;padding:2px 0}
+.sub .box{flex:none;color:var(--fg)}
+.sub.done{color:var(--muted);text-decoration:line-through}
+.sub.muted{color:var(--muted)}
+.task.blocked{opacity:.55}
+.prio{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.p1{background:#E5484D}.p2{background:#F5A524}.p3{background:#30A46C}.p4{background:#A1A1AA}.p0{background:transparent;border:1px solid var(--muted)}
+.empty-tasks{color:var(--muted);font-size:13px;padding:10px 0}
+/* modale */
+dialog{border:none;border-radius:14px;padding:0;background:var(--card);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(440px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+dialog form{padding:18px}
+dialog h3{margin:0 0 12px}
+dialog label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+dialog input[type=text],dialog select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--paper)}
+.days{display:flex;flex-wrap:wrap;gap:6px}
+.days label{display:inline-flex;align-items:center;gap:4px;margin:0;color:var(--ink);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:4px 8px;cursor:pointer}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.actions .danger{margin-right:auto;color:#C2410C}
+.aside-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.aside-head .btn{padding:4px 10px;box-shadow:none}
+dialog textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--paper);font:12.5px/1.4 ui-monospace,monospace;color:inherit;resize:vertical}
+.set-row{display:flex;gap:8px;align-items:center}
+.set-row code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12px}
+.set-intro{background:var(--routine-bg);color:var(--routine-fg);border-radius:8px;padding:8px 10px;font-size:13px;margin:0 0 6px}
+.set-hint{font-size:11.5px;color:var(--muted);margin-top:6px}
+.sub.clic{cursor:pointer;border-radius:5px}
+.sub.clic:hover{background:color-mix(in srgb, var(--fg) 10%, transparent)}
+.hidden{display:none!important}
+@media print{
+  @page{size:A4 landscape;margin:9mm}
+  :root{--paper:#fff}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .toolbar,aside,.note,.rowtools,.badge{display:none!important}
+  .layout,.layout.with-tasks{grid-template-columns:1fr}
+  .wrap{padding:0;max-width:none}
+  .cal{min-width:0}
+  .cal-scroll{overflow:visible}
+  .slot{min-height:calc(var(--h,46px) * .8)}
+  .rz{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="title">Cadence</h1>
+      <div class="subtitle" id="subtitle">Ta semaine type, reliée à tes tâches Obsidian</div>
+    </div>
+    <div class="weeknav"><button class="btn" id="wPrev" title="Semaine précédente">◀</button><span id="wLabel"></span><button class="btn" id="wNext" title="Semaine suivante">▶</button><button class="btn" id="wNow" title="Revenir à la semaine en cours">Auj.</button></div>
+    <div class="toolbar">
+      <button class="btn" id="btnEdit" title="Cliquer sur un bloc pour le modifier, sur une case vide pour en ajouter">✏️ Modifier</button>
+      <button class="btn" id="btnTasks" title="Choisir le dossier des tâches TaskNotes du coffre">📂 Charger mes tâches</button>
+      <button class="btn hidden" id="btnSettings" title="Coffre Obsidian, fichier de la semaine, tags et projets">⚙️ Réglages</button>
+      <button class="btn" id="btnPrint">🖨️ Imprimer</button>
+      <button class="btn" id="btnExport" title="Sauvegarder la semaine dans un fichier">💾 Exporter</button>
+      <button class="btn" id="btnImport">📥 Importer</button>
+      <button class="btn" id="btnClearPlan" title="Retirer toutes les tâches prévues (nouvelle semaine)">🧹 Vider la semaine</button>
+      <button class="btn" id="btnTheme" title="Thème clair / sombre">🌓</button>
+      <input type="file" id="dirInput" webkitdirectory directory multiple class="hidden">
+      <input type="file" id="jsonInput" accept="application/json" class="hidden">
+    </div>
+  </header>
+
+  <div class="layout" id="layout">
+    <main>
+      <div class="cal-scroll"><div class="cal" id="cal"></div></div>
+      <div class="legend" id="legend"></div>
+      <div class="note" id="note">Modifications enregistrées automatiquement dans ce navigateur. « Exporter » en garde une copie dans un fichier.</div>
+    </main>
+    <aside id="tasks" class="hidden">
+      <div class="aside-head"><h2>Mes tâches</h2><button class="btn hidden" id="btnNewTask" title="Créer une tâche dans le coffre">＋ Tâche</button></div>
+      <div class="meta" id="tasksMeta"></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="hidePlaced"> Masquer les tâches placées</label>
+        <label><input type="checkbox" id="hideBlocked"> Masquer les tâches bloquées</label>
+        <label title="Tâches datées à plus de 30 jours (ex. le bois en septembre)"><input type="checkbox" id="hideLater"> Masquer les tâches lointaines (+30 j)</label>
+      </div>
+      <div class="filters" id="filters"></div>
+      <div id="taskList"></div>
+    </aside>
+  </div>
+</div>
+
+<dialog id="dlgNew">
+  <form method="dialog" id="newForm">
+    <h3>Nouvelle tâche</h3>
+    <label for="nTitle">Titre</label>
+    <input type="text" id="nTitle" autocomplete="off" required>
+    <label for="nTag">Tag</label>
+    <select id="nTag"></select>
+    <label for="nProj">Projet</label>
+    <select id="nProj"></select>
+    <label for="nPrio">Priorité</label>
+    <select id="nPrio"></select>
+    <label for="nDay">Jour (facultatif)</label>
+    <select id="nDay"></select>
+    <label for="nTime">Heure (facultatif, ex. 14:00)</label>
+    <input type="text" id="nTime" autocomplete="off" placeholder="14:00">
+    <label for="nNote">Note (facultatif)</label>
+    <input type="text" id="nNote" autocomplete="off">
+    <div class="actions">
+      <button type="button" class="btn" id="nCancel">Annuler</button>
+      <button type="submit" class="btn on">Créer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgSet">
+  <form method="dialog" id="setForm">
+    <h3>Réglages</h3>
+    <p class="set-intro hidden" id="setIntro">Pour commencer, choisis le dossier de ton coffre Obsidian.</p>
+    <label>Coffre Obsidian</label>
+    <div class="set-row"><code id="sVault">—</code><button type="button" class="btn" id="sPick">Choisir…</button></div>
+    <label for="sData">Fichier de la semaine type (dans le coffre)</label>
+    <input type="text" id="sData" autocomplete="off" placeholder="Cadence.json">
+    <label>Dossier des tâches (réglage du plugin TaskNotes)</label>
+    <div class="set-row"><code id="sTasks">—</code></div>
+    <label for="sTags">Tags : un par ligne, « nom | libellé | couleur »</label>
+    <textarea id="sTags" rows="6" placeholder="Achats | 🛒 Achats | courses"></textarea>
+    <label for="sProj">Projets : un par ligne, « nom | couleur »</label>
+    <textarea id="sProj" rows="4" placeholder="Mon projet | travaux"></textarea>
+    <div class="set-hint" id="sCats"></div>
+    <div class="actions">
+      <button type="button" class="btn" id="sCancel">Fermer</button>
+      <button type="submit" class="btn on">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg">
+  <form method="dialog" id="dlgForm">
+    <h3 id="dlgTitle">Bloc</h3>
+    <label for="fTitle">Titre</label>
+    <input type="text" id="fTitle" autocomplete="off">
+    <label for="fSub">Détail (facultatif)</label>
+    <input type="text" id="fSub" autocomplete="off">
+    <label for="fCat">Couleur / catégorie</label>
+    <select id="fCat"></select>
+    <label for="fTag">Liste TaskForge liée (affiche le nombre de tâches prêtes)</label>
+    <select id="fTag"></select>
+    <label for="fSpan">Durée</label>
+    <select id="fSpan"></select>
+    <label for="fProj">Projet lié (pastille 📁 : tâches du projet, tous tags confondus)</label>
+    <select id="fProj"></select>
+    <label>Jours</label>
+    <div class="days" id="fDays"></div>
+    <div class="actions">
+      <button type="button" class="btn danger" id="dDelete">Supprimer</button>
+      <button type="button" class="btn" id="dCancel">Annuler</button>
+      <button type="submit" class="btn on" id="dSave">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+'use strict';
+const BUREAU = !!window.cadence;   // application de bureau Cadence (sinon : page ouverte dans un navigateur)
+let VAULT = 'Obsidian', TASK_DIR = 'TaskNotes/Tasks/', TN = null, CFG = null;
+const KEY = 'semaine-type-v1', TKEY = 'semaine-type-tasks-v1', THKEY = 'semaine-type-theme';
+const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+const CATS = {routine:'Routine', sport:'Sport', bilan:'Travail concentré', ordi:'Ordi', corvee:'Corvées', courses:'Courses / cuisine', travaux:'Travaux', loisir:'Loisirs', soir:'Soir', pause:'Pause (discret)'};
+// Tags et projets : définis dans les réglages (enregistrés avec la semaine), complétés par ceux trouvés dans les tâches
+const tagDefs = () => (state && state.tags) || [];
+const projDefs = () => (state && state.projects) || [];
+const projNames = () => projDefs().map(p => p.name);
+function tagsObj(){
+  const o = {'': 'Aucune'};
+  tagDefs().forEach(t => { o[t.name] = t.label || t.name; });
+  if (tasks) tasks.items.forEach(x => x.tags.forEach(n => { if (n !== 'Aucun' && !(n in o)) o[n] = n; }));
+  return o;
+}
+const catOf = (v) => v && v.startsWith('p:') ? ((projDefs().find(p => p.name === v.slice(2)) || {}).cat || 'routine') : (tagDefs().find(t => t.name === v) || {}).cat;
+const B = (title, cat, sub='', tag='', project='') => ({title, cat, sub, tag, project});
+const W5 = (b) => [b,b,b,b,b,null,null];
+const S = (b, n) => Object.assign(b, {span: n});
+const DEFAULT = {
+  rows: [
+    {time:'7h00', size:'', cells: W5(B('Routine du matin','routine','lever, sport, petit-déjeuner'))},
+    {time:'9h00', size:'l', cells: W5(B('Travail concentré','bilan','9h – 12h'))},
+    {time:'12h00', size:'', cells: W5(B('Pause déjeuner','pause'))},
+    {time:'13h30', size:'', cells: W5(B('Tâches ordi / en ligne','ordi','13h30 – 14h00'))},
+    {time:'14h00', size:'', cells: [
+      S(B('Courses','courses','une seule sortie\n14h – 18h'),4),
+      B('Sport','sport','14h – 15h'),
+      S(B('Loisir','loisir','14h – 18h'),4),
+      B('Sport','sport','14h – 15h'),
+      S(B('Projet perso','travaux','14h – 18h'),4),
+      null, null]},
+    {time:'15h00', size:'', cells: [null, S(B('Travaux','travaux','15h – 18h'),3), null, S(B('Travaux','travaux','15h – 18h'),3), null, null, null]},
+    {time:'16h00', size:'', cells: Array(7).fill(null)},
+    {time:'17h00', size:'', cells: [null,null,null,null,null, B('Revue de la semaine','routine','trier et placer les tâches'), null]},
+    {time:'21h00', size:'', cells: W5(B('Routine du soir','soir','ranger, préparer demain, lecture'))},
+  ],
+  weekendNote: 'libre',
+  tags: [],
+  projects: [],
+  v: 3
+};
+
+const $ = (s) => document.querySelector(s);
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+};
+let state = (() => { try { const s = JSON.parse(store.get(KEY)); if (s && Array.isArray(s.rows)) return s; } catch(e){} return clone(DEFAULT); })();
+let tasks = BUREAU ? null : (() => { try { const t = JSON.parse(store.get(TKEY)); if (t && Array.isArray(t.items)) return t; } catch(e){} return null; })();
+let editMode = false, filter = '', dragFile = null;
+const HKEY = 'semaine-type-hide-v1';
+let hide = (() => { try { return Object.assign({placed:false, blocked:false, later:true}, JSON.parse(store.get(HKEY)) || {}); } catch(e){ return {placed:false, blocked:false, later:true}; } })();
+const LATER_DAYS = 30;
+const isLater = (t) => { const src = (t.scheduled || t.due || '').slice(0, 10); if (!src) return false; const lim = new Date(); lim.setDate(lim.getDate() + LATER_DAYS); return src > isoOf(lim); };
+const expanded = new Set();
+const rid = () => Math.random().toString(36).slice(2, 9);
+let minuteurPersist = null;
+function persist(){
+  if (!BUREAU || !CFG || !CFG.coffre) return;
+  clearTimeout(minuteurPersist);
+  minuteurPersist = setTimeout(() => cadence.ecrireDonnees({format: 'cadence/1', semaine: state, plan, masquer: hide})
+    .catch(e => alert('Enregistrement impossible : ' + messageErreur(e))), 400);
+}
+const messageErreur = (e) => String(e && e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+const ensureIds = () => { if (state.rows.some(r => !r.id)){ state.rows.forEach(r => { if (!r.id) r.id = rid(); }); return true; } return false; };
+const save = () => { if (BUREAU) persist(); else store.set(KEY, JSON.stringify(state)); };
+if (!BUREAU && ensureIds()) save();
+const PKEY = 'semaine-type-plan-v1';
+let plan = (() => { try { const p = JSON.parse(store.get(PKEY)); if (p && typeof p === 'object') return p; } catch(e){} return {}; })();
+const savePlan = () => { if (BUREAU) persist(); else store.set(PKEY, JSON.stringify(plan)); };
+const saveHide = () => { if (BUREAU) persist(); else store.set(HKEY, JSON.stringify(hide)); };
+const keyOf = (r, d) => state.rows[r].id + ':' + d;
+const whereIs = (file) => Object.keys(plan).find(k => plan[k].includes(file));
+const keyLabel = (k) => { const [id, d] = k.split(':'); const row = state.rows.find(x => x.id === id); return row ? `${DAYS[+d]} ${row.time}` : '?'; };
+const plannedFiles = (k) => (plan[k] || []).filter(f => !tasks || tasks.items.some(t => t.file === f));
+function planTask(file, k){
+  Object.keys(plan).forEach(x => { plan[x] = plan[x].filter(f => f !== file); if (!plan[x].length) delete plan[x]; });
+  if (k) (plan[k] = plan[k] || []).push(file);
+  savePlan(); render();
+}
+
+/* ---------- thème ---------- */
+const applyTheme = (t) => { if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); };
+applyTheme(store.get(THKEY));
+$('#btnTheme').onclick = () => {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
+  const next = cur === 'dark' ? 'light' : 'dark'; applyTheme(next); store.set(THKEY, next);
+};
+
+/* ---------- tâches ---------- */
+const sameCell = (a,b) => a && b && a.title===b.title && a.sub===b.sub && a.cat===b.cat && (a.tag||'')===(b.tag||'') && (a.project||'')===(b.project||'');
+const readyProject = (p) => tasks ? tasks.items.filter(t => (t.projects||[]).includes(p) && !t.blocked && !isLater(t)).length : 0;
+const readyCount = (tag) => tasks ? tasks.items.filter(t => t.tags.includes(tag) && !t.blocked && !isLater(t)).length : 0;
+let weekOffset = 0, dated = {}, weekDays = [];
+const isoOf = (x) => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+function weekDates(){
+  const t = new Date(); t.setHours(12,0,0,0);
+  const dow = (t.getDay() + 6) % 7;                       // le week-end, on montre la semaine qui vient
+  const mon = new Date(t); mon.setDate(t.getDate() - dow + (dow >= 5 ? 7 : 0) + 7 * weekOffset);
+  return [...Array(7)].map((_, i) => { const x = new Date(mon); x.setDate(mon.getDate() + i); return x; });
+}
+const tmin = (s) => { const m = String(s).match(/(\d{1,2})\s*[h:]\s*(\d{2})?/); return m ? (+m[1]) * 60 + (+(m[2] || 0)) : null; };
+function computeDated(){
+  dated = {}; if (!tasks) return;
+  const isos = weekDays.map(isoOf);
+  tasks.items.forEach(t => {
+    const src = t.scheduled || t.due; if (!src) return;
+    const d = isos.indexOf(src.slice(0, 10)); if (d < 0 || whereIs(t.file)) return;
+    const tm = src.length > 10 ? tmin(src.slice(11)) : null;
+    let r = -1;
+    if (tm != null) state.rows.forEach((row, i) => { const rt = tmin(row.time); if (rt != null && rt <= tm && row.cells[d]) r = i; });
+    if (r < 0) r = state.rows.findIndex(row => row.cells[d] && row.cells[d].tag && t.tags.includes(row.cells[d].tag));
+    if (r < 0) r = state.rows.findIndex(row => row.time === '14h00' && row.cells[d]);
+    if (r < 0) r = state.rows.findIndex(row => row.cells[d]);
+    if (r < 0) return;
+    const k = keyOf(r, d); (dated[k] = dated[k] || []).push(t.file);
+  });
+}
+const dayFiles = (k) => plannedFiles(k).concat(dated[k] || []);
+
+function parseTask(name, text){
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!m) return null;
+  const fm = m[1].split(/\r?\n/), body = m[2];
+  const o = {}; let cur = null;
+  for (const line of fm){
+    const kv = line.match(/^([^\s#-][^:]*):\s*(.*)$/);
+    if (kv){ cur = kv[1].trim(); let v = kv[2].trim();
+      if (/^\[.*\]$/.test(v)) o[cur] = v.slice(1,-1).split(',').map(x=>x.trim().replace(/^["']|["']$/g,'')).filter(Boolean);
+      else o[cur] = v.replace(/^["']|["']$/g,'');
+      continue; }
+    const li = line.match(/^\s+-\s+(.*)$/);
+    if (li && cur){ if (!Array.isArray(o[cur])) o[cur] = []; o[cur].push(li[1].trim().replace(/^["']|["']$/g,'')); }
+    const uid = line.match(/^\s+(?:-\s+)?uid:\s*"?\[\[(.*?)\]\]"?/);
+    if (uid && cur === 'blockedBy'){ (o._blocked = o._blocked || []).push(uid[1]); }
+  }
+  const rawTags = Array.isArray(o.tags) ? o.tags : (o.tags ? [o.tags] : []);
+  if (!estTache(o, rawTags)) return null;
+  if (statutTermine(o.status || '')) return null;
+  const tags = rawTags.filter(t => t !== 'archived' && !(TN && TN.methode === 'tag' && t === TN.tag));
+  const boxes = [...body.matchAll(/^\s*- \[( |x|X)\]/gm)];
+  const subs = []; let head = '';
+  for (const line of body.split(/\r?\n/)){
+    const h = line.match(/^#{1,6}\s+(.*)$/); if (h){ head = cleanMd(h[1]); continue; }
+    const c = line.match(/^\s*- \[( |x|X)\]\s*(.*)$/);
+    if (c) subs.push({h: head, done: c[1] !== ' ', text: cleanMd(c[2]), i: subs.length});
+  }
+  const projects = (Array.isArray(o.projects) ? o.projects : (o.projects ? [o.projects] : []))
+    .map(p => p.replace(/^\+?\[\[|\]\]$/g, '').split('|')[0].trim()).filter(Boolean);
+  return {
+    subs, projects,
+    file: name.replace(/\.md$/,''), title: o.title && o.title !== '""' ? o.title : name.replace(/\.md$/,''),
+    tags: tags.length ? tags : ['Aucun'], priority: o.priority || '', status: o.status || '',
+    scheduled: o.scheduled || '', due: o.due || '', recurring: !!o.recurrence,
+    blockedBy: o._blocked || [], boxes: boxes.length, done: boxes.filter(b => b[1] !== ' ').length
+  };
+}
+const sansGuillemets = (v) => String(v || '').replace(/^["']+|["']+$/g, '').trim();
+function estTache(o, tags){
+  if (!TN) return 'status' in o || tags.includes('task');            // navigateur : heuristique simple
+  if (TN.methode === 'property' && TN.propriete){
+    const v = o[TN.propriete], att = sansGuillemets(TN.valeur);
+    return (Array.isArray(v) ? v : [v]).some(x => sansGuillemets(x) === att);
+  }
+  return tags.includes(TN.tag || 'task');
+}
+function statutTermine(st){
+  const v = sansGuillemets(st).toLowerCase();
+  if (TN && TN.statuts && TN.statuts.length) return TN.statuts.some(s => s.termine && String(s.valeur).toLowerCase() === v);
+  return v === 'done' || v === 'completed';
+}
+function cleanMd(s){
+  return s.replace(/\s*🆔\s*\S+/g, '').replace(/!\[\[[^\]]*\]\]/g, '')
+          .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2').replace(/\[\[([^\]]+)\]\]/g, '$1')
+          .replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\s+/g, ' ').trim();
+}
+function resolveBlocked(items){
+  const open = new Set(items.map(t => t.file));
+  items.forEach(t => { t.waitingOn = t.blockedBy.filter(b => open.has(b)); t.blocked = t.waitingOn.length > 0; });
+  return items;
+}
+$('#btnTasks').onclick = () => $('#dirInput').click();
+$('#dirInput').onchange = async (e) => {
+  const files = [...e.target.files].filter(f => f.name.endsWith('.md') && !f.name.includes('sync-conflict'));
+  const items = [];
+  for (const f of files){ try { const t = parseTask(f.name, await f.text()); if (t) items.push(t); } catch(err){} }
+  tasks = {loadedAt: new Date().toISOString(), items: resolveBlocked(items)};
+  store.set(TKEY, JSON.stringify(tasks));
+  e.target.value = '';
+  render();
+};
+
+/* ---------- rendu calendrier ---------- */
+function render(){
+  const cal = $('#cal'); cal.innerHTML = '';
+  cal.classList.toggle('edit', editMode);
+  $('#btnEdit').classList.toggle('on', editMode);
+  $('#btnEdit').textContent = editMode ? '✔️ Terminer' : '✏️ Modifier';
+  cal.appendChild(document.createElement('div'));
+  weekDays = weekDates(); computeDated();
+  const todayIso = isoOf(new Date());
+  $('#wLabel').textContent = `Semaine du ${weekDays[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}`;
+  DAYS.forEach((d,i) => {
+    const dd = weekDays[i], h = document.createElement('div'); h.className = 'dayhead' + (i>=5?' we':'') + (isoOf(dd)===todayIso?' today':'');
+    h.innerHTML = `${d.toUpperCase()} <span class="dnum">${dd.getDate()}/${String(dd.getMonth()+1).padStart(2,'0')}</span>` + (i>=5 && state.weekendNote ? `<small>${esc(state.weekendNote)}</small>` : '');
+    cal.appendChild(h);
+  });
+  const covered = state.rows.map(() => Array(7).fill(false));
+  state.rows.forEach((row, r) => row.cells.forEach((c, d) => { if (c && !covered[r][d]) for (let k = 1; k < spanOf(r, c); k++) covered[r + k][d] = true; }));
+  state.rows.forEach((row, r) => {
+    const tc = document.createElement('div'); tc.className = 'time'; tc.style.gridRow = r + 2; tc.style.gridColumn = 1; tc.style.setProperty('--h', rowH(row) + 'px');
+    if (editMode){
+      const inp = document.createElement('input'); inp.value = row.time; inp.onchange = () => { row.time = inp.value.trim(); save(); };
+      tc.appendChild(inp);
+      const tools = document.createElement('div'); tools.className = 'rowtools';
+      tools.append(tbtn('＋', 'Ajouter une ligne dessous', () => {
+                     state.rows.forEach((x, i) => x.cells.forEach(c => { if (c && i <= r && i + spanOf(i, c) - 1 > r) c.span = spanOf(i, c) + 1; }));
+                     state.rows.splice(r+1, 0, {id: rid(), time:'', size:'', cells:Array(7).fill(null)}); save(); render(); }),
+                   tbtn('✕', 'Supprimer la ligne', () => { if (confirm(`Supprimer la ligne ${row.time} ?`)){
+                     state.rows.forEach((x, i) => x.cells.forEach(c => { if (c && i < r && i + spanOf(i, c) - 1 >= r) c.span = spanOf(i, c) - 1; }));
+                     state.rows.splice(r,1); save(); render(); } }));
+      tc.appendChild(tools);
+    } else tc.textContent = row.time;
+    cal.appendChild(tc);
+    let d = 0;
+    while (d < 7){
+      if (covered[r][d]){ d++; continue; }
+      const cell = row.cells[d], sp = cell ? spanOf(r, cell) : 1;
+      let end = d;
+      if (cell) while (end + 1 < 7 && !covered[r][end+1] && sameCell(cell, row.cells[end+1]) && spanOf(r, row.cells[end+1]) === sp) end++;
+      const slot = document.createElement('div');
+      slot.className = 'slot' + (cell ? '' : ' empty') + (d>=5 && !cell ? ' we' : '');
+      slot.style.gridRow = `${r + 2} / span ${sp}`; slot.style.gridColumn = `${d+2} / ${end+3}`;
+      slot.dataset.row = r + sp - 1; slot.style.setProperty('--h', rowH(row) + 'px');
+      slot.appendChild(resizer(r + sp - 1));
+      if (cell){
+        const b = document.createElement('div'); b.className = 'block ' + cell.cat;
+        b.style.setProperty('--bg', `var(--${cell.cat}-bg)`); b.style.setProperty('--fg', `var(--${cell.cat}-fg)`);
+        b.style.background = 'var(--bg)';
+        b.innerHTML = cell.title ? `<div class="t">${esc(cell.title)}</div>` + (cell.sub ? `<div class="s">${esc(cell.sub)}</div>` : '') : '';
+        const nd = end - d + 1, dayKeys = []; for (let k=d; k<=end; k++) dayKeys.push(keyOf(r, k));
+        if (tasks && (cell.tag || cell.project)){
+          const wrap = document.createElement('div'); wrap.className = 'badges';
+          const mkBadge = (n, label, val, proj) => {
+            const bd = document.createElement('button'); bd.className = 'badge' + (proj ? ' proj' : '') + (n ? '' : ' zero');
+            bd.textContent = (proj ? '📁 ' : '') + n; bd.title = `${n} tâche(s) prête(s) · ${label}`;
+            bd.onclick = (ev) => { ev.stopPropagation(); filter = val; renderTasks(); $('#tasks').scrollIntoView({behavior:'smooth', block:'nearest'}); };
+            wrap.appendChild(bd);
+          };
+          if (cell.project) mkBadge(readyProject(cell.project), 'projet ' + cell.project, 'p:' + cell.project, true);
+          if (cell.tag) mkBadge(readyCount(cell.tag), tagsObj()[cell.tag] || cell.tag, cell.tag, false);
+          b.appendChild(wrap); b.classList.add('has-badge');
+        }
+        // tâches prévues : une colonne par jour, dans le bloc fusionné
+        if (dayKeys.some(k => dayFiles(k).length)){
+          const row2 = document.createElement('div'); row2.className = 'dayplan'; row2.style.gridTemplateColumns = `repeat(${nd}, 1fr)`;
+          dayKeys.forEach(k => {
+            const pl = dayFiles(k), man = new Set(plannedFiles(k)), col = document.createElement('div'); col.className = 'dp';
+            if (pl.length){
+              const pb = document.createElement('button'); pb.className = 'badge plan'; pb.textContent = (man.size ? '📌 ' : '📅 ') + pl.length;
+              pb.title = `${pl.length} tâche(s) ${keyLabel(k)} : 📌 placées à la main, 📅 datées dans TaskForge`;
+              pb.onclick = (ev) => { ev.stopPropagation(); filter = '@plan:' + k; renderTasks(); $('#tasks').scrollIntoView({behavior:'smooth', block:'nearest'}); };
+              col.appendChild(pb);
+              pl.slice(0, 3).forEach(f => { const t = tasks && tasks.items.find(x => x.file === f); const li = document.createElement('div'); li.className = 'pi'; li.textContent = (man.has(f) ? '• ' : '📅 ') + (t ? t.title : f); li.title = t ? t.title : f; col.appendChild(li); });
+              if (pl.length > 3){ const li = document.createElement('div'); li.className = 'pi more'; li.textContent = `+ ${pl.length - 3}`; col.appendChild(li); }
+            }
+            row2.appendChild(col);
+          });
+          b.appendChild(row2);
+        }
+        // zones de dépôt invisibles, une par jour
+        const zones = document.createElement('div'); zones.className = 'zones'; zones.style.gridTemplateColumns = `repeat(${nd}, 1fr)`;
+        dayKeys.forEach(k => {
+          const z = document.createElement('div'); z.className = 'zone'; z.dataset.label = keyLabel(k).split(' ')[0];
+          z.addEventListener('dragover', (ev) => { if (dragFile){ ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; z.classList.add('over'); } });
+          z.addEventListener('dragleave', () => z.classList.remove('over'));
+          z.addEventListener('drop', (ev) => { ev.preventDefault(); z.classList.remove('over');
+            const f = ev.dataTransfer.getData('text/plain') || dragFile; dragFile = null; document.body.classList.remove('dragging-task'); if (f) deposer(f, k); });
+          zones.appendChild(z);
+        });
+        b.appendChild(zones);
+        const days = []; for (let k=d; k<=end; k++) days.push(k);
+        b.onclick = () => { if (editMode) openDlg(r, days, cell); };
+        slot.appendChild(b);
+      } else {
+        const dd = d; slot.onclick = () => { if (editMode) openDlg(r, [dd], null); };
+      }
+      cal.appendChild(slot);
+      d = end + 1;
+    }
+  });
+  const lg = $('#legend'); lg.innerHTML = '';
+  Object.entries(CATS).filter(([k]) => k !== 'pause').forEach(([k,v]) => {
+    const s = document.createElement('span'); s.innerHTML = `<i style="--bg:var(--${k}-bg);--fg:var(--${k}-fg)"></i>${v}`; lg.appendChild(s);
+  });
+  renderTasks();
+}
+const spanOf = (r, c) => Math.max(1, Math.min(c && c.span || 1, state.rows.length - r));
+const rowH = (row) => row.h || (row.size ? 110 : 46);
+function resizer(r){
+  const z = document.createElement('div'); z.className = 'rz'; z.title = 'Glisser pour agrandir ou réduire ce créneau (double-clic : taille normale)';
+  z.addEventListener('click', (e) => e.stopPropagation());
+  z.addEventListener('dblclick', (e) => { e.stopPropagation(); const row = state.rows[r]; delete row.size; row.h = 46; save(); render(); });
+  z.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const row = state.rows[r], y0 = e.clientY, h0 = rowH(row);
+    z.setPointerCapture(e.pointerId); z.classList.add('drag'); document.body.classList.add('resizing');
+    const move = (ev) => {
+      row.h = Math.max(28, Math.min(420, Math.round(h0 + ev.clientY - y0)));
+      document.querySelectorAll(`.slot[data-row="${r}"]`).forEach(el => el.style.setProperty('--h', row.h + 'px'));
+    };
+    const up = () => { z.removeEventListener('pointermove', move); z.removeEventListener('pointerup', up); z.removeEventListener('pointercancel', up);
+      z.classList.remove('drag'); document.body.classList.remove('resizing'); delete row.size; save(); };
+    z.addEventListener('pointermove', move); z.addEventListener('pointerup', up); z.addEventListener('pointercancel', up);
+  });
+  return z;
+}
+const tbtn = (t, title, fn) => { const b = document.createElement('button'); b.type='button'; b.textContent = t; b.title = title; b.onclick = fn; return b; };
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- panneau tâches ---------- */
+function renderTasks(){
+  const aside = $('#tasks'), layout = $('#layout');
+  if (!tasks){ aside.classList.add('hidden'); layout.classList.remove('with-tasks'); return; }
+  aside.classList.remove('hidden'); layout.classList.add('with-tasks');
+  const d = new Date(tasks.loadedAt);
+  const blocked = tasks.items.filter(t => t.blocked).length;
+  $('#tasksMeta').textContent = `${tasks.items.length} tâches ouvertes · ${blocked} bloquées · ${BUREAU ? 'mises à jour en direct' : `lues le ${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}. Recharge le dossier pour mettre à jour.`}`;
+  const tagsPresent = [...new Set(tasks.items.flatMap(t => t.tags))];
+  const TG = tagsObj();
+  const order = Object.keys(TG).filter(Boolean);
+  const f = $('#filters'); f.innerHTML = '';
+  const mk = (val, label) => { const c = document.createElement('button'); c.className = 'chip' + (filter===val ? ' on' : '');
+    const cat = catOf(val); if (cat){ c.style.setProperty('--bg', `var(--${cat}-bg)`); c.style.setProperty('--fg', `var(--${cat}-fg)`); }
+    c.textContent = label; c.onclick = () => { filter = filter===val ? '' : val; renderTasks(); }; f.appendChild(c); };
+  mk('', 'Toutes');
+  mk('@today', '📅 Aujourd\'hui');
+  order.filter(t => tagsPresent.includes(t)).forEach(t => mk(t, TG[t] || t));
+  const taskFiles = new Set(tasks.items.map(t => t.file));
+  const projPresent = [...new Set(tasks.items.flatMap(t => t.projects || []))].filter(p => !taskFiles.has(p));
+  projNames().filter(p => projPresent.includes(p)).concat(projPresent.filter(p => !projNames().includes(p)))
+    .forEach(p => mk('p:' + p, '📁 ' + p));
+  const list = $('#taskList'); list.innerHTML = '';
+  const today = new Date(); const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  let items = tasks.items;
+  const isPlanView = filter.startsWith('@plan:');
+  if (!isPlanView){
+    if (hide.placed){ const placed = new Set(Object.values(plan).flat().concat(Object.values(dated).flat())); items = items.filter(t => !placed.has(t.file)); }
+    if (hide.blocked) items = items.filter(t => !t.blocked);
+    if (hide.later) items = items.filter(t => !isLater(t));
+  }
+  if (filter === '@today') items = items.filter(t => (t.scheduled||'').slice(0,10) === iso || (t.due||'').slice(0,10) === iso || ((t.due||t.scheduled||'9999').slice(0,10) < iso && !t.recurring));
+  const groups = filter.startsWith('@plan:') ? [filter] : filter && filter !== '@today' ? [filter] : order.filter(t => items.some(x => x.tags.includes(t)));
+  if (!items.length){ list.innerHTML = '<div class="empty-tasks">Rien ici.</div>'; return; }
+  const shown = groups.reduce((n, g) => n + (renderGroup(g, items, list, renderTasks) || 0), 0);
+  if (!shown) list.innerHTML = '<div class="empty-tasks">Aucune tâche ici pour l\'instant.</div>';
+}
+function prioN(p){
+  p = sansGuillemets(p);
+  const m = p.match(/^0?(\d)\b/); if (m) return Math.min(4, +m[1]) || 0;              // valeurs numérotées (01., 02.…)
+  const map = {highest: 1, urgent: 1, high: 2, normal: 3, medium: 3, low: 4, lowest: 4};
+  return map[p.toLowerCase()] || 0;
+}
+const prioColor = (p) => { const x = TN && (TN.priorites || []).find(q => q.valeur === sansGuillemets(p)); return x && x.couleur; };
+function renderGroup(g, items, container, rerender){
+    const isP = g.startsWith('p:'), isPlan = g.startsWith('@plan:'), pk = isPlan ? g.slice(6) : '';
+    const gi = items.filter(t => isPlan ? dayFiles(pk).includes(t.file) : isP ? (t.projects||[]).includes(g.slice(2)) : t.tags.includes(g)).sort((a,b) => (a.blocked-b.blocked) || ((prioN(a.priority)||9)-(prioN(b.priority)||9)) || a.title.localeCompare(b.title,'fr'));
+    if (!gi.length) return 0;
+    const cat = isPlan ? 'routine' : (catOf(g) || 'routine');
+    const box = document.createElement('div'); box.className = 'group';
+    box.style.setProperty('--fg', `var(--${cat}-fg)`); box.style.setProperty('--bg', `var(--${cat}-bg)`);
+    box.innerHTML = `<h3><span>${esc(isPlan ? '📌 Prévu ' + keyLabel(pk) : isP ? '📁 ' + g.slice(2) : (tagsObj()[g] || g))}</span><span>${gi.filter(t=>!t.blocked).length} prêtes</span></h3>`;
+    gi.forEach(t => {
+      const a = document.createElement('div'); a.className = 'task' + (t.blocked ? ' blocked' : '') + (t.boxes ? ' has-subs' : '');
+      const url = `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent(TASK_DIR + t.file)}`;
+      const meta = [];
+      if (t.boxes) meta.push(`☑ ${t.done}/${t.boxes}`);
+      if (t.scheduled) meta.push(`📅 ${fmt(t.scheduled)}`);
+      if (t.due) meta.push(`⏰ ${fmt(t.due)}`);
+      if (t.recurring) meta.push('↻');
+      if (t.status === 'in-progress') meta.push('en cours');
+      if (t.blocked) meta.push(`⛔ attend : ${t.waitingOn.join(', ')}`);
+      const wkMan = whereIs(t.file), wkDate = BUREAU && !t.recurring ? Object.keys(dated).find(k => dated[k].includes(t.file)) : null;
+      const wk = wkMan || wkDate; if (wkMan && !isPlan) meta.push(`📌 ${keyLabel(wkMan)}`);
+      a.draggable = true; a.title = 'Glisser sur un jour du calendrier pour la prévoir';
+      a.addEventListener('dragstart', (ev) => { dragFile = t.file; document.body.classList.add('dragging-task'); ev.dataTransfer.setData('text/plain', t.file); ev.dataTransfer.effectAllowed = 'move'; a.classList.add('dragging'); });
+      a.addEventListener('dragend', () => { dragFile = null; document.body.classList.remove('dragging-task'); a.classList.remove('dragging'); });
+      const open = expanded.has(t.file);
+      a.innerHTML = `<div class="tt">${t.boxes ? `<span class="chev">${open ? '▾' : '▸'}</span>` : ''}<span class="prio p${prioN(t.priority)}"${prioColor(t.priority) ? ` style="background:${prioColor(t.priority)}"` : ''}></span><span class="tl">${esc(t.title)}</span>`
+        + (wk ? `<button class="unplan" title="Retirer du jour prévu">✕</button>` : '')
+        + `<a class="ob" href="${url}" title="Ouvrir dans Obsidian">↗</a></div>`
+        + (meta.length ? `<div class="tm">${meta.map(m=>`<span>${esc(m)}</span>`).join('')}</div>` : '');
+      if (t.boxes && open){
+        const ul = document.createElement('div'); ul.className = 'subs';
+        if (!t.subs) ul.innerHTML = '<div class="sub muted">Recharge le dossier pour voir le détail.</div>';
+        else { let last = null;
+          t.subs.forEach(s => {
+            if (s.h && s.h !== last){ const h = document.createElement('div'); h.className = 'subh'; h.textContent = s.h; ul.appendChild(h); last = s.h; }
+            const d = document.createElement('div'); d.className = 'sub' + (s.done ? ' done' : '') + (BUREAU ? ' clic' : '');
+            d.innerHTML = `<span class="box">${s.done ? '☑' : '☐'}</span><span>${esc(s.text)}</span>`;
+            if (BUREAU){ d.title = s.done ? 'Décocher' : 'Cocher'; d.addEventListener('click', (ev) => { ev.stopPropagation(); ecrire(() => cadence.cocher(t.file, s.i, !s.done, t.mtime)); }); }
+            ul.appendChild(d);
+          }); }
+        a.appendChild(ul);
+      }
+      a.addEventListener('click', (ev) => {
+        if (ev.target.closest('a.ob')) return;
+        if (ev.target.closest('.unplan')){ ev.stopPropagation(); if (wkMan) planTask(t.file, null); else if (BUREAU) ecrire(() => cadence.planifier(t.file, null, t.mtime)); return; }
+        if (!t.boxes){ window.location.href = url; return; }
+        open ? expanded.delete(t.file) : expanded.add(t.file); rerender();
+      });
+      box.appendChild(a);
+    });
+    container.appendChild(box);
+    return gi.length;
+}
+const fmt = (s) => { const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); return m ? `${m[3]}/${m[2]}${m[4] ? ' ' + m[4] + 'h' + m[5] : ''}` : s; };
+
+/* ---------- édition ---------- */
+let dlgCtx = null;
+const fCat = $('#fCat'), fTag = $('#fTag');
+Object.entries(CATS).forEach(([k,v]) => fCat.add(new Option(v,k)));
+function openDlg(r, days, cell){
+  dlgCtx = {r, days, isNew: !cell};
+  $('#dlgTitle').textContent = cell ? `Modifier · ${state.rows[r].time}` : `Nouveau bloc · ${state.rows[r].time}`;
+  $('#fTitle').value = cell ? cell.title : ''; $('#fSub').value = cell ? (cell.sub||'').replace(/\n/g,' / ') : '';
+  fTag.innerHTML = ''; Object.entries(tagsObj()).forEach(([k,v]) => fTag.add(new Option(v,k)));
+  if (cell && cell.tag && !(cell.tag in tagsObj())) fTag.add(new Option(cell.tag, cell.tag));
+  fCat.value = cell ? cell.cat : 'routine'; fTag.value = cell ? (cell.tag||'') : '';
+  const fProj = $('#fProj'); fProj.innerHTML = ''; fProj.add(new Option('Aucun', ''));
+  const known = new Set(projNames());
+  if (tasks){ const files = new Set(tasks.items.map(t => t.file)); tasks.items.forEach(t => (t.projects||[]).forEach(p => { if (!files.has(p)) known.add(p); })); }
+  if (cell && cell.project) known.add(cell.project);
+  [...known].forEach(p => fProj.add(new Option('📁 ' + p, p)));
+  fProj.value = cell ? (cell.project||'') : '';
+  const fSpan = $('#fSpan'); fSpan.innerHTML = '';
+  for (let n = 1; n <= state.rows.length - r; n++){
+    const nxt = state.rows[r + n];
+    fSpan.add(new Option(nxt ? `jusqu'à ${nxt.time}` + (n > 1 ? ` (${n} lignes)` : '') : `jusqu'à la fin (${n} ligne${n>1?'s':''})`, n));
+  }
+  fSpan.value = cell ? spanOf(r, cell) : 1;
+  const fd = $('#fDays'); fd.innerHTML = '';
+  DAYS.forEach((d,i) => { const l = document.createElement('label'); l.innerHTML = `<input type="checkbox" value="${i}" ${days.includes(i)?'checked':''}>${d.slice(0,3)}`; fd.appendChild(l); });
+  $('#dDelete').classList.toggle('hidden', !cell);
+  $('#dlg').showModal(); $('#fTitle').focus();
+}
+$('#dlgForm').onsubmit = (e) => {
+  e.preventDefault();
+  const row = state.rows[dlgCtx.r];
+  const chosen = [...$('#fDays').querySelectorAll('input:checked')].map(i => +i.value);
+  const cell = {title: $('#fTitle').value.trim(), sub: $('#fSub').value.trim().replace(/\s*\/\s*/g,'\n'), cat: fCat.value, tag: fTag.value, project: $('#fProj').value, span: +$('#fSpan').value || 1};
+  for (let k = 1; k < cell.span; k++) chosen.forEach(d => { if (state.rows[dlgCtx.r + k]) state.rows[dlgCtx.r + k].cells[d] = null; });
+  dlgCtx.days.forEach(d => { if (!chosen.includes(d)) row.cells[d] = null; });
+  chosen.forEach(d => { row.cells[d] = clone(cell); });
+  save(); $('#dlg').close(); render();
+};
+$('#dDelete').onclick = () => { const row = state.rows[dlgCtx.r]; dlgCtx.days.forEach(d => row.cells[d] = null); save(); $('#dlg').close(); render(); };
+$('#dCancel').onclick = () => $('#dlg').close();
+$('#btnEdit').onclick = () => { editMode = !editMode; render(); };
+$('#btnPrint').onclick = () => { editMode = false; render(); setTimeout(() => window.print(), 50); };
+
+/* ---------- export / import ---------- */
+$('#btnExport').onclick = () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'semaine-type.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$('#hidePlaced').checked = hide.placed; $('#hideBlocked').checked = hide.blocked; $('#hideLater').checked = hide.later;
+$('#hideLater').onchange = (e) => { hide.later = e.target.checked; saveHide(); renderTasks(); };
+$('#hidePlaced').onchange = (e) => { hide.placed = e.target.checked; saveHide(); renderTasks(); };
+$('#hideBlocked').onchange = (e) => { hide.blocked = e.target.checked; saveHide(); renderTasks(); };
+$('#wPrev').onclick = () => { weekOffset--; render(); };
+$('#wNext').onclick = () => { weekOffset++; render(); };
+$('#wNow').onclick = () => { weekOffset = 0; render(); };
+$('#btnClearPlan').onclick = () => { if (confirm('Retirer toutes les tâches prévues dans la semaine ?')){ plan = {}; savePlan(); if (filter.startsWith('@plan:')) filter = ''; render(); } };
+$('#btnImport').onclick = () => $('#jsonInput').click();
+$('#jsonInput').onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const s = JSON.parse(await f.text()); if (!Array.isArray(s.rows)) throw 0; state = s; save(); render(); }
+  catch(err){ alert('Fichier non reconnu.'); }
+  e.target.value = '';
+};
+// Réinitialiser : Maj + clic sur « Modifier »
+$('#btnEdit').addEventListener('click', (e) => { if (e.shiftKey && confirm('Revenir à la semaine type d\'origine ?')){ state = clone(DEFAULT); save(); editMode = false; render(); } });
+
+/* ---------- application de bureau : pont vers le coffre ---------- */
+async function ecrire(fn){
+  try { await fn(); } catch(e){ alert(messageErreur(e)); }
+  await chargerTaches();
+}
+async function deposer(file, k){
+  if (!BUREAU) return planTask(file, k);
+  const t = tasks && tasks.items.find(x => x.file === file); if (!t) return;
+  if (t.recurring){ alert('Tâche récurrente : change sa date dans TaskForge ou Obsidian.'); return; }
+  const [id, d] = k.split(':'); const row = state.rows.find(x => x.id === id); if (!row) return;
+  const m = tmin(row.time), hh = (n) => String(n).padStart(2, '0');
+  const valeur = isoOf(weekDays[+d]) + (m == null ? '' : `T${hh(Math.floor(m / 60))}:${hh(m % 60)}`);
+  if (whereIs(file)) planTask(file, null);
+  await ecrire(() => cadence.planifier(file, valeur, t.mtime));
+}
+async function chargerConfig(){
+  CFG = await cadence.config(); TN = CFG.tasknotes;
+  VAULT = CFG.nomCoffre || 'Obsidian';
+  TASK_DIR = (TN.dossier || '').replace(/\/?$/, '/');
+  $('#note').textContent = CFG.coffre ? `Semaine enregistrée dans « ${CFG.donnees} » du coffre ${VAULT}. Les tâches se mettent à jour toutes seules.` : 'Aucun coffre choisi : ouvre les réglages.';
+}
+async function chargerDonnees(){
+  const d = await cadence.lireDonnees();
+  if (d && d.semaine && Array.isArray(d.semaine.rows)){
+    state = d.semaine; plan = d.plan || {}; hide = Object.assign({placed:false, blocked:false, later:true}, d.masquer || {});
+    if (ensureIds()) persist();
+  } else { state = clone(DEFAULT); plan = {}; ensureIds(); persist(); }
+  $('#hidePlaced').checked = hide.placed; $('#hideBlocked').checked = hide.blocked; $('#hideLater').checked = hide.later;
+}
+async function chargerTaches(){
+  if (!CFG || !CFG.coffre) return;
+  const files = await cadence.lireTaches(), items = [];
+  for (const f of files){ try { const t = parseTask(f.name, f.text); if (t){ t.mtime = f.mtime; items.push(t); } } catch(e){} }
+  tasks = {loadedAt: new Date().toISOString(), items: resolveBlocked(items)};
+  render();
+}
+
+/* nouvelle tâche */
+$('#btnNewTask').onclick = () => {
+  const nTag = $('#nTag'), nProj = $('#nProj'), nPrio = $('#nPrio'), nDay = $('#nDay');
+  nTag.innerHTML = ''; Object.entries(tagsObj()).forEach(([k, v]) => nTag.add(new Option(v, k)));
+  if (filter && !filter.startsWith('@') && !filter.startsWith('p:')) nTag.value = filter;
+  nProj.innerHTML = ''; nProj.add(new Option('Aucun', ''));
+  const pn = new Set(projNames()); if (tasks){ const files = new Set(tasks.items.map(t => t.file)); tasks.items.forEach(t => (t.projects || []).forEach(p => { if (!files.has(p)) pn.add(p); })); }
+  [...pn].forEach(p => nProj.add(new Option('📁 ' + p, p)));
+  if (filter.startsWith('p:')) nProj.value = filter.slice(2);
+  nPrio.innerHTML = '';
+  ((TN && TN.priorites && TN.priorites.length) ? TN.priorites : [{valeur: TN ? TN.prioriteParDefaut : 'normal', libelle: 'Par défaut'}]).forEach(q => nPrio.add(new Option(q.libelle, q.valeur)));
+  if (TN) nPrio.value = TN.prioriteParDefaut;
+  nDay.innerHTML = ''; nDay.add(new Option('Aucun', ''));
+  weekDays.forEach((x, i) => nDay.add(new Option(`${DAYS[i]} ${x.getDate()}/${String(x.getMonth() + 1).padStart(2, '0')}`, isoOf(x))));
+  $('#nTitle').value = ''; $('#nTime').value = ''; $('#nNote').value = '';
+  $('#dlgNew').showModal(); $('#nTitle').focus();
+};
+$('#nCancel').onclick = () => $('#dlgNew').close();
+$('#newForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const jour = $('#nDay').value, heure = $('#nTime').value.trim().replace('h', ':');
+  if (heure && !/^\d{1,2}:\d{2}$/.test(heure)){ alert('Heure au format 14:00'); return; }
+  const planifie = jour ? jour + (heure ? 'T' + heure.padStart(5, '0') : '') : null;
+  const t = {titre: $('#nTitle').value, tags: $('#nTag').value ? [$('#nTag').value] : [], projets: $('#nProj').value ? [$('#nProj').value] : [],
+             priorite: $('#nPrio').value, planifie, note: $('#nNote').value};
+  try { await cadence.creerTache(t); $('#dlgNew').close(); } catch(err){ alert(messageErreur(err)); }
+  await chargerTaches();
+};
+
+/* réglages */
+function ouvrirReglages(premier){
+  $('#setIntro').classList.toggle('hidden', !premier);
+  $('#sVault').textContent = (CFG && CFG.coffre) || '—';
+  $('#sData').value = (CFG && CFG.donnees) || 'Cadence.json';
+  $('#sTasks').textContent = TN ? TN.dossier : '—';
+  $('#sTags').value = tagDefs().map(t => [t.name, t.label || t.name, t.cat || ''].join(' | ')).join('\n');
+  $('#sProj').value = projDefs().map(p => [p.name, p.cat || ''].join(' | ')).join('\n');
+  $('#sCats').textContent = 'Couleurs possibles : ' + Object.keys(CATS).join(', ');
+  $('#dlgSet').showModal();
+}
+$('#btnSettings').onclick = () => ouvrirReglages(false);
+$('#sCancel').onclick = () => $('#dlgSet').close();
+$('#sPick').onclick = async () => {
+  try {
+    const c = await cadence.choisirCoffre(); if (!c) return;
+    await chargerConfig(); await chargerDonnees(); ouvrirReglages(false); await chargerTaches(); render();
+  } catch(e){ alert(messageErreur(e)); }
+};
+$('#setForm').onsubmit = async (e) => {
+  e.preventDefault();
+  if (!CFG || !CFG.coffre){ alert("Choisis d'abord le coffre Obsidian."); return; }
+  const lignes = (v) => v.split('\n').map(l => l.split('|').map(x => x.trim())).filter(x => x[0]);
+  state.tags = lignes($('#sTags').value).map(([name, label, cat]) => ({name, label: label || name, cat: CATS[cat] ? cat : 'routine'}));
+  state.projects = lignes($('#sProj').value).map(([name, cat]) => ({name, cat: CATS[cat] ? cat : 'routine'}));
+  const data = $('#sData').value.trim() || 'Cadence.json';
+  try {
+    if (data !== CFG.donnees){ await cadence.reglerDonnees(data); await chargerConfig(); const d = await cadence.lireDonnees(); if (d && d.semaine) await chargerDonnees(); }
+    persist(); $('#dlgSet').close(); render();
+  } catch(err){ alert(messageErreur(err)); }
+};
+
+async function demarrer(){
+  if (!BUREAU){ render(); return; }
+  ['#btnTasks', '#btnClearPlan'].forEach(s => $(s).classList.add('hidden'));
+  ['#btnSettings', '#btnNewTask'].forEach(s => $(s).classList.remove('hidden'));
+  await chargerConfig();
+  if (!CFG.coffre){ state = clone(DEFAULT); ensureIds(); render(); ouvrirReglages(true); return; }
+  await chargerDonnees();
+  render();
+  await chargerTaches();
+  cadence.surChangementTaches(chargerTaches);
+  cadence.surChangementDonnees(async () => { await chargerDonnees(); render(); });
+}
+demarrer();
+})();
+</script>
+</body>
+</html>

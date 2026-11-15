@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.AppImage
+*.flatpak
+prive/
+Cadence.json
+.claude/
+.directory

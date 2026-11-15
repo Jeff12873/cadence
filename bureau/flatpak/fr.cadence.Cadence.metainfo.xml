@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>fr.cadence.Cadence</id>
+  <name>Cadence</name>
+  <summary>Semaine type et tâches Obsidian : routines, créneaux, planification</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <description>
+    <p>Une semaine type en blocs (routines, créneaux, durées), reliée à un coffre Obsidian
+    qui utilise le plugin TaskNotes : les tâches s'affichent en direct, par tag ou par projet.</p>
+    <p>Glisser une tâche sur un jour fixe sa date planifiée, cocher une ligne de checklist
+    l'écrit dans la note, et une nouvelle tâche se crée en quelques clics.</p>
+    <p>Aucune donnée dans l'application : la semaine type est un fichier du coffre. Aucun accès à Internet.</p>
+  </description>
+  <launchable type="desktop-id">fr.cadence.Cadence.desktop</launchable>
+  <categories>
+    <category>Office</category>
+    <category>Calendar</category>
+  </categories>
+  <url type="homepage">https://github.com/Jeff12873/cadence</url>
+  <developer id="io.github.jeff12873">
+    <name>Jeff12873</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="1.0.0" date="2026-11-15"/>
+  </releases>
+</component>
