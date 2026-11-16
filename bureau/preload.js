@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('cadence', {
   cocher: (nom, index, fait, mtime) => ipcRenderer.invoke('cocher', nom, index, fait, mtime),
   planifier: (nom, valeur, mtime) => ipcRenderer.invoke('planifier', nom, valeur, mtime),
   creerTache: (tache) => ipcRenderer.invoke('creer-tache', tache),
+  terminer: (nom, mtime) => ipcRenderer.invoke('terminer', nom, mtime),
+  rouvrir: (nom, ancien) => ipcRenderer.invoke('rouvrir', nom, ancien),
   ouvrirLien: (url) => ipcRenderer.invoke('ouvrir-lien', url),
   surChangementTaches: (fn) => ipcRenderer.on('taches-changees', () => fn()),
   surChangementDonnees: (fn) => ipcRenderer.on('donnees-changees', () => fn()),

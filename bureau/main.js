@@ -211,6 +211,38 @@ ipcMain.handle('planifier', async (evenement, nom, valeur, mtime) => {
   return true;
 });
 
+// Valider une tâche (statut « terminé » de TaskNotes + date de fin). Les tâches récurrentes restent
+// à valider dans TaskNotes ou TaskForge, qui gèrent les occurrences et l'archivage.
+ipcMain.handle('terminer', async (evenement, nom, mtime) => {
+  const tn = reglagesTaskNotes();
+  const { chemin, texte } = await lireVerifie(nom, mtime);
+  const m = texte.match(RE_FM);
+  if (m && new RegExp(`^${champ(tn, 'recurrence')}:\\s*\\S`, 'm').test(m[1])) {
+    throw new Error('Tâche récurrente : valide cette occurrence dans TaskForge ou Obsidian.');
+  }
+  const cle = champ(tn, 'status');
+  const ancien = m && (m[1].match(new RegExp(`^${cle}:\\s*(.*)$`, 'm')) || [])[1];
+  const fini = (tn.statuts.find(x => x.termine) || { valeur: 'done' }).valeur;
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  let nouveau = changerCle(texte, cle, yamlTexte(fini));
+  nouveau = changerCle(nouveau, champ(tn, 'completedDate'), `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
+  nouveau = changerCle(nouveau, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, nouveau);
+  return { ancien: ancien ? ancien.trim() : yamlTexte(tn.statutParDefaut) };
+});
+
+// Annuler une validation : remet l'ancien statut et retire la date de fin
+ipcMain.handle('rouvrir', async (evenement, nom, ancien) => {
+  const tn = reglagesTaskNotes();
+  const { chemin, texte } = await lireVerifie(nom);
+  if (typeof ancien !== 'string' || /[\n\r]/.test(ancien)) throw new Error('Statut invalide.');
+  let nouveau = changerCle(texte, champ(tn, 'status'), ancien);
+  nouveau = changerCle(nouveau, champ(tn, 'completedDate'), null);
+  nouveau = changerCle(nouveau, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, nouveau);
+  return true;
+});
+
 // Créer une tâche TaskNotes
 ipcMain.handle('creer-tache', async (evenement, t) => {
   const tn = reglagesTaskNotes();

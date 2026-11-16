@@ -151,6 +151,12 @@ dialog textarea{width:100%;border:1px solid var(--line);border-radius:8px;paddin
 .nowline .today{position:absolute;top:-2px;height:0;border-top:2.5px solid #E5484D;border-radius:2px}
 .nowline .today::before{content:"";position:absolute;left:-5px;top:-6.5px;width:10px;height:10px;border-radius:50%;background:#E5484D}
 .nowline .lbl{position:absolute;top:-9px;font-size:10.5px;font-weight:700;color:#fff;background:#E5484D;border-radius:6px;padding:1px 5px}
+.task .done-btn{flex:none;width:16px;height:16px;border-radius:50%;border:1.8px solid var(--fg,var(--muted));background:transparent;margin:0 7px 0 0;padding:0;cursor:pointer;position:relative;top:2px}
+.task .done-btn:hover{background:color-mix(in srgb, var(--fg) 25%, transparent)}
+.task .done-btn:hover::after{content:"✓";position:absolute;inset:0;font-size:11px;line-height:13px;text-align:center;color:var(--fg)}
+.task.validating{opacity:.35;text-decoration:line-through}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--paper);border-radius:10px;padding:9px 12px 9px 16px;display:flex;gap:14px;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,.3);z-index:50;font-size:13.5px}
+.toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:7px;padding:3px 10px;cursor:pointer;font:inherit}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -706,7 +712,7 @@ function renderGroup(g, items, container, rerender){
       a.addEventListener('dragstart', (ev) => { dragFile = t.file; document.body.classList.add('dragging-task'); ev.dataTransfer.setData('text/plain', t.file); ev.dataTransfer.effectAllowed = 'move'; a.classList.add('dragging'); });
       a.addEventListener('dragend', () => { dragFile = null; document.body.classList.remove('dragging-task'); a.classList.remove('dragging'); });
       const open = expanded.has(t.file);
-      a.innerHTML = `<div class="tt">${t.boxes ? `<span class="chev">${open ? '▾' : '▸'}</span>` : ''}<span class="prio p${prioN(t.priority)}"${prioColor(t.priority) ? ` style="background:${prioColor(t.priority)}"` : ''}></span><span class="tl">${esc(t.title)}</span>`
+      a.innerHTML = `<div class="tt">${BUREAU && !t.recurring ? `<button class="done-btn" title="Valider la tâche"></button>` : ''}${t.boxes ? `<span class="chev">${open ? '▾' : '▸'}</span>` : ''}<span class="prio p${prioN(t.priority)}"${prioColor(t.priority) ? ` style="background:${prioColor(t.priority)}"` : ''}></span><span class="tl">${esc(t.title)}</span>`
         + (wk ? `<button class="unplan" title="Retirer du jour prévu">✕</button>` : '')
         + `<a class="ob" href="${url}" title="Ouvrir dans Obsidian">↗</a></div>`
         + (meta.length ? `<div class="tm">${meta.map(m=>`<span>${esc(m)}</span>`).join('')}</div>` : '');
@@ -725,6 +731,7 @@ function renderGroup(g, items, container, rerender){
       }
       a.addEventListener('click', (ev) => {
         if (ev.target.closest('a.ob')) return;
+        if (ev.target.closest('.done-btn')){ ev.stopPropagation(); valider(t); return; }
         if (ev.target.closest('.unplan')){ ev.stopPropagation(); if (wkMan) planTask(t.file, null); else if (BUREAU) ecrire(() => cadence.planifier(t.file, null, t.mtime)); return; }
         if (!t.boxes){ window.location.href = url; return; }
         open ? expanded.delete(t.file) : expanded.add(t.file); rerender();
@@ -809,6 +816,20 @@ $('#btnEdit').addEventListener('click', (e) => { if (e.shiftKey && confirm('Reve
 async function ecrire(fn){
   try { await fn(); } catch(e){ alert(messageErreur(e)); }
   await chargerTaches();
+}
+let toastTimer = null;
+function toast(msg, action, fn){
+  document.querySelectorAll('.toast').forEach(x => x.remove()); clearTimeout(toastTimer);
+  const el = document.createElement('div'); el.className = 'toast'; el.innerHTML = `<span>${esc(msg)}</span>`;
+  if (action){ const b = document.createElement('button'); b.textContent = action; b.onclick = () => { el.remove(); fn(); }; el.appendChild(b); }
+  document.body.appendChild(el); toastTimer = setTimeout(() => el.remove(), 7000);
+}
+async function valider(t){
+  let res;
+  try { res = await cadence.terminer(t.file, t.mtime); }
+  catch(e){ alert(messageErreur(e)); await chargerTaches(); return; }
+  await chargerTaches();
+  toast(`✓ « ${t.title} » validée`, 'Annuler', () => ecrire(() => cadence.rouvrir(t.file, res.ancien)));
 }
 async function deposer(file, k){
   if (!BUREAU) return planTask(file, k);
