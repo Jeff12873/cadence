@@ -200,7 +200,8 @@ dialog textarea{width:100%;border:1px solid var(--line);border-radius:8px;paddin
       <div class="toggles">
         <label><input type="checkbox" id="hidePlaced"> Masquer les tâches placées</label>
         <label><input type="checkbox" id="hideBlocked"> Masquer les tâches bloquées</label>
-        <label title="Tâches datées à plus de 30 jours (ex. le bois en septembre)"><input type="checkbox" id="hideLater"> Masquer les tâches lointaines (+30 j)</label>
+        <label title="Tâches datées à plus de 30 jours"><input type="checkbox" id="hideLater"> Masquer les tâches lointaines (+30 j)</label>
+        <label title="Tâches qui ont une date planifiée ou une échéance"><input type="checkbox" id="hideDated"> Masquer les tâches datées</label>
       </div>
       <div class="filters" id="filters"></div>
       <div id="taskList"></div>
@@ -335,7 +336,7 @@ let state = (() => { try { const s = JSON.parse(store.get(KEY)); if (s && Array.
 let tasks = BUREAU ? null : (() => { try { const t = JSON.parse(store.get(TKEY)); if (t && Array.isArray(t.items)) return t; } catch(e){} return null; })();
 let editMode = false, filter = '', dragFile = null;
 const HKEY = 'semaine-type-hide-v1';
-let hide = (() => { try { return Object.assign({placed:false, blocked:false, later:true}, JSON.parse(store.get(HKEY)) || {}); } catch(e){ return {placed:false, blocked:false, later:true}; } })();
+let hide = (() => { try { return Object.assign({placed:false, blocked:false, later:true, dated:false}, JSON.parse(store.get(HKEY)) || {}); } catch(e){ return {placed:false, blocked:false, later:true, dated:false}; } })();
 const LATER_DAYS = 30;
 const isLater = (t) => { const src = (t.scheduled || t.due || '').slice(0, 10); if (!src) return false; const lim = new Date(); lim.setDate(lim.getDate() + LATER_DAYS); return src > isoOf(lim); };
 const expanded = new Set();
@@ -666,6 +667,7 @@ function renderTasks(){
     if (hide.placed){ const placed = new Set(Object.values(plan).flat().concat(Object.values(dated).flat())); items = items.filter(t => !placed.has(t.file)); }
     if (hide.blocked) items = items.filter(t => !t.blocked);
     if (hide.later) items = items.filter(t => !isLater(t));
+    if (hide.dated) items = items.filter(t => !t.scheduled && !t.due);
   }
   if (filter === '@today') items = items.filter(t => (t.scheduled||'').slice(0,10) === iso || (t.due||'').slice(0,10) === iso || ((t.due||t.scheduled||'9999').slice(0,10) < iso && !t.recurring));
   const groups = filter.startsWith('@plan:') ? [filter] : filter && filter !== '@today' ? [filter] : order.filter(t => items.some(x => x.tags.includes(t)));
@@ -784,6 +786,8 @@ $('#btnExport').onclick = () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 $('#hidePlaced').checked = hide.placed; $('#hideBlocked').checked = hide.blocked; $('#hideLater').checked = hide.later;
+$('#hideDated').checked = !!hide.dated;
+$('#hideDated').onchange = (e) => { hide.dated = e.target.checked; saveHide(); renderTasks(); };
 $('#hideLater').onchange = (e) => { hide.later = e.target.checked; saveHide(); renderTasks(); };
 $('#hidePlaced').onchange = (e) => { hide.placed = e.target.checked; saveHide(); renderTasks(); };
 $('#hideBlocked').onchange = (e) => { hide.blocked = e.target.checked; saveHide(); renderTasks(); };
@@ -825,10 +829,10 @@ async function chargerConfig(){
 async function chargerDonnees(){
   const d = await cadence.lireDonnees();
   if (d && d.semaine && Array.isArray(d.semaine.rows)){
-    state = d.semaine; plan = d.plan || {}; hide = Object.assign({placed:false, blocked:false, later:true}, d.masquer || {});
+    state = d.semaine; plan = d.plan || {}; hide = Object.assign({placed:false, blocked:false, later:true, dated:false}, d.masquer || {});
     if (ensureIds()) persist();
   } else { state = clone(DEFAULT); plan = {}; ensureIds(); persist(); }
-  $('#hidePlaced').checked = hide.placed; $('#hideBlocked').checked = hide.blocked; $('#hideLater').checked = hide.later;
+  $('#hidePlaced').checked = hide.placed; $('#hideBlocked').checked = hide.blocked; $('#hideLater').checked = hide.later; $('#hideDated').checked = !!hide.dated;
 }
 async function chargerTaches(){
   if (!CFG || !CFG.coffre) return;
