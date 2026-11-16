@@ -43,7 +43,7 @@ h1{margin:0;font-size:28px;letter-spacing:-.02em}
 .layout.with-tasks{grid-template-columns:minmax(0,1fr) 340px}
 @media (max-width:1100px){.layout.with-tasks{grid-template-columns:1fr}}
 .cal-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.cal{display:grid;grid-template-columns:58px repeat(7,minmax(118px,1fr));gap:4px;min-width:900px}
+.cal{position:relative;display:grid;grid-template-columns:58px repeat(7,minmax(118px,1fr));gap:4px;min-width:900px}
 .dayhead{background:var(--head);color:#fff;border-radius:6px;text-align:center;font-weight:700;font-size:12px;letter-spacing:.06em;padding:6px 4px}
 .dayhead.we{background:var(--headwe)}
 .dayhead small{display:block;font-weight:500;letter-spacing:0;opacity:.8;font-size:10.5px}
@@ -147,6 +147,10 @@ dialog textarea{width:100%;border:1px solid var(--line);border-radius:8px;paddin
 .set-hint{font-size:11.5px;color:var(--muted);margin-top:6px}
 .sub.clic{cursor:pointer;border-radius:5px}
 .sub.clic:hover{background:color-mix(in srgb, var(--fg) 10%, transparent)}
+.nowline{position:absolute;height:0;pointer-events:none;z-index:6;border-top:1px dashed color-mix(in srgb, #E5484D 55%, transparent)}
+.nowline .today{position:absolute;top:-2px;height:0;border-top:2.5px solid #E5484D;border-radius:2px}
+.nowline .today::before{content:"";position:absolute;left:-5px;top:-6.5px;width:10px;height:10px;border-radius:50%;background:#E5484D}
+.nowline .lbl{position:absolute;top:-9px;font-size:10.5px;font-weight:700;color:#fff;background:#E5484D;border-radius:6px;padding:1px 5px}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -577,7 +581,38 @@ function render(){
     const s = document.createElement('span'); s.innerHTML = `<i style="--bg:var(--${k}-bg);--fg:var(--${k}-fg)"></i>${v}`; lg.appendChild(s);
   });
   renderTasks();
+  drawNow();
 }
+
+/* ---------- trait de l'heure actuelle ---------- */
+function drawNow(){
+  const cal = $('#cal'); if (!cal) return;
+  cal.querySelectorAll('.nowline').forEach(n => n.remove());
+  const now = new Date(), d = weekDays.findIndex(x => isoOf(x) === isoOf(now));
+  if (d < 0) return;                                            // semaine affichée ≠ semaine en cours
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const times = [...cal.querySelectorAll('.time')];
+  const starts = state.rows.map(r => tmin(r.time));
+  let r = -1; starts.forEach((t, i) => { if (t != null && t <= mins) r = i; });
+  if (r < 0 || !times[r]) return;
+  let next = null; for (let i = r + 1; i < starts.length; i++) if (starts[i] != null){ next = i; break; }
+  const end = next != null ? starts[next] : starts[r] + 60;
+  if (mins >= end && next == null) return;                       // après la dernière ligne
+  const top0 = times[r].offsetTop, top1 = next != null && times[next] ? times[next].offsetTop : top0 + times[r].offsetHeight;
+  const y = top0 + (top1 - top0) * Math.min(1, (mins - starts[r]) / Math.max(1, end - starts[r]));
+  const heads = cal.querySelectorAll('.dayhead'); if (!heads[d]) return;
+  const x0 = heads[0].offsetLeft, x1 = heads[6].offsetLeft + heads[6].offsetWidth;
+  const line = document.createElement('div'); line.className = 'nowline';
+  line.style.top = y + 'px'; line.style.left = x0 + 'px'; line.style.width = (x1 - x0) + 'px';
+  const t = document.createElement('div'); t.className = 'today';
+  t.style.left = (heads[d].offsetLeft - x0) + 'px'; t.style.width = heads[d].offsetWidth + 'px';
+  const lbl = document.createElement('div'); lbl.className = 'lbl';
+  lbl.textContent = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+  lbl.style.left = (-x0 + 2) + 'px';
+  line.append(t, lbl); cal.appendChild(line);
+}
+setInterval(drawNow, 60000);
+window.addEventListener('resize', drawNow);
 const spanOf = (r, c) => Math.max(1, Math.min(c && c.span || 1, state.rows.length - r));
 const rowH = (row) => row.h || (row.size ? 110 : 46);
 function resizer(r){
