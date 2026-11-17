@@ -1126,7 +1126,7 @@ function typerSurTache(e, t){
   return e;
 }
 // Une tâche peut aller dans un bloc s'il n'a pas de catégorie, ou si son tag ou un de ses projets correspond
-const compatible = (e, t) => (!e.tag && !e.project) || (e.tag && t.tags.includes(e.tag)) || (e.project && (t.projects || []).includes(e.project));
+const compatible = (e, t) => t.libre || (!e.tag && !e.project) || (e.tag && t.tags.includes(e.tag)) || (e.project && (t.projects || []).includes(e.project));
 const memeCategorie = (e, t) => { const tag = tacheTag(t); if (tag) return e.tag === tag; const p = tacheProj(t); return !!p && !e.tag && e.project === p; };
 // Bloc de même catégorie collé (ou à moins de 15 min) : on l'agrandit au lieu d'en créer un autre
 function voisinFusion(d, m, t){
@@ -1145,7 +1145,10 @@ function fusionner(v, d, m){
 function finCase(d, m){ const suivant = dayEvents(d).find(e => e.start >= m); return Math.min(m + 60, suivant ? suivant.start : 24 * 60); }
 let dernierNeuf = null;
 
+// Note glissée depuis l'onglet Notes : future tâche, sans catégorie (elle prendra celle du bloc visé)
+const titreNote = (n) => { const t = String(n || '').replace(/^\d{8}\s*-\s*/, '').replace(/^\d{4}-\d{2}-\d{2}\s*-?\s*/, '').trim(); return /^inbox$/i.test(t) ? '' : t; };
 const elementGlisse = () => {
+  if (dragNote) return {file: null, title: titreNote(dragNote.nom) || 'Nouvelle tâche', tags: [], projects: [], libre: true};
   if (dragSub){ const pt = dragSub.parent; return {file: null, title: dragSub.text, tags: pt.tags, projects: pt.projects}; }
   return dragFile && tasks ? tasks.items.find(x => x.file === dragFile) : null;
 };
@@ -1178,6 +1181,12 @@ function remplirLieux(){
 }
 function ouvrirExtraction(sub, t, d, m, c){
   extraction = {sub, t, d, m, c};
+  if (sub.note){
+    $('#exTitle').value = titreNote(sub.note.nom); $('#exCtx').value = ''; remplirLieux();
+    $('#exWhere').textContent = `${DAYS[d]} ${weekDays[d].getDate()}/${String(weekDays[d].getMonth() + 1).padStart(2, '0')} · ${c.label}`;
+    $('#exFrom').textContent = `Nouvelle tâche depuis la note « ${sub.note.nom} » : elle contiendra un lien vers la note.`;
+    $('#dlgExtract').showModal(); $('#exTitle').focus(); $('#exTitle').select(); return;
+  }
   const titre = sub.text.replace(/\s*,?\s*pour\s+.*$/i, '').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 110) || sub.text.slice(0, 110);
   $('#exTitle').value = titre;
   const lieu = (sub.h || '').replace(/\s*\(.*?\)\s*/g, '').trim();
@@ -1191,6 +1200,18 @@ $('#exCancel').onclick = () => { extraction = null; $('#dlgExtract').close(); };
 $('#exForm').onsubmit = async (ev) => {
   ev.preventDefault();
   const x = extraction; if (!x) return;
+  if (x.sub.note){
+    const titre = $('#exTitle').value.trim(); if (!titre) return;
+    const bloc = x.c.e || (x.c.v && x.c.v.e) || null;
+    const r = appliquerDepot(x.c, x.t, x.d, x.m);
+    try {
+      const nom = await cadence.creerTache({titre, tags: bloc && bloc.tag ? [bloc.tag] : [A_TRIER], projets: bloc && bloc.project ? [bloc.project] : [],
+        planifie: `${isoOf(weekDays[x.d])}T${hhmm(r.start)}`, contextes: $('#exCtx').value.trim() ? [$('#exCtx').value.trim()] : [], note: `📝 [[${x.sub.note.nom}]]`});
+      toast(`📝 « ${nom} » créée ${x.c.label}, avec un lien vers « ${x.sub.note.nom} ».`);
+    } catch(e){ alert(messageErreur(e)); }
+    extraction = null; $('#dlgExtract').close();
+    await chargerTaches(); return;
+  }
   const pt = x.sub.parent, titre = $('#exTitle').value.trim(); if (!titre) return;
   const r = appliquerDepot(x.c, x.t, x.d, x.m);
   const planifie = `${isoOf(weekDays[x.d])}T${hhmm(r.start)}`;
@@ -1317,8 +1338,8 @@ function installerAgenda(evs){
   let tTache = null, ptTache = null;
   const zone = evs.parentElement;
   zone.ondragover = (ev) => {
-    if (!dragFile && !dragSub) return;
-    ev.preventDefault(); ev.dataTransfer.dropEffect = dragSub ? 'copy' : 'move';
+    if (!dragFile && !dragSub && !dragNote) return;
+    ev.preventDefault(); ev.dataTransfer.dropEffect = dragSub || dragNote ? 'copy' : 'move';
     const p = posAgenda(evs, ev.clientX, ev.clientY); if (!p.inside) return;
     const m = snap(p.m), e = dayEvents(p.d).find(x => x.start <= m && m < x.end);
     const tg = elementGlisse();
@@ -1342,13 +1363,14 @@ function installerAgenda(evs){
   zone.ondragleave = (ev) => { if (!zone.contains(ev.relatedTarget)){ clearTimeout(tTache); ptTache = null; clearGhost(evs); } };
   zone.ondrop = (ev) => {
     ev.preventDefault(); clearTimeout(tTache); ptTache = null; clearGhost(evs);
-    const sub = dragSub, t = elementGlisse(), f = sub ? null : (dragFile || ev.dataTransfer.getData('text/plain'));
-    dragFile = null; dragSub = null; document.body.classList.remove('dragging-task');
+    const sub = dragSub, note = dragNote, t = elementGlisse(), f = sub || note ? null : (dragFile || ev.dataTransfer.getData('text/plain'));
+    dragFile = null; dragSub = null; dragNote = null; document.body.classList.remove('dragging-task');
     if (!t) return;
     const p = posAgenda(evs, ev.clientX, ev.clientY), m = snap(p.m);
     const c = cibleDepot(p.d, m, t, ev.altKey);
     if (!c.ok){ toast(c.msg); return; }
     if (sub){ ouvrirExtraction(sub, t, p.d, m, c); return; }
+    if (note){ ouvrirExtraction({note}, t, p.d, m, c); return; }
     const r = appliquerDepot(c, t, p.d, m);
     deposer(f, p.d, r.start, r.id);
   };
