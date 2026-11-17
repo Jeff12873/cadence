@@ -13,6 +13,9 @@ qui utilise le plugin [TaskNotes](https://github.com/callumalpass/tasknotes).
   « + » après 3 s de survol entre deux créneaux, double-clic pour le modifier. Les chevauchements sont refusés.
 - Une tâche déposée sur un espace libre crée un bloc au nom de sa catégorie (tag, sinon projet), avec la tâche dedans ; collée à un bloc de même catégorie, elle l'agrandit. Un bloc d'une autre catégorie la refuse (Alt pour forcer), et un bloc créé ainsi qui se vide propose sa suppression ; maintenue 3 s entre deux créneaux collés, elle en ouvre un. Quand une case bouge ou disparaît, ses tâches datées suivent dans Obsidian.
 - Trait de l'heure actuelle sur la semaine en cours.
+- Agendas externes en lecture (adresse secrète iCal de Google, Nextcloud…) : rendez-vous affichés en blocs hachurés, journées entières sous le jour.
+- Envoi de tâches choisies vers Google Agenda (case « 📆 Envoyer dans Google Agenda ») : création, mise à jour et suppression de l'évènement.
+  Nécessite une application OAuth « ordinateur » créée dans la console Google Cloud (ID et code secret à coller dans les réglages).
 - Météo par demi-journée (matin 8h–12h, après-midi 13h–18h) sous chaque jour : ✅ OK dehors, ⚠️ limite, ❌ pas pour dehors,
   selon des seuils de pluie et de vent réglables (le froid n'est pas pris en compte). Les blocs de travaux dehors sont encadrés de la même couleur.
 - Boîte de réception : les tâches sans tag (ou avec le tag « Aucun » de TaskForge) sont rangées sous le tag « À trier », en tête du panneau.
@@ -36,7 +39,7 @@ qui utilise le plugin [TaskNotes](https://github.com/callumalpass/tasknotes).
   statuts et priorités sont lus dans `.obsidian/plugins/tasknotes/data.json`.
 - **Écritures prudentes** : seules quelques lignes précises du frontmatter ou du corps sont modifiées ; si la note a changé
   entre-temps (Obsidian, synchronisation…), l'écriture est refusée et la liste rechargée.
-- **Réseau uniquement pour la météo** (Open-Meteo, gratuit et sans compte) : seules les coordonnées du lieu choisi sont envoyées. HTML, CSS et JavaScript sans framework.
+- **Réseau limité** : météo (Open-Meteo, seules les coordonnées du lieu choisi sont envoyées), agendas iCal que tu ajoutes, et Google Agenda si tu le connectes. Les adresses secrètes et jetons restent dans la configuration locale, jamais dans le coffre ni le dépôt. HTML, CSS et JavaScript sans framework.
 
 ## Lancer
 

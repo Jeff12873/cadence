@@ -11,6 +11,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const { pathToFileURL } = require('node:url');
+const agendas = require('./agendas');
 
 const RACINE = path.join(__dirname, '..');
 const FICHIER_CONFIG = () => path.join(app.getPath('userData'), 'config.json');
@@ -290,6 +291,8 @@ ipcMain.handle('modifier-tache', async (evenement, nom, c, mtime) => {
   t = changerListe(t, cleP, [...parents, ...(c.projets || []).filter(Boolean).map(p => `"[[${p}]]"`)]);
   t = changerListe(t, champ(tn, 'contexts'), (c.contextes || []).map(x => String(x).replace(/^@/, '').trim()).filter(Boolean).map(yamlTexte));
   if (c.priorite) t = changerCle(t, champ(tn, 'priority'), yamlTexte(c.priorite));
+  if (c.google === true && !/^cadenceGoogle:/m.test((t.match(RE_FM) || ['', ''])[1])) t = changerCle(t, 'cadenceGoogle', 'oui');
+  if (c.google === false) t = changerCle(t, 'cadenceGoogle', null);
   if (c.planifie !== undefined) {
     if (c.planifie != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(c.planifie)) throw new Error('Date invalide.');
     t = changerCle(t, champ(tn, 'scheduled'), c.planifie);
@@ -365,6 +368,7 @@ ipcMain.handle('creer-tache', async (evenement, t) => {
   if ((t.projets || []).length) l.push(`${champ(tn, 'projects')}:`, ...t.projets.map(p => `  - "[[${p}]]"`));
   const ctx = (t.contextes || []).map(c => String(c).replace(/^@/, '').trim()).filter(Boolean);
   if (ctx.length) l.push(`${champ(tn, 'contexts')}:`, ...ctx.map(c => `  - ${yamlTexte(c)}`));
+  if (t.google) l.push('cadenceGoogle: oui');
   l.push(`${champ(tn, 'title')}: ${yamlTexte(titre)}`);
   const corps = t.note ? `\n${String(t.note).trim()}\n` : '';
   await fsp.mkdir(path.dirname(chemin), { recursive: true });
@@ -566,6 +570,44 @@ ipcMain.handle('meteo-lieu', async (evenement, nom) => {
   const d = await r.json();
   return (d.results || []).map(x => ({ nom: x.name, region: [x.admin2, x.admin1, x.country].filter(Boolean).join(', '), lat: x.latitude, lon: x.longitude }));
 });
+
+// --- Agendas externes (lecture iCal) et Google Agenda (envoi) ---------------------------------
+const etatGoogle = () => { const g = config.google || {}; return { configure: !!(g.clientId && g.clientSecret), connecte: !!g.refreshToken, clientId: g.clientId || '', calendarId: g.calendarId || 'primary' }; };
+ipcMain.handle('agendas-get', () => ({ agendas: (config.agendas || []).map(a => ({ nom: a.nom, couleur: a.couleur || '', url: a.url })), google: etatGoogle() }));
+ipcMain.handle('agendas-set', async (evenement, liste) => {
+  config.agendas = (Array.isArray(liste) ? liste : []).filter(a => a && /^https:\/\//.test(String(a.url || '').trim()))
+    .map(a => ({ nom: String(a.nom || 'Agenda').slice(0, 60), url: String(a.url).trim(), couleur: String(a.couleur || '').slice(0, 20) }));
+  await enregistrerConfig(); return true;
+});
+ipcMain.handle('agendas-lire', (evenement, de, a) => agendas.lireAgendas(config.agendas, de, a));
+ipcMain.handle('google-reglages', async (evenement, clientId, clientSecret, calendarId) => {
+  const g = config.google || {};
+  const nouveauClient = clientId && clientId !== g.clientId;
+  config.google = { ...g, clientId: String(clientId || '').trim(), clientSecret: clientSecret ? String(clientSecret).trim() : g.clientSecret, calendarId: String(calendarId || 'primary').trim() || 'primary' };
+  if (nouveauClient) delete config.google.refreshToken;
+  await enregistrerConfig(); return etatGoogle();
+});
+ipcMain.handle('google-connecter', async () => {
+  const rt = await agendas.connecterGoogle(config.google);
+  config.google = { ...config.google, refreshToken: rt }; await enregistrerConfig(); return etatGoogle();
+});
+ipcMain.handle('google-deconnecter', async () => { if (config.google) delete config.google.refreshToken; await enregistrerConfig(); return etatGoogle(); });
+// Envoie (crée ou met à jour) l'évènement d'une tâche et retient son identifiant dans la tâche (clé cadenceGoogle)
+ipcMain.handle('google-envoyer', async (evenement, nom, ev, mtime) => {
+  const id = await agendas.envoyerEvenement(config.google, { ...ev, fuseau: Intl.DateTimeFormat().resolvedOptions().timeZone });
+  if (id !== ev.id) {
+    const { chemin, texte } = await lireVerifie(nom, null);
+    await ecrireAtomique(chemin, changerCle(texte, 'cadenceGoogle', id));
+  }
+  config.googleSync = { ...(config.googleSync || {}), [id]: ev.empreinte || '' }; await enregistrerConfig();
+  return id;
+});
+ipcMain.handle('google-retirer', async (evenement, nom, id) => {
+  if (id && id !== 'oui') { await agendas.supprimerEvenement(config.google, id); if (config.googleSync) delete config.googleSync[id]; await enregistrerConfig(); }
+  if (nom) { try { const { chemin, texte } = await lireVerifie(nom, null); await ecrireAtomique(chemin, changerCle(texte, 'cadenceGoogle', null)); } catch { /* tâche supprimée */ } }
+  return true;
+});
+ipcMain.handle('google-empreintes', () => config.googleSync || {});
 
 ipcMain.handle('ouvrir-lien', (evenement, url) => {
   if (typeof url === 'string' && url.startsWith('obsidian://')) shell.openExternal(url);

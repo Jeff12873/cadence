@@ -278,6 +278,16 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
 .ev.wx-ok .block{outline:2px solid color-mix(in srgb, #2F9E44 70%, transparent);outline-offset:-2px}
 .wxb{font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px;color:#fff}
 .wxb.ok{background:#2F9E44}.wxb.warn{background:#E8890C}.wxb.bad{background:#D9363E}
+.ag-row{display:grid;grid-template-columns:110px 1fr 90px 28px;gap:6px;margin-bottom:6px}
+.ag-row input,.ag-row select{border:1px solid var(--line);border-radius:7px;padding:5px 7px;background:var(--paper);color:inherit;font:inherit;font-size:12.5px;min-width:0}
+.ag-row button{border:none;background:none;cursor:pointer;opacity:.6}
+label.chk{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:13px;margin-top:10px}
+.ext{position:absolute;box-sizing:border-box;padding:1px 0;z-index:5;pointer-events:auto}
+.ext .eb{height:100%;border-radius:6px;padding:2px 6px;overflow:hidden;font-size:10.5px;line-height:1.25;color:var(--ink);
+  background:repeating-linear-gradient(135deg, color-mix(in srgb, var(--agc,#64748B) 22%, var(--card)) 0 6px, color-mix(in srgb, var(--agc,#64748B) 12%, var(--card)) 6px 12px);
+  border-left:3px solid var(--agc,#64748B);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.ext .eb b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dayhead .agchip{display:block;margin-top:3px;font-size:10px;font-weight:600;letter-spacing:0;background:rgba(255,255,255,.18);border-radius:6px;padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -372,6 +382,7 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
     <label for="nTime">Heure (facultatif, ex. 14:00)</label>
     <input type="text" id="nTime" autocomplete="off" placeholder="14:00">
     <div class="set-hint hidden" id="nRec">Tâche récurrente : sa date se change dans TaskForge ou Obsidian.</div>
+    <label class="chk hidden" id="nGoogleL"><input type="checkbox" id="nGoogle"> 📆 Envoyer dans Google Agenda</label>
     <label for="nNote" id="nNoteL">Note (facultatif)</label>
     <input type="text" id="nNote" autocomplete="off">
     <div class="actions">
@@ -476,6 +487,17 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
     </div>
     <label for="sWxTags">Tags des travaux dehors (séparés par des virgules)</label>
     <input type="text" id="sWxTags" autocomplete="off" placeholder="Travaux/Extérieur">
+    <label>Agendas à afficher (adresse secrète au format iCal)</label>
+    <div id="sAgList"></div>
+    <button type="button" class="btn" id="sAgAdd">＋ Ajouter un agenda</button>
+    <div class="set-hint">Google Agenda → Paramètres de l'agenda → « Adresse secrète au format iCal ». L'adresse reste sur ce PC.</div>
+    <label>Envoyer des tâches choisies vers Google Agenda</label>
+    <div class="set-hint" id="sGState"></div>
+    <div class="hrow">
+      <div><input type="text" id="sGId" autocomplete="off" placeholder="ID client OAuth"></div>
+      <div><input type="password" id="sGSecret" autocomplete="off" placeholder="Code secret du client"></div>
+    </div>
+    <div class="set-row" style="margin-top:6px"><input type="text" id="sGCal" autocomplete="off" placeholder="primary"><button type="button" class="btn" id="sGConnect">Connecter</button><button type="button" class="btn" id="sGOff">Déconnecter</button></div>
     <label>Tags, projets et lieux</label>
     <button type="button" class="btn" id="sCatBtn">🏷 Gérer les tags, projets et lieux…</button>
     <div class="actions">
@@ -691,7 +713,7 @@ function parseTask(name, text){
   const sch = o.scheduled || '';
   if (rm && sch.length > 10){ const base = tmin(sch.slice(11)); if (base != null){ const off = ((+rm[2] || 0) * 60 + (+rm[3] || 0)) * (rm[1] ? -1 : 1); const r = base + off; rappel = `${Math.floor(r / 60)}h${String(((r % 60) + 60) % 60).padStart(2, '0')}`; } }
   return {
-    subs, projects, notes, rappel, contexts,
+    subs, projects, notes, rappel, contexts, google: sansGuillemets(o.cadenceGoogle || ''), estimate: o.timeEstimate || '',
     file: name.replace(/\.md$/,''), title: o.title && o.title !== '""' ? o.title : name.replace(/\.md$/,''),
     tags: (t => t.length ? t : [A_TRIER])([...new Set(tags.map(x => x === 'Aucun' ? A_TRIER : x))]), priority: o.priority || '', status: o.status || '',
     scheduled: o.scheduled || '', due: o.due || '', recurring: !!o.recurrence,
@@ -795,6 +817,7 @@ function renderCal(){
     evs.appendChild(evElement(grp));
   });
   installerAgenda(evs);
+  dessinerAgendas(evs);
   const lg = $('#legend'); lg.innerHTML = '';
   Object.entries(CATS).filter(([k]) => k !== 'pause').forEach(([k,v]) => {
     const s = document.createElement('span'); s.innerHTML = `<i style="--bg:var(--${k}-bg);--fg:var(--${k}-fg)"></i>${v}`; lg.appendChild(s);
@@ -1186,6 +1209,70 @@ function bilanMeteo(iso, h0, h1){
 }
 setInterval(chargerMeteo, 3600 * 1000);
 
+/* ---------- agendas externes (lecture) ---------- */
+let extEv = [], extSemaine = '', AG = {agendas: [], google: {}};
+const AG_COUL = {gris: '#64748B', bleu: '#2563EB', vert: '#16A34A', violet: '#7C3AED', rose: '#DB2777', orange: '#EA580C'};
+async function chargerAgendas(force){
+  if (!BUREAU) return;
+  try { AG = await cadence.agendasGet(); } catch(e){ return; }
+  if (!AG.agendas.length){ extEv = []; return; }
+  const de = new Date(weekDays[0]); de.setHours(0, 0, 0, 0); const a = new Date(de); a.setDate(a.getDate() + 7);
+  const cle = isoOf(de);
+  if (!force && cle === extSemaine && extEv.length) return;
+  try { extEv = await cadence.agendasLire(de.toISOString(), a.toISOString()); extSemaine = cle; } catch(e){ extEv = []; }
+  const err = extEv.filter(x => x.erreur); if (err.length) console.warn('agendas', err.map(x => x.erreur).join(' ; '));
+  renderCal();
+}
+function dessinerAgendas(evs){
+  if (!extEv.length) return;
+  const heads = document.querySelectorAll('#cal .dayhead');
+  extEv.filter(x => !x.erreur).forEach(x => {
+    const d0 = new Date(x.debut), d1 = new Date(x.fin), coul = AG_COUL[x.couleur] || x.couleur || AG_COUL.gris;
+    for (let d = 0; d < 7; d++){
+      const j0 = new Date(weekDays[d]); j0.setHours(0, 0, 0, 0); const j1 = new Date(j0); j1.setDate(j1.getDate() + 1);
+      if (d1 <= j0 || d0 >= j1) continue;
+      if (x.allDay){ const c = document.createElement('span'); c.className = 'agchip'; c.textContent = '📆 ' + x.titre; c.title = `${x.agenda} · journée entière`; if (heads[d]) heads[d].appendChild(c); continue; }
+      const m0 = Math.max(RS, d0 < j0 ? 0 : d0.getHours() * 60 + d0.getMinutes()), m1 = Math.min(RE, d1 >= j1 ? 24 * 60 : d1.getHours() * 60 + d1.getMinutes());
+      if (m1 <= m0) continue;
+      const el = document.createElement('div'); el.className = 'ext';
+      el.style.top = yOf(m0) + 'px'; el.style.height = Math.max(16, (m1 - m0) / 60 * PXH) + 'px';
+      el.style.left = `calc((100% - 24px) / 7 * ${d + 0.5} + ${4 * d}px)`; el.style.width = `calc((100% - 24px) / 7 * 0.5)`;
+      el.style.setProperty('--agc', coul);
+      el.innerHTML = `<div class="eb"><b>${esc(x.titre)}</b>${fmtMin(m0)} – ${fmtMin(m1)}</div>`;
+      el.title = `📆 ${x.agenda} : ${x.titre}\n${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? '\n📍 ' + x.lieu : ''}`;
+      evs.appendChild(el);
+    }
+  });
+}
+setInterval(() => chargerAgendas(true), 10 * 60 * 1000);
+
+/* ---------- Google Agenda : envoi des tâches choisies ---------- */
+let syncEnCours = false;
+const fuseauLocal = (iso, min) => { const d = new Date(iso.slice(0, 10) + 'T00:00:00'); d.setMinutes(min); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`; };
+function evGoogle(t, prefixe = ''){
+  const sc = t.scheduled || ''; if (!sc) return null;
+  const desc = `Tâche Cadence / Obsidian : ${t.title}${(t.contexts || []).length ? '\n📍 ' + t.contexts.join(', ') : ''}`;
+  if (sc.length <= 10){ const f = new Date(sc + 'T00:00:00'); f.setDate(f.getDate() + 1); return {titre: prefixe + t.title, debut: sc, fin: isoOf(f), allDay: true, description: desc}; }
+  const m = tmin(sc.slice(11)), duree = +t.estimate || 60;
+  return {titre: prefixe + t.title, debut: fuseauLocal(sc, m), fin: fuseauLocal(sc, m + duree), allDay: false, description: desc};
+}
+async function syncGoogle(){
+  if (!BUREAU || !tasks || syncEnCours || !(AG.google && AG.google.connecte)) return;
+  const choisies = tasks.items.filter(t => t.google); if (!choisies.length) return;
+  syncEnCours = true;
+  try {
+    const emp = await cadence.googleEmpreintes();
+    for (const t of choisies){
+      const ev = evGoogle(t); if (!ev) continue;
+      const empreinte = JSON.stringify([ev.titre, ev.debut, ev.fin]);
+      const id = t.google === 'oui' ? null : t.google;
+      if (id && emp[id] === empreinte) continue;
+      try { await cadence.googleEnvoyer(t.file, {...ev, id, empreinte}, t.mtime); }
+      catch(e){ toast('📆 ' + messageErreur(e)); break; }
+    }
+  } finally { syncEnCours = false; }
+}
+
 /* ---------- trait de l'heure actuelle ---------- */
 function drawNow(){
   const evs = $('#evs'); if (!evs) return;
@@ -1269,6 +1356,7 @@ function renderGroup(g, items, container, rerender){
       if (t.scheduled) meta.push(`📅 ${fmt(t.scheduled)}`);
       if ((t.contexts || []).length) meta.push(`📍 ${t.contexts.join(', ')}`);
       if (t.rappel) meta.push(`🔔 ${t.rappel}`);
+      if (t.google) meta.push('📆 Google');
       if (t.due) meta.push(`⏳ échéance ${fmt(t.due)}`);
       if (t.recurring) meta.push('↻');
       if (t.status === 'in-progress') meta.push('en cours');
@@ -1374,9 +1462,9 @@ $('#hideDated').onchange = (e) => { hide.dated = e.target.checked; saveHide(); r
 $('#hideLater').onchange = (e) => { hide.later = e.target.checked; saveHide(); renderTasks(); };
 $('#hidePlaced').onchange = (e) => { hide.placed = e.target.checked; saveHide(); renderTasks(); };
 $('#hideBlocked').onchange = (e) => { hide.blocked = e.target.checked; saveHide(); renderTasks(); };
-$('#wPrev').onclick = () => { weekOffset--; render(); };
-$('#wNext').onclick = () => { weekOffset++; render(); };
-$('#wNow').onclick = () => { weekOffset = 0; render(); };
+$('#wPrev').onclick = () => { weekOffset--; render(); chargerAgendas(); };
+$('#wNext').onclick = () => { weekOffset++; render(); chargerAgendas(); };
+$('#wNow').onclick = () => { weekOffset = 0; render(); chargerAgendas(); };
 $('#btnClearPlan').onclick = () => { if (confirm('Retirer toutes les tâches prévues dans la semaine ?')){ plan = {}; savePlan(); if (filter.startsWith('@plan:')) filter = ''; render(); } };
 $('#btnImport').onclick = () => $('#jsonInput').click();
 $('#jsonInput').onchange = async (e) => {
@@ -1399,7 +1487,8 @@ function toast(msg, action, fn){
 }
 async function valider(t){
   let res;
-  try { res = await cadence.terminer(t.file, t.mtime); }
+  try { res = await cadence.terminer(t.file, t.mtime);
+        if (t.google && t.google !== 'oui' && AG.google && AG.google.connecte){ const ev = evGoogle(t, '✓ '); if (ev) cadence.googleEnvoyer(t.file, {...ev, id: t.google, empreinte: 'fait'}, null).catch(() => {}); } }
   catch(e){ alert(messageErreur(e)); await chargerTaches(); return; }
   await chargerTaches();
   toast(`✓ « ${t.title} » validée`, 'Annuler', () => ecrire(() => cadence.rouvrir(t.file, res.ancien)));
@@ -1441,13 +1530,15 @@ async function chargerTaches(){
   for (const f of files){ try { const t = parseTask(f.name, f.text); if (t){ t.mtime = f.mtime; items.push(t); } } catch(e){} }
   tasks = {loadedAt: new Date().toISOString(), items: resolveBlocked(items)};
   render();
+  syncGoogle();
   setTimeout(verifierBlocsVides, 500);
 }
 
 /* ---------- tâches : supprimer, renommer ---------- */
 async function supprimerTache(t){
   if (!confirm(`Supprimer la tâche « ${t.title} » ?\n\nElle sera déplacée dans la corbeille du coffre (.trash), d'où tu peux la récupérer.`)) return;
-  try { await cadence.supprimerTache(t.file, t.mtime); toast(`🗑 « ${t.title} » déplacée dans la corbeille du coffre.`); }
+  try { if (t.google && t.google !== 'oui' && AG.google && AG.google.connecte) await cadence.googleRetirer(null, t.google).catch(() => {});
+        await cadence.supprimerTache(t.file, t.mtime); toast(`🗑 « ${t.title} » déplacée dans la corbeille du coffre.`); }
   catch(e){ alert(messageErreur(e)); }
   await chargerTaches();
 }
@@ -1795,6 +1886,7 @@ function ouvrirTache(te){
   $('#nHead').textContent = edition ? 'Modifier la tâche' : 'Nouvelle tâche'; $('#nOk').textContent = edition ? 'Enregistrer' : 'Créer';
   $('#nNote').classList.toggle('hidden', edition); $('#nNoteL').classList.toggle('hidden', edition);
   $('#nRec').classList.toggle('hidden', !(edition && te.recurring));
+  $('#nGoogleL').classList.toggle('hidden', !(AG.google && AG.google.connecte)); $('#nGoogle').checked = !!(edition && te.google);
   nDay.disabled = $('#nTime').disabled = !!(edition && te.recurring);
   if (edition){
     $('#nTitle').value = te.title;
@@ -1816,11 +1908,14 @@ $('#newForm').onsubmit = async (e) => {
   const t = {titre: $('#nTitle').value, tags: $('#nTag').value ? [$('#nTag').value] : [A_TRIER], projets: $('#nProj').value ? [$('#nProj').value] : [],
              priorite: $('#nPrio').value, planifie, note: $('#nNote').value, contextes: $('#nCtx').value.trim() ? [$('#nCtx').value.trim()] : []};
   try {
+    const veutGoogle = !$('#nGoogleL').classList.contains('hidden') && $('#nGoogle').checked;
     if (tacheEditee){
       if (tacheEditee.recurring) delete t.planifie;
+      t.google = veutGoogle;
+      if (!veutGoogle && tacheEditee.google) await cadence.googleRetirer(null, tacheEditee.google).catch(e => toast('📆 ' + messageErreur(e)));
       const r = await cadence.modifierTache(tacheEditee.file, t, tacheEditee.mtime);
       toast(`✏️ « ${r.nom} » mise à jour${r.liens ? ` · liens mis à jour dans ${r.liens} note${r.liens > 1 ? 's' : ''}` : ''}.`);
-    } else await cadence.creerTache(t);
+    } else { t.google = veutGoogle; await cadence.creerTache(t); }
     $('#dlgNew').close();
   } catch(err){ alert(messageErreur(err)); }
   tacheEditee = null;
@@ -1833,6 +1928,7 @@ function ouvrirReglages(premier){
   $('#sVault').textContent = (CFG && CFG.coffre) || '—';
   $('#sData').value = (CFG && CFG.donnees) || 'Cadence.json';
   $('#sTasks').textContent = TN ? TN.dossier : '—';
+  remplirAgendasReglages();
   const mc = meteoCfg();
   $('#sWxCity').value = mc.nom || ''; $('#sWxPick').classList.add('hidden');
   $('#sWxNow').textContent = mc.lat != null ? `Lieu actuel : ${mc.nom} (${mc.lat.toFixed(2)}, ${mc.lon.toFixed(2)})` : 'Aucun lieu : la météo est désactivée.';
@@ -1843,6 +1939,36 @@ function ouvrirReglages(premier){
   $('#dlgSet').showModal();
 }
 $('#btnSettings').onclick = () => ouvrirReglages(false);
+async function remplirAgendasReglages(){
+  try { AG = await cadence.agendasGet(); } catch(e){}
+  const box = $('#sAgList'); box.innerHTML = '';
+  (AG.agendas || []).forEach(a => ajouterLigneAgenda(a));
+  const g = AG.google || {};
+  $('#sGId').value = g.clientId || ''; $('#sGSecret').value = ''; $('#sGSecret').placeholder = g.configure ? '(enregistré, laisser vide pour le garder)' : 'Code secret du client'; $('#sGCal').value = g.calendarId || 'primary';
+  $('#sGState').textContent = g.connecte ? '✓ Connecté : coche « 📆 Envoyer dans Google Agenda » dans une tâche (double-clic).' : g.configure ? 'Identifiants enregistrés : clique sur Connecter.' : 'Crée une application OAuth « ordinateur » dans la console Google Cloud, puis colle son ID et son code secret.';
+}
+function ajouterLigneAgenda(a = {}){
+  const r = document.createElement('div'); r.className = 'ag-row';
+  r.innerHTML = `<input data-k="nom" placeholder="Nom" value="${esc(a.nom || '')}"><input data-k="url" type="password" placeholder="https://calendar.google.com/…/basic.ics" value="${esc(a.url || '')}">`
+    + `<select data-k="couleur">${Object.keys(AG_COUL).map(c => `<option${(a.couleur || 'gris') === c ? ' selected' : ''}>${c}</option>`).join('')}</select><button type="button" title="Retirer">🗑</button>`;
+  r.querySelector('button').onclick = () => r.remove();
+  r.querySelector('[data-k=url]').addEventListener('focus', (e) => e.target.type = 'text');
+  $('#sAgList').appendChild(r);
+}
+$('#sAgAdd').onclick = () => ajouterLigneAgenda();
+async function enregistrerAgendasReglages(){
+  const liste = [...document.querySelectorAll('#sAgList .ag-row')].map(r => ({nom: r.querySelector('[data-k=nom]').value.trim(), url: r.querySelector('[data-k=url]').value.trim(), couleur: r.querySelector('[data-k=couleur]').value}));
+  await cadence.agendasSet(liste);
+  const id = $('#sGId').value.trim();
+  if (id || (AG.google && AG.google.configure)) AG.google = await cadence.googleReglages(id, $('#sGSecret').value.trim(), $('#sGCal').value.trim());
+  chargerAgendas(true);
+}
+$('#sGConnect').onclick = async () => {
+  try { await enregistrerAgendasReglages(); $('#sGState').textContent = 'Une page Google s\'ouvre dans ton navigateur : accepte, puis reviens ici…';
+        AG.google = await cadence.googleConnecter(); remplirAgendasReglages(); toast('📆 Google Agenda connecté.'); syncGoogle(); }
+  catch(e){ alert(messageErreur(e)); remplirAgendasReglages(); }
+};
+$('#sGOff').onclick = async () => { AG.google = await cadence.googleDeconnecter(); remplirAgendasReglages(); };
 $('#sWxFind').onclick = async () => {
   const pick = $('#sWxPick');
   try {
@@ -1878,6 +2004,7 @@ $('#setForm').onsubmit = async (e) => {
   const data = $('#sData').value.trim() || 'Cadence.json';
   try {
     if (data !== CFG.donnees){ await cadence.reglerDonnees(data); await chargerConfig(); const d = await cadence.lireDonnees(); if (d && d.semaine) await chargerDonnees(); }
+    await enregistrerAgendasReglages();
     persist(); $('#dlgSet').close(); render(); if (ongletNotes) chargerNotes(); chargerMeteo();
   } catch(err){ alert(messageErreur(err)); }
 };
@@ -1894,6 +2021,7 @@ async function demarrer(){
   await chargerTaches();
   cadence.suivreNotes(dailyCfg().dossier).catch(() => {});
   chargerMeteo();
+  chargerAgendas(true);
   cadence.surChangementNotes(async () => {
     if (ongletNotes) chargerNotes();
     if (ne && !ne.sale){ try { const r = await cadence.lireNote(ne.dossier, ne.nom); if (r.mtime !== ne.mtime){ ne.mtime = r.mtime; $('#neText').value = r.texte; neApercu(); neEtat('Mise à jour depuis le coffre'); } } catch(e){} }
