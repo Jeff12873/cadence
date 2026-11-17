@@ -17,6 +17,7 @@ const FICHIER_CONFIG = () => path.join(app.getPath('userData'), 'config.json');
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+  { scheme: 'coffre', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ]);
 
 // --- Configuration (chemin du coffre, fichier de données) ---------------------
@@ -366,7 +367,58 @@ ipcMain.handle('suivre-notes', (evenement, relatif) => {
   return true;
 });
 
-ipcMain.handle('lire-note', async (evenement, relatif, nom) => fsp.readFile(fichierNote(relatif, nom), 'utf8'));
+ipcMain.handle('lire-note', async (evenement, relatif, nom) => {
+  const f = fichierNote(relatif, nom);
+  const [texte, info] = await Promise.all([fsp.readFile(f, 'utf8'), fsp.stat(f)]);
+  return { texte, mtime: info.mtimeMs };
+});
+
+ipcMain.handle('ecrire-note', async (evenement, relatif, nom, texte, mtime) => {
+  const f = fichierNote(relatif, nom);
+  try {
+    const info = await fsp.stat(f);
+    if (mtime && Math.abs(info.mtimeMs - mtime) > 1) { const e = new Error('La note a été modifiée ailleurs (Obsidian, synchronisation) : recharge-la avant d\'enregistrer.'); throw e; }
+  } catch (e) { if (e.code !== 'ENOENT') throw e; }
+  await ecrireAtomique(f, String(texte));
+  return (await fsp.stat(f)).mtimeMs;
+});
+
+ipcMain.handle('renommer-note', async (evenement, relatif, nom, nouveau) => {
+  const n = String(nouveau || '').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150);
+  if (!n) throw new Error('Il faut un titre.');
+  const src = fichierNote(relatif, nom), dest = fichierNote(relatif, n);
+  if (n === nom) return { nom: n, liens: 0 };
+  if (fs.existsSync(dest)) throw new Error('Une note porte déjà ce nom.');
+  await fsp.rename(src, dest);
+  return { nom: n, liens: await majLiens(nom, n) };
+});
+
+// Images et pièces jointes du coffre, servies à l'interface par coffre://f/<nom>
+let indexFichiers = null;
+async function trouverFichier(nom) {
+  const cherche = async () => {
+    indexFichiers = new Map();
+    const parcourir = async (d) => {
+      for (const e of await fsp.readdir(d, { withFileTypes: true })) {
+        if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+        const p = path.join(d, e.name);
+        if (e.isDirectory()) await parcourir(p); else if (!indexFichiers.has(e.name)) indexFichiers.set(e.name, p);
+      }
+    };
+    await parcourir(config.coffre);
+  };
+  if (!indexFichiers || !indexFichiers.has(nom)) await cherche();
+  return indexFichiers.get(nom);
+}
+function servirCoffre() {
+  protocol.handle('coffre', async requete => {
+    const nom = path.basename(decodeURIComponent(new URL(requete.url).pathname));
+    if (!config.coffre || !/\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(nom)) return new Response('Interdit', { status: 403 });
+    const f = await trouverFichier(nom);
+    if (!f) return new Response('Introuvable', { status: 404 });
+    return net.fetch(pathToFileURL(f).toString());
+  });
+}
 
 // --- Tâches : supprimer (vers la corbeille du coffre) et renommer (avec mise à jour des liens) ----
 
@@ -403,17 +455,21 @@ ipcMain.handle('renommer-tache', async (evenement, nom, titre, mtime) => {
   nouveau = changerCle(nouveau, champ(tn, 'dateModified'), maintenant());
   await ecrireAtomique(chemin, nouveau);
   await fsp.rename(chemin, dest);
-  // Liens [[ancien]], [[ancien|…]], [[ancien#…]] partout dans le coffre
+  return { liens: await majLiens(ancien, nouveauTitre), nom: nouveauTitre };
+});
+
+// Liens [[ancien]], [[ancien|…]], [[ancien#…]] remplacés partout dans le coffre
+async function majLiens(ancien, nouveau) {
   const echap = ancien.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const re = new RegExp(`\\[\\[${echap}(?=[\\]|#])`, 'g');
   let liens = 0;
   for (const f of await fichiersMd(config.coffre)) {
     let t; try { t = await fsp.readFile(f, 'utf8'); } catch { continue; }
     if (!re.test(t)) continue; re.lastIndex = 0;
-    await ecrireAtomique(f, t.replace(re, `[[${nouveauTitre}`)); liens++;
+    await ecrireAtomique(f, t.replace(re, `[[${nouveau}`)); liens++;
   }
-  return { liens, nom: nouveauTitre };
-});
+  return liens;
+}
 
 ipcMain.handle('ouvrir-lien', (evenement, url) => {
   if (typeof url === 'string' && url.startsWith('obsidian://')) shell.openExternal(url);
@@ -493,6 +549,7 @@ app.setName('Cadence');
 app.whenReady().then(() => {
   chargerConfig();
   servirFichiers();
+  servirCoffre();
   creerFenetre();
   surveiller();
 });

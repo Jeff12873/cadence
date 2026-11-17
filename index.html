@@ -232,6 +232,24 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
 .note button,.note a{border:none;background:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 4px;text-decoration:none}
 .note button:hover,.note a:hover{color:var(--ink)}
 .note.missing{border-style:dashed;cursor:pointer}
+#dlgNote{width:min(1180px,94vw);height:min(880px,90vh);max-width:none;max-height:none;padding:0;display:none;flex-direction:column}
+#dlgNote[open]{display:flex}
+.ne-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.ne-title{flex:1;min-width:0;font-weight:700;font-size:18px;line-height:1.3;font-family:inherit;border:1px solid transparent;border-radius:8px;padding:5px 8px;background:transparent;color:var(--ink)}
+.ne-title:hover,.ne-title:focus{border-color:var(--line);background:var(--paper);outline:none}
+.ne-state{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.ne-mode{display:flex;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:2px}
+.ne-mode button{border:none;background:transparent;border-radius:6px;padding:4px 9px;cursor:pointer;color:var(--muted);font-size:12.5px}
+.ne-mode button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+#dlgNote .nob .obs{width:22px;height:22px}
+#dlgNote .btn{box-shadow:none;padding:4px 10px}
+.ne-body{flex:1;min-height:0;display:grid;grid-template-columns:1fr;gap:0}
+.ne-body.split{grid-template-columns:1fr 1fr}
+.ne-body textarea{width:100%;height:100%;resize:none;border:none;border-right:1px solid var(--line);padding:16px 18px;background:var(--card);color:var(--ink);font:14px/1.6 ui-monospace,"JetBrains Mono",monospace;outline:none}
+.ne-prev{overflow:auto;padding:14px 22px;background:var(--paper)}
+.ne-body.edit .ne-prev{display:none}
+.ne-body.view textarea{display:none}
+.md img{max-width:100%;border-radius:8px;margin:.4em 0;display:block}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -329,6 +347,24 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
       <button type="submit" class="btn on">Créer</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="dlgNote">
+  <div class="ne-head">
+    <input type="text" id="neTitle" class="ne-title" autocomplete="off" title="Titre de la note (Entrée pour renommer)">
+    <span class="ne-state" id="neState"></span>
+    <div class="ne-mode" role="tablist">
+      <button type="button" id="neEdit" class="on">Éditer</button>
+      <button type="button" id="neSplit">Les deux</button>
+      <button type="button" id="neView">Aperçu</button>
+    </div>
+    <a class="nob" id="neObs" title="Ouvrir dans Obsidian"></a>
+    <button type="button" class="btn" id="neClose" title="Fermer (Échap)">✕</button>
+  </div>
+  <div class="ne-body split" id="neBody">
+    <textarea id="neText" spellcheck="true"></textarea>
+    <div class="md ne-prev" id="nePrev"></div>
+  </div>
 </dialog>
 
 <dialog id="dlgLink">
@@ -1252,7 +1288,7 @@ function renderNotes(){
 let noteOuverte = null;
 function mdInline(t){
   return esc(t)
-    .replace(/!\[\[([^\]]+)\]\]/g, (m, x) => `<span class="img">🖼 ${x.split('|')[0]}</span>`)
+    .replace(/!\[\[([^\]]+)\]\]/g, (m, x) => { const [f, w] = x.split('|'); return BUREAU && /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(f) ? `<img src="coffre://f/${encodeURIComponent(f.trim())}" alt="${f}"${/^\d+$/.test(w || '') ? ` style="width:${w}px"` : ''}>` : `<span class="img">🖼 ${f}</span>`; })
     .replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, (m, cible, alias) => `<a class="wl" data-n="${cible.trim()}">${alias || cible}</a>`)
     .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a class="wl" data-u="$2">$1</a>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
@@ -1284,7 +1320,64 @@ function mdRender(src){
   fermerListe(); fermerCo();
   return out.join('');
 }
-async function lireNote(nom){
+let ne = null;   // note ouverte dans le cadre : {nom, mtime, sale, minuteur}
+const neUrl = (nom) => { const d = dailyCfg().dossier; return `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent((d ? d.replace(/\/?$/, '/') : '') + nom)}`; };
+function neEtat(t){ $('#neState').textContent = t; }
+function neApercu(){
+  const prev = $('#nePrev'); prev.innerHTML = mdRender($('#neText').value) || '<p><em>Note vide.</em></p>';
+  prev.querySelectorAll('a.wl').forEach(a => a.onclick = (e) => {
+    e.preventDefault();
+    if (a.dataset.u){ window.location.href = a.dataset.u; return; }
+    const n = a.dataset.n, t = tasks && tasks.items.find(x => x.file === n);
+    if (t){ fermerNote(); basculer(false); filter = ''; expanded.add(t.file); renderTasks();
+      const el = [...document.querySelectorAll('#taskList .task')].find(x => x.querySelector('.tl') && x.querySelector('.tl').textContent === t.title);
+      if (el){ el.scrollIntoView({block: 'center', behavior: 'smooth'}); el.animate([{outline: '2px solid #8B5CF6'}, {outline: '2px solid transparent'}], {duration: 1600}); }
+      return; }
+    if (notes.some(x => x.name === n)){ ouvrirNote(n); return; }
+    window.location.href = `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent(n)}`;
+  });
+}
+async function ouvrirNote(nom){
+  if (ne && ne.sale) await enregistrerNote();
+  let r;
+  try { r = await cadence.lireNote(dailyCfg().dossier, nom); } catch(e){ alert(messageErreur(e)); return; }
+  ne = {nom, mtime: r.mtime, sale: false, minuteur: null};
+  $('#neTitle').value = nom; $('#neText').value = r.texte; $('#neObs').innerHTML = OBS; $('#neObs').href = neUrl(nom);
+  neEtat('Enregistré'); neApercu();
+  if (!$('#dlgNote').open) $('#dlgNote').showModal();
+  $('#neText').focus();
+}
+async function enregistrerNote(){
+  if (!ne || !ne.sale) return;
+  clearTimeout(ne.minuteur);
+  try { ne.mtime = await cadence.ecrireNote(dailyCfg().dossier, ne.nom, $('#neText').value, ne.mtime); ne.sale = false; neEtat('Enregistré ✓'); }
+  catch(e){ neEtat('Non enregistré'); alert(messageErreur(e)); }
+}
+async function fermerNote(){ await enregistrerNote(); $('#dlgNote').close(); ne = null; chargerNotes(); }
+$('#neText').addEventListener('input', () => {
+  if (!ne) return; ne.sale = true; neEtat('Modifications…'); neApercu();
+  clearTimeout(ne.minuteur); ne.minuteur = setTimeout(enregistrerNote, 1200);
+});
+$('#neText').addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 's'){ e.preventDefault(); enregistrerNote(); } });
+async function renommerNote(){
+  if (!ne) return;
+  const v = $('#neTitle').value.trim();
+  if (!v || v === ne.nom){ $('#neTitle').value = ne.nom; return; }
+  await enregistrerNote();
+  try { const r = await cadence.renommerNote(dailyCfg().dossier, ne.nom, v); ne.nom = r.nom; $('#neTitle').value = r.nom; $('#neObs').href = neUrl(r.nom);
+        toast(`✏️ Note renommée en « ${r.nom} »${r.liens ? ` · liens mis à jour dans ${r.liens} note${r.liens > 1 ? 's' : ''}` : ''}.`); await chargerTaches(); }
+  catch(e){ alert(messageErreur(e)); $('#neTitle').value = ne.nom; }
+  chargerNotes();
+}
+$('#neTitle').addEventListener('keydown', (e) => { if (e.key === 'Enter'){ e.preventDefault(); $('#neText').focus(); } if (e.key === 'Escape'){ e.stopPropagation(); $('#neTitle').value = ne ? ne.nom : ''; } });
+$('#neTitle').addEventListener('blur', renommerNote);
+const neMode = (m) => { $('#neBody').className = 'ne-body ' + m; ['neEdit', 'neSplit', 'neView'].forEach(id => $('#' + id).classList.toggle('on', ({edit: 'neEdit', split: 'neSplit', view: 'neView'})[m] === id)); store.set('cadence-note-mode', m); };
+$('#neEdit').onclick = () => neMode('edit'); $('#neSplit').onclick = () => neMode('split'); $('#neView').onclick = () => neMode('view');
+neMode(store.get('cadence-note-mode') || 'split');
+$('#neClose').onclick = fermerNote;
+$('#dlgNote').addEventListener('cancel', (e) => { e.preventDefault(); fermerNote(); });
+async function lireNote(nom){ return ouvrirNote(nom); }
+async function lireNoteAncien(nom){
   noteOuverte = nom;
   const dossier = dailyCfg().dossier;
   let texte = '';
@@ -1441,7 +1534,10 @@ async function demarrer(){
   render();
   await chargerTaches();
   cadence.suivreNotes(dailyCfg().dossier).catch(() => {});
-  cadence.surChangementNotes(() => { if (ongletNotes){ chargerNotes(); if (noteOuverte) lireNote(noteOuverte); } });
+  cadence.surChangementNotes(async () => {
+    if (ongletNotes) chargerNotes();
+    if (ne && !ne.sale){ try { const r = await cadence.lireNote(dailyCfg().dossier, ne.nom); if (r.mtime !== ne.mtime){ ne.mtime = r.mtime; $('#neText').value = r.texte; neApercu(); neEtat('Mise à jour depuis le coffre'); } } catch(e){} }
+  });
   cadence.surChangementTaches(chargerTaches);
   cadence.surChangementDonnees(async () => { await chargerDonnees(); render(); });
 }

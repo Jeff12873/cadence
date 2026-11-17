@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('cadence', {
   suivreNotes: (dossier) => ipcRenderer.invoke('suivre-notes', dossier),
   surChangementNotes: (fn) => ipcRenderer.on('notes-changees', () => fn()),
   lireNote: (dossier, nom) => ipcRenderer.invoke('lire-note', dossier, nom),
+  ecrireNote: (dossier, nom, texte, mtime) => ipcRenderer.invoke('ecrire-note', dossier, nom, texte, mtime),
+  renommerNote: (dossier, nom, nouveau) => ipcRenderer.invoke('renommer-note', dossier, nom, nouveau),
   supprimerTache: (nom, mtime) => ipcRenderer.invoke('supprimer-tache', nom, mtime),
   renommerTache: (nom, titre, mtime) => ipcRenderer.invoke('renommer-tache', nom, titre, mtime),
   ouvrirLien: (url) => ipcRenderer.invoke('ouvrir-lien', url),
