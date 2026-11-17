@@ -572,7 +572,7 @@ ipcMain.handle('meteo-lieu', async (evenement, nom) => {
 });
 
 // --- Agendas externes (lecture iCal) et Google Agenda (envoi) ---------------------------------
-const etatGoogle = () => { const g = config.google || {}; return { configure: !!(g.clientId && g.clientSecret), connecte: !!g.refreshToken, clientId: g.clientId || '', calendarId: g.calendarId || 'primary' }; };
+const etatGoogle = () => { const g = config.google || {}; const sim = process.env.CADENCE_FAUX_GOOGLE === '1'; return { configure: !!(g.clientId && g.clientSecret) || sim, connecte: !!g.refreshToken || sim, simule: sim, clientId: g.clientId || '', calendarId: g.calendarId || 'primary' }; };
 ipcMain.handle('agendas-get', () => ({ agendas: (config.agendas || []).map(a => ({ nom: a.nom, couleur: a.couleur || '', url: a.url })), google: etatGoogle() }));
 ipcMain.handle('agendas-set', async (evenement, liste) => {
   config.agendas = (Array.isArray(liste) ? liste : []).filter(a => a && /^https:\/\//.test(String(a.url || '').trim()))
@@ -608,6 +608,37 @@ ipcMain.handle('google-retirer', async (evenement, nom, id) => {
   return true;
 });
 ipcMain.handle('google-empreintes', () => config.googleSync || {});
+// Rendez-vous de l'agenda Google connecté (modifiables). CADENCE_FAUX_GOOGLE=1 : agenda simulé pour les tests.
+const fuseau = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+let faux = null;
+function fauxGoogle() {
+  if (faux) return faux;
+  const j = new Date(); j.setHours(0, 0, 0, 0); const lundi = new Date(j); lundi.setDate(j.getDate() - ((j.getDay() + 6) % 7) + (((j.getDay() + 6) % 7) >= 5 ? 7 : 0));
+  const at = (d, h, m = 0) => { const x = new Date(lundi); x.setDate(x.getDate() + d); x.setHours(h, m, 0, 0); return x.toISOString(); };
+  faux = [
+    { id: 'f1', uid: 'f1', titre: 'RDV conseillère bilan', lieu: 'Troyes', description: '', debut: at(2, 10), fin: at(2, 11, 30), allDay: false, recurrent: false, modifiable: true },
+    { id: 'f2', uid: 'f2', titre: 'Dentiste', lieu: '', description: '', debut: at(3, 16), fin: at(3, 17), allDay: false, recurrent: false, modifiable: true },
+  ];
+  return faux;
+}
+const simule = () => process.env.CADENCE_FAUX_GOOGLE === '1';
+ipcMain.handle('google-lire', async (evenement, de, a) => {
+  if (simule()) return fauxGoogle().filter(x => x.fin > de && x.debut < a);
+  if (!config.google || !config.google.refreshToken) return [];
+  return agendas.lireGoogle(config.google, de, a);
+});
+ipcMain.handle('google-modifier', async (evenement, id, c) => {
+  if (simule()) { const x = fauxGoogle().find(y => y.id === id); Object.assign(x, Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined))); return x; }
+  return agendas.modifierRdv(config.google, id, { ...c, fuseau: fuseau() });
+});
+ipcMain.handle('google-creer', async (evenement, c) => {
+  if (simule()) { const x = { id: 'f' + Date.now(), uid: '', description: '', lieu: '', recurrent: false, modifiable: true, ...c }; fauxGoogle().push(x); return x; }
+  return agendas.creerRdv(config.google, { ...c, fuseau: fuseau() });
+});
+ipcMain.handle('google-supprimer', async (evenement, id) => {
+  if (simule()) { faux = fauxGoogle().filter(y => y.id !== id); return true; }
+  await agendas.supprimerRdv(config.google, id); return true;
+});
 
 ipcMain.handle('ouvrir-lien', (evenement, url) => {
   if (typeof url === 'string' && url.startsWith('obsidian://')) shell.openExternal(url);

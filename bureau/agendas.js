@@ -88,7 +88,7 @@ function analyserIcs(texte, de, a) {
     for (const d of debuts) {
       const f = new Date(+d + dureeMs);
       if (f <= de || d >= a) continue;
-      out.push({ titre: e.titre || '(sans titre)', lieu: e.lieu || '', debut: d.toISOString(), fin: f.toISOString(), allDay: e.debut.allDay });
+      out.push({ titre: e.titre || '(sans titre)', lieu: e.lieu || '', debut: d.toISOString(), fin: f.toISOString(), allDay: e.debut.allDay, uid: e.uid || '' });
     }
   }
   return out;
@@ -194,4 +194,41 @@ async function supprimerEvenement(g, id) {
   if (!r.ok && r.status !== 404 && r.status !== 410) throw new Error(`Google : suppression impossible (${r.status}).`);
 }
 
-module.exports = { lireAgendas, analyserIcs, connecterGoogle, envoyerEvenement, supprimerEvenement };
+// --- Rendez-vous Google (agenda connecté) : lecture et modification -------------------------
+const calUrl = (g) => `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(g.calendarId || 'primary')}`;
+async function appelGoogle(g, url, options = {}) {
+  const tok = await acces(g);
+  const r = await net.fetch(url, { ...options, headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json', ...(options.headers || {}) } });
+  if (r.status === 204) return null;
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`Google : ${(d.error && d.error.message) || r.status}`);
+  return d;
+}
+const versCadence = (x) => ({
+  id: x.id, uid: x.iCalUID || '', titre: x.summary || '(sans titre)', lieu: x.location || '', description: x.description || '',
+  debut: x.start.dateTime || x.start.date, fin: x.end.dateTime || x.end.date, allDay: !x.start.dateTime,
+  recurrent: !!x.recurringEventId, lien: x.htmlLink || '', modifiable: true,
+});
+async function lireGoogle(g, de, a) {
+  const out = []; let page = '';
+  do {
+    const d = await appelGoogle(g, `${calUrl(g)}/events?` + new URLSearchParams({ timeMin: de, timeMax: a, singleEvents: 'true', orderBy: 'startTime', maxResults: '250', ...(page ? { pageToken: page } : {}) }));
+    (d.items || []).filter(x => x.status !== 'cancelled' && !(x.extendedProperties && x.extendedProperties.private && x.extendedProperties.private.cadence)).forEach(x => out.push(versCadence(x)));
+    page = d.nextPageToken || '';
+  } while (page);
+  return out;
+}
+const corpsRdv = (c) => {
+  const o = {};
+  if (c.titre !== undefined) o.summary = c.titre;
+  if (c.lieu !== undefined) o.location = c.lieu;
+  if (c.description !== undefined) o.description = c.description;
+  if (c.debut) o.start = c.allDay ? { date: c.debut.slice(0, 10) } : { dateTime: c.debut, timeZone: c.fuseau };
+  if (c.fin) o.end = c.allDay ? { date: c.fin.slice(0, 10) } : { dateTime: c.fin, timeZone: c.fuseau };
+  return o;
+};
+const modifierRdv = async (g, id, c) => versCadence(await appelGoogle(g, `${calUrl(g)}/events/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(corpsRdv(c)) }));
+const creerRdv = async (g, c) => versCadence(await appelGoogle(g, `${calUrl(g)}/events`, { method: 'POST', body: JSON.stringify(corpsRdv(c)) }));
+const supprimerRdv = (g, id) => supprimerEvenement(g, id);
+
+module.exports = { lireGoogle, modifierRdv, creerRdv, supprimerRdv, lireAgendas, analyserIcs, connecterGoogle, envoyerEvenement, supprimerEvenement };

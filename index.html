@@ -290,6 +290,22 @@ label.chk{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:13p
   border-left:3px solid var(--agc,#64748B);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .ext .eb b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dayhead .agchip{display:block;margin-top:3px;font-size:10px;font-weight:600;letter-spacing:0;background:rgba(255,255,255,.18);border-radius:6px;padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ext{cursor:pointer}
+.ext.mod{cursor:grab}
+.ext.lifted{opacity:.35}
+.ext.cible .eb,.ext.choisi .eb{box-shadow:0 0 0 2px var(--accent)}
+.ext .rz2{position:absolute;left:0;right:0;bottom:-3px;height:8px;cursor:ns-resize;z-index:4}
+.ext .etrash{position:absolute;right:3px;bottom:3px;border:none;border-radius:5px;background:color-mix(in srgb, var(--card) 85%, transparent);font-size:11px;line-height:1;padding:2px 3px;cursor:pointer;opacity:0;z-index:5}
+.ext:hover .etrash{opacity:.85}
+.ext .etrash:hover{background:#E5484D;opacity:1}
+.dayhead .agchip{cursor:pointer}
+.plus-menu{position:absolute;z-index:18;transform:translate(-50%,-50%);display:flex;flex-direction:column;gap:3px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:5px;box-shadow:0 6px 24px rgba(0,0,0,.2)}
+.plus-menu button{border:none;background:transparent;text-align:left;padding:5px 9px;border-radius:7px;cursor:pointer;font:inherit;font-size:12.5px;color:var(--ink);white-space:nowrap}
+.plus-menu button:hover{background:var(--paper)}
+.rv-l{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:7px;padding:4px 8px;margin-bottom:4px;font-size:13px}
+.rv-l a{color:#7C5CE0;text-decoration:none;font-weight:600}
+.rv-l button,.group .note button{border:none;background:none;cursor:pointer;color:var(--muted)}
+dialog input[type=date]{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--paper);color:inherit;font:inherit}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -448,6 +464,28 @@ label.chk{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:13p
   </form>
 </dialog>
 
+<dialog id="dlgRdv">
+  <form method="dialog" id="rvForm">
+    <h3 id="rvHead">Rendez-vous</h3>
+    <label for="rvTitle">Titre</label><input type="text" id="rvTitle" autocomplete="off">
+    <label for="rvLieu">Lieu</label><input type="text" id="rvLieu" autocomplete="off">
+    <div class="hrow" style="grid-template-columns:1.3fr 1fr 1fr">
+      <div><label for="rvDate">Jour</label><input type="date" id="rvDate"></div>
+      <div><label for="rvStart">Début</label><input type="time" id="rvStart" step="900"></div>
+      <div><label for="rvEnd">Fin</label><input type="time" id="rvEnd" step="900"></div>
+    </div>
+    <label for="rvDesc">Description</label><textarea id="rvDesc" rows="3"></textarea>
+    <label>Tâches et notes rattachées</label>
+    <div id="rvLiens"></div>
+    <div class="actions">
+      <button type="button" class="btn danger" id="rvDel">Supprimer</button>
+      <a class="btn" id="rvLink" target="_blank" href="#">Ouvrir dans Google</a>
+      <button type="button" class="btn" id="rvCancel">Fermer</button>
+      <button type="submit" class="btn on" id="rvOk">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlgLink">
   <form method="dialog" id="linkForm">
     <h3 id="linkTitle">Associer la note à une tâche</h3>
@@ -586,7 +624,7 @@ const store = {
 };
 let state = (() => { try { const s = JSON.parse(store.get(KEY)); if (s && (Array.isArray(s.events) || Array.isArray(s.rows))) return s; } catch(e){} return clone(DEFAULT); })();
 let tasks = BUREAU ? null : (() => { try { const t = JSON.parse(store.get(TKEY)); if (t && Array.isArray(t.items)) return t; } catch(e){} return null; })();
-let filter = '', dragFile = null, dragSub = null;
+let filter = '', dragFile = null, dragSub = null, dragNote = null;
 const HKEY = 'semaine-type-hide-v1';
 let hide = (() => { try { return Object.assign({placed:false, blocked:false, later:true, dated:false}, JSON.parse(store.get(HKEY)) || {}); } catch(e){ return {placed:false, blocked:false, later:true, dated:false}; } })();
 const LATER_DAYS = 30;
@@ -1127,7 +1165,7 @@ function installerAgenda(evs){
 
   // --- « + » qui apparaît après 3 s de survol entre deux créneaux (ou dans un espace libre) ---
   let tSurvol = null, ptSurvol = null;
-  const cachePlus = () => { clearTimeout(tSurvol); evs.querySelectorAll('.plus,.hovering-hint').forEach(x => x.remove()); };
+  const cachePlus = () => { clearTimeout(tSurvol); evs.querySelectorAll('.plus,.hovering-hint,.plus-menu').forEach(x => x.remove()); };
   const pointLibre = (p) => {
     const day = dayEvents(p.d);
     for (const e of day){                                  // près d'un bord de bloc : on s'y aligne
@@ -1138,7 +1176,7 @@ function installerAgenda(evs){
   };
   evs.parentElement.onpointermove = (ev) => {
     if (document.body.classList.contains('dragging-ev') || ev.buttons) return;
-    if (ev.target.closest('.plus')) return;
+    if (ev.target.closest('.plus') || ev.target.closest('.plus-menu')) return;
     const p = posAgenda(evs, ev.clientX, ev.clientY);
     if (!p.inside){ cachePlus(); return; }
     if (ptSurvol && Math.hypot(ev.clientX - ptSurvol.x, ev.clientY - ptSurvol.y) < 6) return;
@@ -1147,7 +1185,13 @@ function installerAgenda(evs){
     tSurvol = setTimeout(() => {
       const b = document.createElement('button'); b.className = 'plus'; b.textContent = '+'; b.title = `Nouveau créneau ${DAYS[p.d]} à ${fmtMin(m)}`;
       b.style.left = `calc(${colX(p.d)} + ${p.cw / 2}px)`; b.style.top = mins2y(m);
-      b.onclick = (e) => { e.stopPropagation(); cachePlus(); ouvrirCreneau(p.d, m, '', true); };
+      b.onclick = (e) => { e.stopPropagation();
+        if (!(AG.google && AG.google.connecte)){ cachePlus(); ouvrirCreneau(p.d, m, '', true); return; }
+        const menu = document.createElement('div'); menu.className = 'plus-menu'; menu.style.left = b.style.left; menu.style.top = b.style.top;
+        menu.innerHTML = '<button type="button" data-k="c">＋ Bloc Cadence</button><button type="button" data-k="g">📆 Rendez-vous Google</button>';
+        menu.onclick = (ev2) => { const k = ev2.target.dataset.k; if (!k) return; ev2.stopPropagation(); cachePlus(); menu.remove(); if (k === 'c') ouvrirCreneau(p.d, m, '', true); else creerRdvGoogle(p.d, m); };
+        b.remove(); evs.appendChild(menu);
+      };
       const hint = document.createElement('div'); hint.className = 'hovering-hint'; hint.style.left = colX(p.d); hint.style.width = colW(1); hint.style.top = mins2y(m);
       evs.append(hint, b);
     }, 3000);
@@ -1230,14 +1274,22 @@ const AG_COUL = {gris: '#64748B', bleu: '#2563EB', vert: '#16A34A', violet: '#7C
 async function chargerAgendas(force){
   if (!BUREAU) return;
   try { AG = await cadence.agendasGet(); } catch(e){ return; }
-  if (!AG.agendas.length){ extEv = []; return; }
+  const googleOn = AG.google && AG.google.connecte;
+  if (!AG.agendas.length && !googleOn){ extEv = []; renderCal(); return; }
   const de = new Date(weekDays[0]); de.setHours(0, 0, 0, 0); const a = new Date(de); a.setDate(a.getDate() + 7);
   const cle = isoOf(de);
   if (!force && cle === extSemaine && extEv.length) return;
-  try { extEv = await cadence.agendasLire(de.toISOString(), a.toISOString()); extSemaine = cle; } catch(e){ extEv = []; }
+  let ics = [], gg = [];
+  try { ics = AG.agendas.length ? await cadence.agendasLire(de.toISOString(), a.toISOString()) : []; } catch(e){ ics = []; }
+  if (googleOn){ try { gg = (await cadence.googleLire(de.toISOString(), a.toISOString())).map(x => ({...x, agenda: 'Google', couleur: 'bleu', cle: 'g:' + x.id})); } catch(e){ toast('📆 ' + messageErreur(e)); } }
+  const uids = new Set(gg.map(x => x.uid).filter(Boolean));
+  ics = ics.filter(x => x.erreur || !uids.has(x.uid)).map(x => ({...x, modifiable: false, cle: 'i:' + (x.uid || x.titre) + '@' + x.debut}));
+  extEv = gg.concat(ics); extSemaine = cle;
   const err = extEv.filter(x => x.erreur); if (err.length) console.warn('agendas', err.map(x => x.erreur).join(' ; '));
   renderCal();
 }
+const liensRdv = (k) => ((state.liensRdv || {})[k]) || {taches: [], notes: []};
+const nbLiens = (k) => { const l = liensRdv(k); return (l.taches || []).length + (l.notes || []).length; };
 function dessinerAgendas(evs){
   if (!extEv.length) return;
   const heads = document.querySelectorAll('#cal .dayhead');
@@ -1246,19 +1298,159 @@ function dessinerAgendas(evs){
     for (let d = 0; d < 7; d++){
       const j0 = new Date(weekDays[d]); j0.setHours(0, 0, 0, 0); const j1 = new Date(j0); j1.setDate(j1.getDate() + 1);
       if (d1 <= j0 || d0 >= j1) continue;
-      if (x.allDay){ const c = document.createElement('span'); c.className = 'agchip'; c.textContent = '📆 ' + x.titre; c.title = `${x.agenda} · journée entière`; if (heads[d]) heads[d].appendChild(c); continue; }
+      if (x.allDay){ const c = document.createElement('span'); c.className = 'agchip'; c.textContent = '📆 ' + x.titre + (nbLiens(x.cle) ? ` · 📎${nbLiens(x.cle)}` : ''); c.title = `${x.agenda} · journée entière`;
+        c.onclick = () => filtrerRdv(x); c.ondblclick = () => ouvrirRdv(x); if (heads[d]) heads[d].appendChild(c); continue; }
       const m0 = Math.max(RS, d0 < j0 ? 0 : d0.getHours() * 60 + d0.getMinutes()), m1 = Math.min(RE, d1 >= j1 ? 24 * 60 : d1.getHours() * 60 + d1.getMinutes());
       if (m1 <= m0) continue;
-      const el = document.createElement('div'); el.className = 'ext';
+      const el = document.createElement('div'); el.className = 'ext' + (x.modifiable ? ' mod' : '');
       el.style.top = yOf(m0) + 'px'; el.style.height = Math.max(16, (m1 - m0) / 60 * PXH) + 'px';
       el.style.left = `calc((100% - 24px) / 7 * ${d + 0.5} + ${4 * d}px)`; el.style.width = `calc((100% - 24px) / 7 * 0.5)`;
       el.style.setProperty('--agc', coul);
-      el.innerHTML = `<div class="eb"><b>${esc(x.titre)}</b>${fmtMin(m0)} – ${fmtMin(m1)}</div>`;
-      el.title = `📆 ${x.agenda} : ${x.titre}\n${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? '\n📍 ' + x.lieu : ''}`;
+      const n = nbLiens(x.cle);
+      el.innerHTML = `<div class="eb"><b>${esc(x.titre)}</b>${fmtMin(m0)} – ${fmtMin(m1)}${n ? ` · 📎${n}` : ''}</div>` + (x.modifiable ? '<div class="rz2"></div><button type="button" class="etrash" title="Supprimer le rendez-vous">🗑</button>' : '');
+      el.title = `📆 ${x.agenda} : ${x.titre}\n${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? '\n📍 ' + x.lieu : ''}\nClic : tâches et notes liées · double-clic : ${x.modifiable ? 'modifier' : 'détails'}${x.modifiable ? ' · glisser : déplacer' : ''}`;
+      if (state.choixRdv === x.cle) el.classList.add('choisi');
+      installerRdv(el, x, d, evs);
       evs.appendChild(el);
     }
   });
 }
+const dtLocal = (jour, min) => { const p = (v) => String(v).padStart(2, '0'); const d = new Date(jour); d.setHours(0, 0, 0, 0); d.setMinutes(min); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`; };
+function installerRdv(el, x, d, evs){
+  el.addEventListener('click', (ev) => { if (ev.target.closest('.etrash') || document.body.classList.contains('dragging-ev')) return; filtrerRdv(x); });
+  el.addEventListener('dblclick', (ev) => { ev.stopPropagation(); ouvrirRdv(x); });
+  // tâche ou note glissée sur le rendez-vous : on l'y rattache
+  el.addEventListener('dragover', (ev) => { if (dragFile || dragNote){ ev.preventDefault(); ev.stopPropagation(); ev.dataTransfer.dropEffect = dragNote ? 'copy' : 'move'; el.classList.add('cible'); clearGhost(evs); } });
+  el.addEventListener('dragleave', () => el.classList.remove('cible'));
+  el.addEventListener('drop', (ev) => { if (!dragFile && !dragNote) return; ev.preventDefault(); ev.stopPropagation(); el.classList.remove('cible');
+    const f = dragFile, nt = dragNote; dragFile = null; dragNote = null; document.body.classList.remove('dragging-task'); lierAuRdv(x, f ? {tache: f} : {note: nt}); });
+  if (!x.modifiable) return;
+  el.querySelector('.etrash').addEventListener('click', async (ev) => { ev.stopPropagation();
+    if (!confirm(`Supprimer le rendez-vous « ${x.titre} » de ton agenda Google ?`)) return;
+    try { await cadence.googleSupprimer(x.id); if (state.liensRdv) { delete state.liensRdv[x.cle]; save(); } toast(`🗑 « ${x.titre} » supprimé de Google Agenda.`); } catch(e){ alert(messageErreur(e)); }
+    chargerAgendas(true); });
+  const debut0 = new Date(x.debut), dur = Math.round((new Date(x.fin) - debut0) / 60000);
+  // étirer la fin (par 15 min)
+  el.querySelector('.rz2').addEventListener('pointerdown', (ev) => {
+    ev.preventDefault(); ev.stopPropagation();
+    const m0 = debut0.getHours() * 60 + debut0.getMinutes(); let fin = m0 + dur;
+    try { ev.target.setPointerCapture(ev.pointerId); } catch(_){}
+    const tip = document.createElement('div'); tip.className = 'tip'; evs.appendChild(tip);
+    const move = (mv) => { const p = posAgenda(evs, mv.clientX, mv.clientY); fin = Math.max(m0 + SNAP, Math.min(24 * 60, snap(p.m)));
+      el.style.height = ((fin - m0) / 60 * PXH) + 'px'; tip.style.left = p.px + 'px'; tip.style.top = mins2y(fin); tip.textContent = `jusqu'à ${fmtMin(fin)}`; };
+    const up = async () => { ev.target.removeEventListener('pointermove', move); ev.target.removeEventListener('pointerup', up); tip.remove();
+      if (fin !== m0 + dur){ try { await cadence.googleModifier(x.id, {debut: dtLocal(debut0, m0), fin: dtLocal(debut0, fin), allDay: false}); } catch(e){ alert(messageErreur(e)); } }
+      chargerAgendas(true); };
+    ev.target.addEventListener('pointermove', move); ev.target.addEventListener('pointerup', up);
+  });
+  // déplacer (jour et heure, par 15 min)
+  el.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0 || ev.target.closest('.rz2') || ev.target.closest('button')) return;
+    const x0 = ev.clientX, y0 = ev.clientY, p0 = posAgenda(evs, x0, y0), m0 = debut0.getHours() * 60 + debut0.getMinutes(), decal = p0.m - m0;
+    let leve = false, cible = null;
+    const move = (mv) => {
+      if (!leve){ if (Math.hypot(mv.clientX - x0, mv.clientY - y0) < 5) return; leve = true; el.classList.add('lifted'); document.body.classList.add('dragging-ev'); }
+      const p = posAgenda(evs, mv.clientX, mv.clientY); const start = Math.max(0, Math.min(24 * 60 - dur, snap(p.m - decal)));
+      cible = {d: p.d, start}; ghost(evs, p.d, start, start + dur, 1, false, x.titre);
+    };
+    const fin = async () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', fin);
+      el.classList.remove('lifted'); setTimeout(() => document.body.classList.remove('dragging-ev'), 0); clearGhost(evs);
+      if (!leve || !cible) return;
+      const jour = weekDays[cible.d];
+      try { await cadence.googleModifier(x.id, {debut: dtLocal(jour, cible.start), fin: dtLocal(jour, cible.start + dur), allDay: false}); toast(`📆 « ${x.titre} » déplacé à ${DAYS[cible.d]} ${fmtMin(cible.start)}.`); }
+      catch(e){ alert(messageErreur(e)); }
+      chargerAgendas(true);
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', fin);
+  });
+}
+
+/* liens rendez-vous ↔ tâches / notes (rangés dans le coffre, rappelés dans la description Google) */
+async function lierAuRdv(x, quoi){
+  state.liensRdv = state.liensRdv || {};
+  const l = state.liensRdv[x.cle] = state.liensRdv[x.cle] || {taches: [], notes: [], titre: x.titre};
+  l.titre = x.titre;
+  if (quoi.tache && !l.taches.includes(quoi.tache)) l.taches.push(quoi.tache);
+  if (quoi.note && !l.notes.some(n => n.nom === quoi.note.nom)) l.notes.push(quoi.note);
+  save(); await majDescriptionRdv(x);
+  toast(`📎 ${quoi.tache ? 'Tâche' : 'Note'} rattachée à « ${x.titre} ».`);
+  filtrerRdv(x); renderCal();
+}
+async function delierDuRdv(x, quoi){
+  const l = liensRdv(x.cle);
+  if (quoi.tache) l.taches = l.taches.filter(f => f !== quoi.tache);
+  if (quoi.note) l.notes = l.notes.filter(n => n.nom !== quoi.note);
+  save(); await majDescriptionRdv(x); renderCal(); renderTasks();
+}
+const MARQ = '— Cadence —', MARQF = '— fin Cadence —';
+async function majDescriptionRdv(x){
+  if (!x.modifiable) return;
+  const l = liensRdv(x.cle), titreT = (f) => { const t = tasks && tasks.items.find(y => y.file === f); return t ? t.title : f; };
+  let base = (x.description || '').replace(new RegExp(`\\n*${MARQ}[\\s\\S]*?${MARQF}`), '').trimEnd();
+  const lignes = [];
+  if (l.taches.length) lignes.push('Tâches : ' + l.taches.map(titreT).join(' · '));
+  if (l.notes.length) lignes.push('Notes : ' + l.notes.map(n => n.nom).join(' · '));
+  const desc = lignes.length ? (base ? base + '\n\n' : '') + `${MARQ}\n${lignes.join('\n')}\n${MARQF}` : base;
+  if (desc === (x.description || '')) return;
+  try { const r = await cadence.googleModifier(x.id, {description: desc}); x.description = r.description || desc; } catch(e){ toast('📆 ' + messageErreur(e)); }
+}
+function filtrerRdv(x){
+  state.choixRdv = x.cle; rdvChoisi = x;
+  filter = '@ev:' + x.cle; if (ongletNotes) basculer(false); renderTasks(); renderCal();
+  $('#tasks').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
+let rdvChoisi = null;
+
+/* fenêtre d'un rendez-vous */
+let rdvEdite = null;
+function ouvrirRdv(x){
+  rdvEdite = x;
+  const d0 = new Date(x.debut), d1 = new Date(x.fin), hm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  $('#rvHead').textContent = x.modifiable ? 'Rendez-vous Google' : `Rendez-vous · ${x.agenda} (lecture seule)`;
+  $('#rvTitle').value = x.titre; $('#rvLieu').value = x.lieu || ''; $('#rvDesc').value = (x.description || '').replace(new RegExp(`\\n*${MARQ}[\\s\\S]*?${MARQF}`), '').trimEnd();
+  $('#rvDate').value = isoOf(d0); $('#rvStart').value = x.allDay ? '' : hm(d0); $('#rvEnd').value = x.allDay ? '' : hm(d1);
+  ['#rvTitle', '#rvLieu', '#rvDesc', '#rvDate', '#rvStart', '#rvEnd'].forEach(id => $(id).disabled = !x.modifiable);
+  $('#rvDel').classList.toggle('hidden', !x.modifiable); $('#rvOk').classList.toggle('hidden', !x.modifiable);
+  $('#rvLink').classList.toggle('hidden', !x.lien); if (x.lien) $('#rvLink').href = x.lien;
+  dessinerLiensRdv();
+  $('#dlgRdv').showModal();
+}
+function dessinerLiensRdv(){
+  const x = rdvEdite, l = liensRdv(x.cle), box = $('#rvLiens'); box.innerHTML = '';
+  if (!l.taches.length && !l.notes.length){ box.innerHTML = '<div class="set-hint">Glisse une tâche (panneau Mes tâches) ou une note (onglet Notes) sur le rendez-vous pour l\'y rattacher.</div>'; return; }
+  l.taches.forEach(f => { const t = tasks && tasks.items.find(y => y.file === f); const r = document.createElement('div'); r.className = 'rv-l';
+    r.innerHTML = `<span>☐ ${esc(t ? t.title : f)}</span><button type="button" title="Détacher">✕</button>`; r.querySelector('button').onclick = async () => { await delierDuRdv(x, {tache: f}); dessinerLiensRdv(); }; box.appendChild(r); });
+  l.notes.forEach(n => { const r = document.createElement('div'); r.className = 'rv-l';
+    r.innerHTML = `<a href="#">📝 ${esc(n.nom)}</a><button type="button" title="Détacher">✕</button>`; r.querySelector('a').onclick = (e) => { e.preventDefault(); $('#dlgRdv').close(); ouvrirNote(n.nom, n.dossier); };
+    r.querySelector('button').onclick = async () => { await delierDuRdv(x, {note: n.nom}); dessinerLiensRdv(); }; box.appendChild(r); });
+}
+$('#rvCancel').onclick = () => $('#dlgRdv').close();
+$('#rvDel').onclick = async () => { const x = rdvEdite; if (!confirm(`Supprimer « ${x.titre} » de ton agenda Google ?`)) return;
+  try { await cadence.googleSupprimer(x.id); if (state.liensRdv){ delete state.liensRdv[x.cle]; save(); } $('#dlgRdv').close(); } catch(e){ alert(messageErreur(e)); } chargerAgendas(true); };
+$('#rvForm').onsubmit = async (ev) => {
+  ev.preventDefault(); const x = rdvEdite; if (!x.modifiable){ $('#dlgRdv').close(); return; }
+  const jour = new Date($('#rvDate').value + 'T00:00:00'), s0 = tmin($('#rvStart').value), s1 = tmin($('#rvEnd').value);
+  const allDay = s0 == null;
+  if (!allDay && (s1 == null || s1 <= s0)){ alert('La fin doit être après le début.'); return; }
+  const l = liensRdv(x.cle); let desc = $('#rvDesc').value.trimEnd();
+  const lignes = []; if (l.taches.length) lignes.push('Tâches : ' + l.taches.map(f => { const t = tasks && tasks.items.find(y => y.file === f); return t ? t.title : f; }).join(' · ')); if (l.notes.length) lignes.push('Notes : ' + l.notes.map(n => n.nom).join(' · '));
+  if (lignes.length) desc = (desc ? desc + '\n\n' : '') + `${MARQ}\n${lignes.join('\n')}\n${MARQF}`;
+  const fin = new Date(jour); fin.setDate(fin.getDate() + 1);
+  const c = {titre: $('#rvTitle').value.trim() || '(sans titre)', lieu: $('#rvLieu').value.trim(), description: desc, allDay,
+    debut: allDay ? isoOf(jour) : dtLocal(jour, s0), fin: allDay ? isoOf(fin) : dtLocal(jour, s1)};
+  try { await cadence.googleModifier(x.id, c); if (state.liensRdv && state.liensRdv[x.cle]){ state.liensRdv[x.cle].titre = c.titre; save(); } $('#dlgRdv').close(); toast(`📆 « ${c.titre} » mis à jour.`); }
+  catch(e){ alert(messageErreur(e)); }
+  chargerAgendas(true);
+};
+async function creerRdvGoogle(d, m){
+  try {
+    const r = await cadence.googleCreer({titre: 'Nouveau rendez-vous', debut: dtLocal(weekDays[d], m), fin: dtLocal(weekDays[d], m + 60), allDay: false});
+    await chargerAgendas(true);
+    const x = extEv.find(y => y.id === r.id); if (x) ouvrirRdv(x);
+  } catch(e){ alert(messageErreur(e)); }
+}
+
 setInterval(() => chargerAgendas(true), 10 * 60 * 1000);
 
 /* ---------- Google Agenda : envoi des tâches choisies ---------- */
@@ -1321,7 +1513,7 @@ function renderTasks(){
   const f = $('#filters'); f.innerHTML = '';
   const mk = (val, label) => { const c = document.createElement('button'); c.className = 'chip' + (filter===val ? ' on' : '');
     const cat = catOf(val); if (cat){ c.style.setProperty('--bg', `var(--${cat}-bg)`); c.style.setProperty('--fg', `var(--${cat}-fg)`); }
-    c.textContent = label; c.onclick = () => { filter = filter===val ? '' : val; renderTasks(); }; f.appendChild(c); };
+    c.textContent = label; c.onclick = () => { filter = filter===val ? '' : val; state.choixRdv = null; renderTasks(); renderCal(); }; f.appendChild(c); };
   mk('', 'Toutes');
   if (tasks.items.some(t => t.tags.includes(A_TRIER))) mk('@trier', '📥 À trier');
   mk('@today', '📅 Aujourd\'hui');
@@ -1342,6 +1534,18 @@ function renderTasks(){
     if (hide.dated) items = items.filter(t => !t.scheduled && !t.due);
   }
   if (filter === '@today') items = items.filter(t => (t.scheduled||'').slice(0,10) === iso || (t.due||'').slice(0,10) === iso || ((t.due||t.scheduled||'9999').slice(0,10) < iso && !t.recurring));
+  if (filter.startsWith('@ev:')){
+    const k = filter.slice(4), l = liensRdv(k), x = extEv.find(y => y.cle === k) || rdvChoisi || {titre: l.titre || 'Rendez-vous'};
+    const tete = document.createElement('div'); tete.className = 'group'; tete.style.setProperty('--fg', 'var(--routine-fg)');
+    const d0 = x.debut ? new Date(x.debut) : null;
+    tete.innerHTML = `<h3><span>📆 ${esc(x.titre)}</span><span>${d0 ? `${DAYS[(d0.getDay() + 6) % 7]} ${x.allDay ? '' : fmtMin(d0.getHours() * 60 + d0.getMinutes())}` : ''}</span></h3>`;
+    if (!l.taches.length && !l.notes.length) tete.innerHTML += '<div class="empty-tasks">Rien de rattaché. Glisse une tâche ou une note sur le rendez-vous.</div>';
+    l.notes.forEach(n => { const a = document.createElement('div'); a.className = 'note gen'; a.innerHTML = `<div class="nt"><div class="nn">📝 ${esc(n.nom)}</div></div><button type="button" title="Détacher">✕</button>`;
+      a.onclick = () => ouvrirNote(n.nom, n.dossier); a.querySelector('button').onclick = (e) => { e.stopPropagation(); delierDuRdv(x, {note: n.nom}); }; tete.appendChild(a); });
+    list.appendChild(tete);
+    if (l.taches.length) renderGroup(filter, tasks.items, list, renderTasks);
+    return;
+  }
   const groups = filter.startsWith('@plan:') ? [filter] : filter === '@trier' ? [A_TRIER] : filter && filter !== '@today' ? [filter]
     : (items.some(x => x.tags.includes(A_TRIER)) ? [A_TRIER] : []).concat(order.filter(t => items.some(x => x.tags.includes(t))));
   if (!items.length){ list.innerHTML = '<div class="empty-tasks">Rien ici.</div>'; return; }
@@ -1356,13 +1560,13 @@ function prioN(p){
 }
 const prioColor = (p) => { const x = TN && (TN.priorites || []).find(q => q.valeur === sansGuillemets(p)); return x && x.couleur; };
 function renderGroup(g, items, container, rerender){
-    const isP = g.startsWith('p:'), isC = g.startsWith('c:'), isPlan = g.startsWith('@plan:'), pk = isPlan ? g.slice(6) : '';
-    const gi = items.filter(t => isPlan ? dayFiles(pk).includes(t.file) : isC ? (t.contexts||[]).includes(g.slice(2)) : isP ? (t.projects||[]).includes(g.slice(2)) : t.tags.includes(g)).sort((a,b) => (a.blocked-b.blocked) || ((prioN(a.priority)||9)-(prioN(b.priority)||9)) || a.title.localeCompare(b.title,'fr'));
+    const isP = g.startsWith('p:'), isC = g.startsWith('c:'), isPlan = g.startsWith('@plan:'), pk = isPlan ? g.slice(6) : '', isEv = g.startsWith('@ev:');
+    const gi = items.filter(t => isEv ? liensRdv(g.slice(4)).taches.includes(t.file) : isPlan ? dayFiles(pk).includes(t.file) : isC ? (t.contexts||[]).includes(g.slice(2)) : isP ? (t.projects||[]).includes(g.slice(2)) : t.tags.includes(g)).sort((a,b) => (a.blocked-b.blocked) || ((prioN(a.priority)||9)-(prioN(b.priority)||9)) || a.title.localeCompare(b.title,'fr'));
     if (!gi.length) return 0;
-    const cat = isPlan || g === A_TRIER ? 'routine' : isC ? 'courses' : (catOf(g) || 'routine');
+    const cat = isPlan || isEv || g === A_TRIER ? 'routine' : isC ? 'courses' : (catOf(g) || 'routine');
     const box = document.createElement('div'); box.className = 'group';
     box.style.setProperty('--fg', `var(--${cat}-fg)`); box.style.setProperty('--bg', `var(--${cat}-bg)`);
-    box.innerHTML = `<h3><span>${esc(g === A_TRIER ? '📥 À trier' : isPlan ? '📌 Prévu ' + keyLabel(pk) : isC ? '📍 ' + g.slice(2) : isP ? '📁 ' + g.slice(2) : (tagsObj()[g] || g))}</span><span>${gi.filter(t=>!t.blocked).length} prêtes</span></h3>`;
+    box.innerHTML = `<h3><span>${esc(isEv ? '☐ Tâches rattachées' : g === A_TRIER ? '📥 À trier' : isPlan ? '📌 Prévu ' + keyLabel(pk) : isC ? '📍 ' + g.slice(2) : isP ? '📁 ' + g.slice(2) : (tagsObj()[g] || g))}</span><span>${gi.filter(t=>!t.blocked).length} prêtes</span></h3>`;
     gi.forEach(t => {
       const a = document.createElement('div'); a.className = 'task' + (t.blocked ? ' blocked' : '') + (t.boxes ? ' has-subs' : '');
       const url = `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent(TASK_DIR + t.file)}`;
@@ -1690,6 +1894,9 @@ function renderNotes(){
     el.querySelector('.lk').onclick = (e) => { e.stopPropagation(); ouvrirLiaison(n.name); };
     el.querySelector('.nob').onclick = (e) => e.stopPropagation();
     el.onclick = () => lireNote(n.name);
+    if (BUREAU){ el.draggable = true; el.title = 'Clic : ouvrir · glisser sur un rendez-vous pour l\'y rattacher';
+      el.addEventListener('dragstart', (ev) => { dragNote = {nom: n.name, dossier: dailyCfg().dossier}; dragFile = null; dragSub = null; ev.dataTransfer.setData('text/plain', '@note'); ev.dataTransfer.effectAllowed = 'copyMove'; });
+      el.addEventListener('dragend', () => { dragNote = null; }); }
     list.appendChild(el);
   });
 }
