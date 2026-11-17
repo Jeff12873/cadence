@@ -1044,7 +1044,7 @@ function installerAgenda(evs){
   const zone = evs.parentElement;
   zone.ondragover = (ev) => {
     if (!dragFile && !dragSub) return;
-    ev.preventDefault(); ev.dataTransfer.dropEffect = 'move';
+    ev.preventDefault(); ev.dataTransfer.dropEffect = dragSub ? 'copy' : 'move';
     const p = posAgenda(evs, ev.clientX, ev.clientY); if (!p.inside) return;
     const m = snap(p.m), e = dayEvents(p.d).find(x => x.start <= m && m < x.end);
     const tg = elementGlisse();
@@ -1187,7 +1187,7 @@ function renderGroup(g, items, container, rerender){
             d.innerHTML = `<span class="box">${s.done ? '☑' : '☐'}</span><span>${esc(s.text)}</span>`;
             if (BUREAU){ d.title = s.done ? 'Décocher' : 'Cocher · glisser sur le calendrier pour en faire une tâche'; d.addEventListener('click', (ev) => { ev.stopPropagation(); ecrire(() => cadence.cocher(t.file, s.i, !s.done, t.mtime)); });
               if (!s.done){ d.draggable = true;
-                d.addEventListener('dragstart', (ev) => { ev.stopPropagation(); dragFile = null; dragSub = {parent: t, i: s.i, text: s.text, h: s.h}; ev.dataTransfer.setData('text/plain', '@ligne'); ev.dataTransfer.effectAllowed = 'copy'; document.body.classList.add('dragging-task'); });
+                d.addEventListener('dragstart', (ev) => { ev.stopPropagation(); dragFile = null; dragSub = {parent: t, i: s.i, text: s.text, h: s.h}; ev.dataTransfer.setData('text/plain', '@ligne'); ev.dataTransfer.effectAllowed = 'copyMove'; document.body.classList.add('dragging-task'); });
                 d.addEventListener('dragend', () => { dragSub = null; document.body.classList.remove('dragging-task'); }); } }
             ul.appendChild(d);
           }); }
