@@ -56,11 +56,11 @@ done
 
 echo "3/5  Permissions"
 
-# Pas de réseau : l'application n'en a pas besoin.
+# Réseau : uniquement pour la météo (Open-Meteo), le code ne contacte rien d'autre.
 # Dossier personnel : pour lire et écrire dans le coffre Obsidian, où qu'il soit (Syncthing, Nextcloud…).
 flatpak build-finish "$CONSTRUCTION" \
   --command=cadence \
-  --socket=wayland --socket=fallback-x11 --share=ipc --device=dri \
+  --socket=wayland --socket=fallback-x11 --share=ipc --share=network --device=dri \
   --filesystem=home \
   --talk-name=org.freedesktop.Notifications \
   --env=ELECTRON_OZONE_PLATFORM_HINT=auto > /dev/null

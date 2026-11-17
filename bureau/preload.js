@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('cadence', {
   renommerNote: (dossier, nom, nouveau) => ipcRenderer.invoke('renommer-note', dossier, nom, nouveau),
   supprimerTache: (nom, mtime) => ipcRenderer.invoke('supprimer-tache', nom, mtime),
   renommerTache: (nom, titre, mtime) => ipcRenderer.invoke('renommer-tache', nom, titre, mtime),
+  meteo: (lat, lon) => ipcRenderer.invoke('meteo', lat, lon),
+  meteoLieu: (nom) => ipcRenderer.invoke('meteo-lieu', nom),
   ouvrirLien: (url) => ipcRenderer.invoke('ouvrir-lien', url),
   surChangementTaches: (fn) => ipcRenderer.on('taches-changees', () => fn()),
   surChangementDonnees: (fn) => ipcRenderer.on('donnees-changees', () => fn()),

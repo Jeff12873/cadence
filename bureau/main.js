@@ -549,6 +549,24 @@ async function majLiens(ancien, nouveau) {
   return liens;
 }
 
+// --- Météo (Open-Meteo : gratuit, sans compte). Seul accès réseau de Cadence. ---------------------
+const nombre = (v, min, max) => { const n = Number(v); if (!Number.isFinite(n) || n < min || n > max) throw new Error('Coordonnées invalides.'); return n; };
+ipcMain.handle('meteo', async (evenement, lat, lon) => {
+  const la = nombre(lat, -90, 90).toFixed(3), lo = nombre(lon, -180, 180).toFixed(3);
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&hourly=precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,weather_code&timezone=auto&forecast_days=16`;
+  const r = await net.fetch(url);
+  if (!r.ok) throw new Error(`Météo indisponible (${r.status}).`);
+  const d = await r.json();
+  return d.hourly;
+});
+ipcMain.handle('meteo-lieu', async (evenement, nom) => {
+  const q = String(nom || '').trim().slice(0, 80); if (!q) return [];
+  const r = await net.fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=fr`);
+  if (!r.ok) throw new Error(`Recherche indisponible (${r.status}).`);
+  const d = await r.json();
+  return (d.results || []).map(x => ({ nom: x.name, region: [x.admin2, x.admin1, x.country].filter(Boolean).join(', '), lat: x.latitude, lon: x.longitude }));
+});
+
 ipcMain.handle('ouvrir-lien', (evenement, url) => {
   if (typeof url === 'string' && url.startsWith('obsidian://')) shell.openExternal(url);
 });

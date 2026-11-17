@@ -266,6 +266,18 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
 .cat-row button{border:none;background:none;cursor:pointer;font-size:14px;opacity:.6}
 .cat-row button:hover{opacity:1}
 .cat-row.hdr{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:none}
+.set-row input[type=text]{flex:1}
+.wx-seuils{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:6px}
+.wx-seuils label{font-size:11.5px;margin:0}
+.wx-seuils input{width:100%;border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--paper);color:inherit;font:inherit;margin-top:2px}
+.dayhead .wx{display:flex;justify-content:center;gap:4px;margin-top:3px}
+.wxp{font-size:10.5px;font-weight:700;letter-spacing:0;border-radius:999px;padding:0 6px;line-height:16px;cursor:help;background:rgba(255,255,255,.18)}
+.wxp.ok{background:#2F9E44}.wxp.warn{background:#E8890C}.wxp.bad{background:#D9363E}
+.ev.wx-bad .block{outline:2px dashed #D9363E;outline-offset:-2px}
+.ev.wx-warn .block{outline:2px dashed #E8890C;outline-offset:-2px}
+.ev.wx-ok .block{outline:2px solid color-mix(in srgb, #2F9E44 70%, transparent);outline-offset:-2px}
+.wxb{font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px;color:#fff}
+.wxb.ok{background:#2F9E44}.wxb.warn{background:#E8890C}.wxb.bad{background:#D9363E}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -452,6 +464,18 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
     <div class="set-hint">Dans le nom : YYYY = année, MM = mois, DD = jour (ex. « YYYYMMDD - Inbox »).</div>
     <label for="sProg">Note du programme (↻ Daily), unique et sans date</label>
     <input type="text" id="sProg" autocomplete="off" placeholder="CADENCE">
+    <label>Météo (pour savoir si on peut travailler dehors)</label>
+    <div class="set-row"><input type="text" id="sWxCity" autocomplete="off" placeholder="Ville, ex. Macey"><button type="button" class="btn" id="sWxFind">Chercher</button></div>
+    <select id="sWxPick" class="hidden" style="margin-top:6px"></select>
+    <div class="set-hint" id="sWxNow"></div>
+    <div class="wx-seuils">
+      <label>Pluie max (mm / demi-journée)<input type="number" id="sWxRain" step="0.1" min="0"></label>
+      <label>Risque de pluie max (%)<input type="number" id="sWxProb" step="5" min="0" max="100"></label>
+      <label>Vent moyen max (km/h)<input type="number" id="sWxWind" step="1" min="0"></label>
+      <label>Rafales max (km/h)<input type="number" id="sWxGust" step="1" min="0"></label>
+    </div>
+    <label for="sWxTags">Tags des travaux dehors (séparés par des virgules)</label>
+    <input type="text" id="sWxTags" autocomplete="off" placeholder="Travaux/Extérieur">
     <label>Tags, projets et lieux</label>
     <button type="button" class="btn" id="sCatBtn">🏷 Gérer les tags, projets et lieux…</button>
     <div class="actions">
@@ -733,6 +757,15 @@ function renderCal(){
   DAYS.forEach((d, i) => {
     const dd = weekDays[i], h = document.createElement('div'); h.className = 'dayhead' + (i >= 5 ? ' we' : '') + (isoOf(dd) === todayIso ? ' today' : '');
     h.innerHTML = `${d.toUpperCase()} <span class="dnum">${dd.getDate()}/${String(dd.getMonth() + 1).padStart(2, '0')}</span>` + (i >= 5 && state.weekendNote ? `<small>${esc(state.weekendNote)}</small>` : '');
+    if (wx){
+      const m = bilanMeteo(isoOf(dd), 8, 12), a = bilanMeteo(isoOf(dd), 13, 18);
+      if (m || a){
+        const w = document.createElement('div'); w.className = 'wx';
+        [[m, 'M', 'Matin (8h–12h)'], [a, 'A', 'Après-midi (13h–18h)']].forEach(([b, l, t]) => { if (!b) return;
+          const sp = document.createElement('span'); sp.className = 'wxp ' + b.statut; sp.textContent = `${l} ${b.icone}`; sp.title = `${t} : ${b.texte}`; w.appendChild(sp); });
+        h.appendChild(w);
+      }
+    }
     const hors = dated['day:' + i] || [];
     if (hors.length){ const c = document.createElement('span'); c.className = 'dchip'; c.textContent = '📅 ' + hors.length; c.title = 'Tâches datées ce jour, hors créneau';
       c.onclick = () => { filter = '@plan:day:' + i; renderTasks(); }; h.appendChild(c); }
@@ -810,6 +843,17 @@ function evElement(grp){
       row2.appendChild(col);
     });
     b.appendChild(row2);
+  }
+  if (wx && e.tag && tagsDehors().includes(e.tag)){
+    const bilans = grp.map(g => bilanMeteo(isoOf(weekDays[g.d]), Math.floor(g.start / 60), Math.ceil(g.end / 60))).filter(Boolean);
+    if (bilans.length){
+      const pire = bilans.some(x => x.statut === 'bad') ? 'bad' : bilans.some(x => x.statut === 'warn') ? 'warn' : 'ok';
+      el.classList.add('wx-' + pire);
+      const wb = document.createElement('span'); wb.className = 'wxb ' + pire; wb.textContent = pire === 'ok' ? '☀️ OK dehors' : pire === 'warn' ? '⚠️ limite' : `${bilans.find(x => x.statut === 'bad').icone} pas dehors`;
+      wb.title = grp.map((g, k) => bilans[k] ? `${DAYS[g.d]} : ${bilans[k].texte}` : '').filter(Boolean).join('\n');
+      const bw = b.querySelector('.badges') || (() => { const x = document.createElement('div'); x.className = 'badges'; b.appendChild(x); b.classList.add('has-badge'); return x; })();
+      bw.prepend(wb);
+    }
   }
   el.appendChild(b);
   const tr = document.createElement('button'); tr.className = 'trash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = nd > 1 ? 'Supprimer ce créneau (tous les jours du bloc)' : 'Supprimer ce créneau'; el.appendChild(tr);
@@ -1112,6 +1156,35 @@ function installerAgenda(evs){
     deposer(f, p.d, r.start, r.id);
   };
 }
+
+/* ---------- météo (Open-Meteo) ---------- */
+let wx = null, wxIndex = null;
+const meteoCfg = () => Object.assign({nom: '', lat: null, lon: null, pluie: 0.5, prob: 50, vent: 30, rafales: 55, tags: null}, state.meteo || {});
+const tagsDehors = () => { const c = meteoCfg(); return c.tags && c.tags.length ? c.tags : tagDefs().map(t => t.name).filter(n => /ext[ée]rieur|dehors|jardin/i.test(n)); };
+async function chargerMeteo(){
+  const c = meteoCfg();
+  if (!BUREAU || c.lat == null){ wx = null; return; }
+  try { wx = await cadence.meteo(c.lat, c.lon); wxIndex = new Map(wx.time.map((t, i) => [t, i])); }
+  catch(e){ wx = null; console.warn('météo', e); }
+  renderCal();
+}
+// Bilan d'une plage horaire : ✅ ok, ⚠️ limite (un critère dépassé de moins de 20 %), ❌ non
+function bilanMeteo(iso, h0, h1){
+  if (!wx) return null;
+  const c = meteoCfg(), idx = [];
+  for (let h = h0; h < h1; h++){ const i = wxIndex.get(`${iso}T${String(h).padStart(2, '0')}:00`); if (i != null) idx.push(i); }
+  if (!idx.length) return null;
+  const v = (k) => idx.map(i => wx[k][i] || 0);
+  const r = {pluie: v('precipitation').reduce((a, b) => a + b, 0), prob: Math.max(...v('precipitation_probability')), vent: Math.max(...v('wind_speed_10m')), rafales: Math.max(...v('wind_gusts_10m'))};
+  const crit = [['pluie', r.pluie, c.pluie], ['prob', r.prob, c.prob], ['vent', r.vent, c.vent], ['rafales', r.rafales, c.rafales]];
+  const depasse = crit.filter(([, x, max]) => x > max), grave = depasse.filter(([k, x, max]) => x > max * 1.2 || (k === 'pluie' && x > max + 0.5));
+  r.statut = grave.length ? 'bad' : depasse.length ? 'warn' : 'ok';
+  const pluie = depasse.some(([k]) => k === 'pluie' || k === 'prob'), vent = depasse.some(([k]) => k === 'vent' || k === 'rafales');
+  r.icone = r.statut === 'ok' ? '☀️' : (pluie ? '🌧' : '') + (vent ? '💨' : '');
+  r.texte = `pluie ${r.pluie.toFixed(1)} mm (risque ${Math.round(r.prob)} %), vent ${Math.round(r.vent)} km/h, rafales ${Math.round(r.rafales)} km/h → ${r.statut === 'ok' ? 'OK pour dehors' : r.statut === 'warn' ? 'limite' : 'pas pour dehors'}`;
+  return r;
+}
+setInterval(chargerMeteo, 3600 * 1000);
 
 /* ---------- trait de l'heure actuelle ---------- */
 function drawNow(){
@@ -1760,11 +1833,25 @@ function ouvrirReglages(premier){
   $('#sVault').textContent = (CFG && CFG.coffre) || '—';
   $('#sData').value = (CFG && CFG.donnees) || 'Cadence.json';
   $('#sTasks').textContent = TN ? TN.dossier : '—';
+  const mc = meteoCfg();
+  $('#sWxCity').value = mc.nom || ''; $('#sWxPick').classList.add('hidden');
+  $('#sWxNow').textContent = mc.lat != null ? `Lieu actuel : ${mc.nom} (${mc.lat.toFixed(2)}, ${mc.lon.toFixed(2)})` : 'Aucun lieu : la météo est désactivée.';
+  $('#sWxRain').value = mc.pluie; $('#sWxProb').value = mc.prob; $('#sWxWind').value = mc.vent; $('#sWxGust').value = mc.rafales;
+  $('#sWxTags').value = tagsDehors().join(', ');
   $('#sDailyDir').value = dailyCfg().dossier; $('#sDailyFmt').value = dailyCfg().format; $('#sProg').value = progCfg().chemin;
 
   $('#dlgSet').showModal();
 }
 $('#btnSettings').onclick = () => ouvrirReglages(false);
+$('#sWxFind').onclick = async () => {
+  const pick = $('#sWxPick');
+  try {
+    const res = await cadence.meteoLieu($('#sWxCity').value);
+    pick.innerHTML = ''; if (!res.length){ $('#sWxNow').textContent = 'Aucun lieu trouvé.'; pick.classList.add('hidden'); return; }
+    res.forEach(r => pick.add(new Option(`${r.nom} — ${r.region}`, JSON.stringify({nom: r.nom, lat: r.lat, lon: r.lon}))));
+    pick.classList.remove('hidden'); $('#sWxNow').textContent = 'Choisis le bon lieu puis Enregistrer.';
+  } catch(e){ alert(messageErreur(e)); }
+};
 $('#sCancel').onclick = () => $('#dlgSet').close();
 $('#sPick').onclick = async () => {
   try {
@@ -1776,13 +1863,22 @@ $('#setForm').onsubmit = async (e) => {
   e.preventDefault();
   if (!CFG || !CFG.coffre){ alert("Choisis d'abord le coffre Obsidian."); return; }
 
+  {
+    const mc = meteoCfg(), pick = $('#sWxPick');
+    let lieu = {nom: mc.nom, lat: mc.lat, lon: mc.lon};
+    if (!pick.classList.contains('hidden') && pick.value){ try { lieu = JSON.parse(pick.value); } catch(_){} }
+    if (!$('#sWxCity').value.trim()) lieu = {nom: '', lat: null, lon: null};
+    const num = (id, d) => { const v = parseFloat($(id).value); return Number.isFinite(v) ? v : d; };
+    state.meteo = {...lieu, pluie: num('#sWxRain', 0.5), prob: num('#sWxProb', 50), vent: num('#sWxWind', 30), rafales: num('#sWxGust', 55),
+      tags: $('#sWxTags').value.split(',').map(x => x.trim()).filter(Boolean)};
+  }
   state.programme = {chemin: ($('#sProg').value.trim() || 'CADENCE').replace(/\.md$/, '')};
   state.daily = {dossier: $('#sDailyDir').value.trim().replace(/^\/+|\/+$/g, ''), format: $('#sDailyFmt').value.trim() || 'YYYY-MM-DD'};
   if (BUREAU) cadence.suivreNotes(state.daily.dossier).catch(() => {});
   const data = $('#sData').value.trim() || 'Cadence.json';
   try {
     if (data !== CFG.donnees){ await cadence.reglerDonnees(data); await chargerConfig(); const d = await cadence.lireDonnees(); if (d && d.semaine) await chargerDonnees(); }
-    persist(); $('#dlgSet').close(); render(); if (ongletNotes) chargerNotes();
+    persist(); $('#dlgSet').close(); render(); if (ongletNotes) chargerNotes(); chargerMeteo();
   } catch(err){ alert(messageErreur(err)); }
 };
 
@@ -1797,6 +1893,7 @@ async function demarrer(){
   render();
   await chargerTaches();
   cadence.suivreNotes(dailyCfg().dossier).catch(() => {});
+  chargerMeteo();
   cadence.surChangementNotes(async () => {
     if (ongletNotes) chargerNotes();
     if (ne && !ne.sale){ try { const r = await cadence.lireNote(ne.dossier, ne.nom); if (r.mtime !== ne.mtime){ ne.mtime = r.mtime; $('#neText').value = r.texte; neApercu(); neEtat('Mise à jour depuis le coffre'); } } catch(e){} }
