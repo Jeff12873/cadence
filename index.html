@@ -339,6 +339,16 @@ svg.lu{flex:none;display:block}
 .ic-grille{display:grid;grid-template-columns:repeat(auto-fill, minmax(40px, 1fr));gap:6px;max-height:50vh;overflow:auto;width:min(520px, 80vw)}
 .ic-choix{height:40px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);display:grid;place-items:center;cursor:pointer}
 .ic-choix:hover,.ic-choix.on{border-color:var(--accent);color:var(--accent)}
+.ext.rdvbloc .eb{display:flex;flex-direction:column;gap:1px;box-sizing:border-box;padding:5px 8px 5px 12px;border-radius:7px;font-size:11px;background:color-mix(in srgb, var(--agc) 20%, var(--card));color:var(--ink);border:none;position:relative}
+.ext.rdvbloc .eb::before{content:"";position:absolute;left:3px;top:5px;bottom:5px;width:3px;border-radius:2px;background:var(--agc)}
+.ext.rdvbloc .eb b{font-size:12px;white-space:normal}
+.ext.rdvbloc .gsync{position:absolute;left:5px;bottom:5px;z-index:6;border:none;background:#fff;border-radius:6px;padding:2px;line-height:0;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.ext.rdvbloc .etrash{right:5px;bottom:5px}
+.dp .pi.rdv{cursor:pointer;font-weight:600;border-radius:5px;padding:0 3px;margin:0 -3px 1px;background:color-mix(in srgb, var(--fg) 12%, transparent)}
+.dp .pi.rdv .rdh{opacity:.8;font-weight:700}
+.dp .pi.rdv.cible,.dp .pi.rdv.choisi{box-shadow:0 0 0 2px var(--accent)}
+.gsync{position:relative}
+.gsync .gn{position:absolute;right:-7px;top:-6px;min-width:13px;height:13px;border-radius:999px;background:#5f6368;color:#fff;font-size:9px;font-weight:700;line-height:13px;text-align:center;padding:0 2px;box-sizing:border-box}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -909,6 +919,7 @@ function renderCal(){
   const evs = document.createElement('div'); evs.className = 'evs'; evs.id = 'evs';
   evs.style.gridRow = '2'; evs.style.gridColumn = '2 / 9'; evs.style.height = HT + 'px';
   cal.appendChild(evs);
+  repartirRdv();
   // regroupement des jours consécutifs identiques (effet fusion)
   const vus = new Set();
   for (let d = 0; d < 7; d++) dayEvents(d).forEach(e => {
@@ -932,6 +943,21 @@ const colX = (d) => `calc((100% - 24px) / 7 * ${d} + ${4 * d}px)`;
 const colW = (n) => `calc((100% - 24px) / 7 * ${n} + ${4 * (n - 1)}px)`;
 
 // Cases trop petites pour leur contenu : disposition sur une ligne, puis dépliage au survol si besoin
+// Ligne d'un rendez-vous absorbé dans une case
+function ligneRdv(x, m0){
+  const li = document.createElement('div'); li.className = 'pi rdv' + (state.choixRdv === x.cle ? ' choisi' : '');
+  const n = nbLiens(x.cle);
+  li.innerHTML = `<span class="rdh">📆 ${fmtMin(m0)}</span> ${esc(x.titre)}${n ? ` · 📎${n}` : ''}`;
+  li.title = `${x.agenda} : ${x.titre}${x.lieu ? '\n📍 ' + x.lieu : ''}\nClic : tâches et notes liées · double-clic : ${x.modifiable ? 'modifier' : 'détails'} · glisser une tâche ou une note dessus : la rattacher`;
+  li.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+  li.addEventListener('click', (ev) => { ev.stopPropagation(); filtrerRdv(x); });
+  li.addEventListener('dblclick', (ev) => { ev.stopPropagation(); ouvrirRdv(x); });
+  li.addEventListener('dragover', (ev) => { if (dragFile || dragNote){ ev.preventDefault(); ev.stopPropagation(); ev.dataTransfer.dropEffect = dragNote ? 'copy' : 'move'; li.classList.add('cible'); } });
+  li.addEventListener('dragleave', () => li.classList.remove('cible'));
+  li.addEventListener('drop', (ev) => { if (!dragFile && !dragNote) return; ev.preventDefault(); ev.stopPropagation();
+    const f = dragFile, nt = dragNote; dragFile = null; dragNote = null; document.body.classList.remove('dragging-task'); lierAuRdv(x, f ? {tache: f} : {note: nt}); });
+  return li;
+}
 function ajusterCases(evs){
   evs.querySelectorAll('.ev').forEach(el => {
     const b = el.querySelector('.block'); if (!b) return;
@@ -967,10 +993,12 @@ function evElement(grp){
     wrap.appendChild(bd); b.appendChild(wrap); b.classList.add('has-badge');
   }
   const keys = grp.map(x => x.id);
-  if (keys.some(k => dayFiles(k).length)){
+  const rdvVus = (k) => { const e = evById(k); return e && blocVisible(e) ? rdvDuBloc(k) : []; };
+  if (keys.some(k => dayFiles(k).length || rdvVus(k).length)){
     const row2 = document.createElement('div'); row2.className = 'dayplan'; row2.style.gridTemplateColumns = `repeat(${nd}, 1fr)`;
     keys.forEach(k => {
       const pl = dayFiles(k), man = new Set(plannedFiles(k)), col = document.createElement('div'); col.className = 'dp';
+      rdvVus(k).forEach(({x, m0}) => col.appendChild(ligneRdv(x, m0)));
       if (pl.length){
         const pb = document.createElement('button'); pb.className = 'badge plan'; pb.textContent = (man.size ? '📌 ' : '📅 ') + pl.length;
         pb.title = `${pl.length} tâche(s) ${keyLabel(k)}`;
@@ -997,11 +1025,13 @@ function evElement(grp){
   el.appendChild(b);
   const tr = document.createElement('button'); tr.className = 'trash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = nd > 1 ? 'Supprimer ce créneau (tous les jours du bloc)' : 'Supprimer ce créneau'; el.appendChild(tr);
   const rz = document.createElement('div'); rz.className = 'rz2'; rz.title = 'Glisser pour changer l\'heure de fin (par 15 min)'; el.appendChild(rz);
-  if (BUREAU && AG.google && AG.google.connecte){
-    const on = grp.every(g => gBlocs()[cleBloc(g)]);
+  if (agendaActif()){
+    const on = grp.every(g => gBlocs()[cleBloc(g)]), caches = grp.filter(g => !blocVisible(g)).reduce((n, g) => n + rdvDuBloc(g.id).length, 0);
     const gb = document.createElement('button'); gb.type = 'button'; gb.className = 'gsync' + (on ? ' on' : '');
     gb.innerHTML = '<svg viewBox="0 0 48 48" width="15" height="15" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.8-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.4 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>';
-    gb.title = on ? 'Synchronisée avec Google Agenda (semaine affichée) · clic : retirer de Google' : 'Pas dans Google Agenda · clic : synchroniser cette case pour la semaine affichée';
+    if (caches) gb.innerHTML += `<span class="gn">${caches}</span>`;
+    gb.title = on ? 'Synchronisée : ses rendez-vous d\'agenda sont affichés' + (AG.google && AG.google.connecte ? ' et la case est dans Google Agenda' : '') + ' · clic : désynchroniser'
+      : 'Pas synchronisée' + (caches ? ` · ${caches} rendez-vous masqué${caches > 1 ? 's' : ''}` : '') + ' · clic : synchroniser (semaine affichée)';
     gb.addEventListener('pointerdown', (ev) => ev.stopPropagation());
     gb.addEventListener('click', (ev) => { ev.stopPropagation(); basculerSyncBloc(grp, !on); });
     el.appendChild(gb);
@@ -1373,31 +1403,62 @@ async function chargerAgendas(force){
   const err = extEv.filter(x => x.erreur); if (err.length) console.warn('agendas', err.map(x => x.erreur).join(' ; '));
   renderCal();
 }
+let rdvPar = {absorbes: {}, seuls: []};
+const agendaActif = () => BUREAU && ((AG.google && AG.google.connecte) || (AG.agendas || []).length > 0);
+function repartirRdv(){
+  rdvPar = {absorbes: {}, seuls: []};
+  extEv.filter(x => !x.erreur && !x.allDay).forEach(x => {
+    const d0 = new Date(x.debut), d1 = new Date(x.fin);
+    for (let d = 0; d < 7; d++){
+      const j0 = new Date(weekDays[d]); j0.setHours(0, 0, 0, 0); const j1 = new Date(j0); j1.setDate(j1.getDate() + 1);
+      if (d1 <= j0 || d0 >= j1) continue;
+      const m0 = d0 < j0 ? 0 : d0.getHours() * 60 + d0.getMinutes(), m1 = d1 >= j1 ? 24 * 60 : d1.getHours() * 60 + d1.getMinutes();
+      if (m1 <= m0) continue;
+      let best = null, bestO = 0;
+      dayEvents(d).forEach(e => { const o = Math.min(e.end, m1) - Math.max(e.start, m0); if (o > bestO){ best = e; bestO = o; } });
+      if (best) (rdvPar.absorbes[best.id] = rdvPar.absorbes[best.id] || []).push({x, d, m0, m1});
+      else rdvPar.seuls.push({x, d, m0, m1});
+    }
+  });
+  Object.values(rdvPar.absorbes).forEach(l => l.sort((a, b) => a.m0 - b.m0));
+}
+const rdvDuBloc = (eid) => rdvPar.absorbes[eid] || [];
+const blocVisible = (e) => !!gBlocs()[cleBloc(e)];
 const liensRdv = (k) => ((state.liensRdv || {})[k]) || {taches: [], notes: []};
 const nbLiens = (k) => { const l = liensRdv(k); return (l.taches || []).length + (l.notes || []).length; };
 function dessinerAgendas(evs){
   if (!extEv.length) return;
   const heads = document.querySelectorAll('#cal .dayhead');
-  extEv.filter(x => !x.erreur).forEach(x => {
-    const d0 = new Date(x.debut), d1 = new Date(x.fin), coul = AG_COUL[x.couleur] || x.couleur || AG_COUL.gris;
+  extEv.filter(x => !x.erreur && x.allDay).forEach(x => {
+    const d0 = new Date(x.debut), d1 = new Date(x.fin);
     for (let d = 0; d < 7; d++){
       const j0 = new Date(weekDays[d]); j0.setHours(0, 0, 0, 0); const j1 = new Date(j0); j1.setDate(j1.getDate() + 1);
       if (d1 <= j0 || d0 >= j1) continue;
-      if (x.allDay){ const c = document.createElement('span'); c.className = 'agchip'; c.textContent = '📆 ' + x.titre + (nbLiens(x.cle) ? ` · 📎${nbLiens(x.cle)}` : ''); c.title = `${x.agenda} · journée entière`;
-        c.onclick = () => filtrerRdv(x); c.ondblclick = () => ouvrirRdv(x); if (heads[d]) heads[d].appendChild(c); continue; }
-      const m0 = Math.max(RS, d0 < j0 ? 0 : d0.getHours() * 60 + d0.getMinutes()), m1 = Math.min(RE, d1 >= j1 ? 24 * 60 : d1.getHours() * 60 + d1.getMinutes());
-      if (m1 <= m0) continue;
-      const el = document.createElement('div'); el.className = 'ext' + (x.modifiable ? ' mod' : '');
-      el.style.top = yOf(m0) + 'px'; el.style.height = Math.max(16, (m1 - m0) / 60 * PXH) + 'px';
-      el.style.left = `calc((100% - 24px) / 7 * ${d + 0.5} + ${4 * d}px)`; el.style.width = `calc((100% - 24px) / 7 * 0.5)`;
-      el.style.setProperty('--agc', coul);
-      const n = nbLiens(x.cle);
-      el.innerHTML = `<div class="eb"><b>${esc(x.titre)}</b>${fmtMin(m0)} – ${fmtMin(m1)}${n ? ` · 📎${n}` : ''}</div>` + (x.modifiable ? '<div class="rz2"></div><button type="button" class="etrash" title="Supprimer le rendez-vous">🗑</button>' : '');
-      el.title = `📆 ${x.agenda} : ${x.titre}\n${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? '\n📍 ' + x.lieu : ''}\nClic : tâches et notes liées · double-clic : ${x.modifiable ? 'modifier' : 'détails'}${x.modifiable ? ' · glisser : déplacer' : ''}`;
-      if (state.choixRdv === x.cle) el.classList.add('choisi');
-      installerRdv(el, x, d, evs);
-      evs.appendChild(el);
+      const c = document.createElement('span'); c.className = 'agchip'; c.textContent = '📆 ' + x.titre + (nbLiens(x.cle) ? ` · 📎${nbLiens(x.cle)}` : ''); c.title = `${x.agenda} · journée entière`;
+      c.onclick = () => filtrerRdv(x); c.ondblclick = () => ouvrirRdv(x); if (heads[d]) heads[d].appendChild(c);
     }
+  });
+  const masques = state.rdvMasques || {};
+  rdvPar.seuls.filter(r => !masques[r.x.cle]).forEach(({x, d, m0, m1}) => {
+    const coul = AG_COUL[x.couleur] || x.couleur || AG_COUL.gris;
+    const a = Math.max(RS, m0), b = Math.min(RE, m1); if (b <= a) return;
+    const el = document.createElement('div'); el.className = 'ext rdvbloc' + (x.modifiable ? ' mod' : '');
+    el.style.top = yOf(a) + 'px'; el.style.height = Math.max(18, (b - a) / 60 * PXH) + 'px';
+    el.style.left = colX(d); el.style.width = colW(1);
+    el.style.setProperty('--agc', coul);
+    const n = nbLiens(x.cle);
+    el.innerHTML = `<div class="eb"><b>${esc(x.titre)}</b><span>${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? ' · ' + esc(x.lieu) : ''}${n ? ` · 📎${n}` : ''}</span></div>`
+      + (x.modifiable ? '<div class="rz2"></div><button type="button" class="etrash" title="Supprimer le rendez-vous">🗑</button>' : '')
+      + `<button type="button" class="gsync on" title="Rendez-vous ${esc(x.agenda)} · clic : le masquer dans Cadence (il reste dans l'agenda)"><svg viewBox="0 0 48 48" width="15" height="15" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.8-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.4 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg></button>`;
+    el.title = `📆 ${x.agenda} : ${x.titre}\n${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? '\n📍 ' + x.lieu : ''}\nClic : tâches et notes liées · double-clic : ${x.modifiable ? 'modifier' : 'détails'}${x.modifiable ? ' · glisser : déplacer' : ''}`;
+    if (state.choixRdv === x.cle) el.classList.add('choisi');
+    const gs = el.querySelector('.gsync');
+    gs.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+    gs.addEventListener('click', (ev) => { ev.stopPropagation();
+      state.rdvMasques = state.rdvMasques || {}; state.rdvMasques[x.cle] = true; save(); renderCal();
+      toast(`📆 « ${x.titre} » masqué dans Cadence.`, 'Annuler', () => { delete state.rdvMasques[x.cle]; save(); renderCal(); }); });
+    installerRdv(el, x, d, evs);
+    evs.appendChild(el);
   });
 }
 const dtLocal = (jour, min) => { const p = (v) => String(v).padStart(2, '0'); const d = new Date(jour); d.setHours(0, 0, 0, 0); d.setMinutes(min); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`; };
@@ -1556,10 +1617,12 @@ async function basculerSyncBloc(grp, activer){
   try {
     for (const e of grp){
       const k = cleBloc(e);
-      if (activer){ if (m[k]) continue; const ev = evBloc(e); const id = await cadence.googleBloc(ev); m[k] = {id, emp: JSON.stringify(ev)}; }
-      else if (m[k]){ await cadence.googleBlocRetirer(m[k].id); delete m[k]; }
+      const g = AG.google && AG.google.connecte;
+      if (activer){ if (m[k]) continue; if (g){ const ev = evBloc(e); const id = await cadence.googleBloc(ev); m[k] = {id, emp: JSON.stringify(ev)}; } else m[k] = {id: null, emp: ''}; }
+      else if (m[k]){ if (g && m[k].id) await cadence.googleBlocRetirer(m[k].id); delete m[k]; }
     }
-    toast(activer ? `📆 « ${grp[0].title} » ajoutée à Google Agenda pour la semaine affichée.` : `📆 « ${grp[0].title} » retirée de Google Agenda.`);
+    const nr = grp.reduce((n, g) => n + rdvDuBloc(g.id).length, 0), txtR = nr ? ` · ${nr} rendez-vous ${activer ? 'affiché' : 'masqué'}${nr > 1 ? 's' : ''}` : '';
+    toast(activer ? `📆 « ${grp[0].title} » synchronisée${txtR}.` : `📆 « ${grp[0].title} » désynchronisée${txtR}.`);
   } catch(err){ alert(messageErreur(err)); }
   save(); renderCal();
 }
@@ -1573,11 +1636,11 @@ async function syncBlocs(){
   try {
     for (const k of Object.keys(m)){
       const [eid, semK] = k.split('@'), e = evById(eid);
-      if (!e){ try { await cadence.googleBlocRetirer(m[k].id); } catch(_){} delete m[k]; change = true; continue; }
+      if (!e){ try { if (m[k].id) await cadence.googleBlocRetirer(m[k].id); } catch(_){} delete m[k]; change = true; continue; }
       if (semK !== sem) continue;
       const ev = evBloc(e), emp = JSON.stringify(ev);
       if (m[k].emp === emp) continue;
-      m[k] = {id: await cadence.googleBloc({...ev, id: m[k].id}), emp}; change = true;
+      m[k] = {id: await cadence.googleBloc({...ev, id: m[k].id || undefined}), emp}; change = true;
     }
   } catch(err){ toast('📆 ' + messageErreur(err)); }
   finally { syncEnCours = false; }
