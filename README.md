@@ -16,7 +16,7 @@ qui utilise le plugin [TaskNotes](https://github.com/callumalpass/tasknotes).
 - Tâches : rappel automatique 30 min avant l'heure prévue, renommage par double-clic (liens mis à jour dans tout le coffre),
   🗑 suppression avec confirmation (vers la corbeille `.trash` du coffre).
 - Onglet **Notes** : les notes d'un dossier réglable (par défaut celui des notes quotidiennes d'Obsidian), à associer à une tâche (🔗),
-  notes ouvertes dans un grand cadre pour les éditer (titre compris, enregistrement automatique, aperçu avec images), et **↻ Daily** qui écrit dans la note du jour le programme bloc par bloc (encadré violet), avec les liens vers les tâches
+  notes ouvertes dans un grand cadre pour les éditer (titre compris, enregistrement automatique, aperçu avec images), et **↻ Daily** qui écrit le programme du jour bloc par bloc (encadré violet) dans une note unique, `CADENCE` à la racine du coffre par défaut, avec les liens vers les tâches
   (section entre `%% cadence:debut %%` et `%% cadence:fin %%`, remplacée à chaque mise à jour).
 - Impression A4 paysage de la semaine.
 

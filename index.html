@@ -210,6 +210,7 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
 .note.today{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
 .note{cursor:pointer}
 .note .nt{flex:1;min-width:0}
+.note.prog{margin-bottom:12px}
 .note.gen{border-color:#8B5CF6;box-shadow:inset 4px 0 0 #8B5CF6;background:color-mix(in srgb, #8B5CF6 7%, var(--paper))}
 .note .gtag{font-size:10px;font-weight:700;color:#fff;background:#8B5CF6;border-radius:999px;padding:1px 7px}
 .note .nob{display:inline-flex;align-items:center}
@@ -299,7 +300,7 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
           <button class="tab hidden" id="tabNotes" role="tab">Notes</button>
         </div>
         <button class="btn hidden" id="btnNewTask" title="Créer une tâche dans le coffre">＋ Tâche</button>
-        <button class="btn hidden" id="btnDaily" title="Écrit le programme du jour, bloc par bloc, dans la note du jour">↻ Daily</button>
+        <button class="btn hidden" id="btnDaily" title="Écrit le programme du jour, bloc par bloc, dans la note CADENCE">↻ Daily</button>
       </div>
       <div id="noteRead" class="hidden">
         <div class="nr-head"><button class="btn" id="nrBack">← Notes</button><div class="nr-title" id="nrTitle"></div><a class="nob" id="nrObs" title="Ouvrir dans Obsidian"></a></div>
@@ -394,6 +395,8 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
       <div><label for="sDailyFmt">Nom de la note du jour</label><input type="text" id="sDailyFmt" autocomplete="off" placeholder="YYYY-MM-DD"></div>
     </div>
     <div class="set-hint">Dans le nom : YYYY = année, MM = mois, DD = jour (ex. « YYYYMMDD - Inbox »).</div>
+    <label for="sProg">Note du programme (↻ Daily), unique et sans date</label>
+    <input type="text" id="sProg" autocomplete="off" placeholder="CADENCE">
     <label for="sTags">Tags : un par ligne, « nom | libellé | couleur »</label>
     <textarea id="sTags" rows="6" placeholder="Achats | 🛒 Achats | courses"></textarea>
     <label for="sProj">Projets : un par ligne, « nom | couleur »</label>
@@ -1243,6 +1246,7 @@ function renommer(t, span){
 /* ---------- onglet Notes ---------- */
 let ongletNotes = false, notes = [], liaison = null;
 const dailyCfg = () => Object.assign({dossier: '', format: 'YYYY-MM-DD'}, state.daily || {});
+const progCfg = () => { const p = String((state.programme && state.programme.chemin) || 'CADENCE').replace(/\.md$/, '').replace(/^\/+|\/+$/g, ''); const i = p.lastIndexOf('/'); return {dossier: i < 0 ? '' : p.slice(0, i), nom: i < 0 ? p : p.slice(i + 1), chemin: p}; };
 const nomDuJour = (d = new Date()) => dailyCfg().format.replace(/YYYY/g, d.getFullYear()).replace(/MM/g, String(d.getMonth() + 1).padStart(2, '0')).replace(/DD/g, String(d.getDate()).padStart(2, '0'));
 function basculer(n){
   ongletNotes = n;
@@ -1254,9 +1258,13 @@ function basculer(n){
 $('#tabTasks').onclick = () => basculer(false);
 $('#tabNotes').onclick = () => basculer(true);
 $('#notesFilter').oninput = () => renderNotes();
+let progNote = null;
 async function chargerNotes(){
   if (!BUREAU || !CFG || !CFG.coffre) return;
   try { notes = await cadence.listerNotes(dailyCfg().dossier); } catch(e){ notes = []; }
+  const pc = progCfg();
+  try { progNote = (await cadence.listerNotes(pc.dossier)).find(n => n.name === pc.nom) || null; } catch(e){ progNote = null; }
+  if (pc.dossier === dailyCfg().dossier) notes = notes.filter(n => n.name !== pc.nom);
   const auj = nomDuJour();
   notes.sort((a, b) => (b.name === auj) - (a.name === auj) || b.mtime - a.mtime || b.name.localeCompare(a.name, 'fr', {numeric: true}));
   renderNotes();
@@ -1267,10 +1275,15 @@ function renderNotes(){
   $('#notesMeta').textContent = `${notes.length} note${notes.length > 1 ? 's' : ''} dans « ${dossier || 'racine du coffre'} » · mises à jour en direct`;
   const q = $('#notesFilter').value.trim().toLowerCase();
   const url = (n) => `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent((dossier ? dossier.replace(/\/?$/, '/') : '') + n)}`;
-  if (!notes.some(n => n.name === auj) && !q){
-    const m = document.createElement('div'); m.className = 'note today missing';
-    m.innerHTML = `<div class="nt"><div class="nn">${esc(auj)}</div><div class="nd">Note du jour pas encore créée : ↻ Daily la crée avec le programme</div></div>`;
-    m.onclick = () => majDaily(); list.appendChild(m);
+  if (!q){
+    const pc = progCfg(), m = document.createElement('div');
+    m.className = 'note gen prog' + (progNote ? '' : ' missing');
+    const dm = progNote ? new Date(progNote.mtime) : null;
+    m.innerHTML = `<div class="nt"><div class="nn">${esc(pc.nom)}</div><div class="nd">${progNote ? `Programme du jour · mis à jour le ${dm.toLocaleDateString('fr-FR')} à ${dm.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}` : 'Pas encore créée : ↻ Daily écrit le programme du jour'}</div></div>`
+      + `<span class="gtag">Cadence</span>` + (progNote ? `<a class="nob" href="${neUrl(pc.nom, pc.dossier)}" title="Ouvrir dans Obsidian">${OBS}</a>` : '');
+    const ob = m.querySelector('.nob'); if (ob) ob.onclick = (e) => e.stopPropagation();
+    m.onclick = () => progNote ? ouvrirNote(pc.nom, pc.dossier) : majDaily();
+    list.appendChild(m);
   }
   notes.filter(n => !q || n.name.toLowerCase().includes(q)).forEach(n => {
     const el = document.createElement('div'); el.className = 'note' + (n.name === auj ? ' today' : '') + (n.cadence ? ' gen' : '');
@@ -1321,7 +1334,7 @@ function mdRender(src){
   return out.join('');
 }
 let ne = null;   // note ouverte dans le cadre : {nom, mtime, sale, minuteur}
-const neUrl = (nom) => { const d = dailyCfg().dossier; return `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent((d ? d.replace(/\/?$/, '/') : '') + nom)}`; };
+const neUrl = (nom, d = dailyCfg().dossier) => { return `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent((d ? d.replace(/\/?$/, '/') : '') + nom)}`; };
 function neEtat(t){ $('#neState').textContent = t; }
 function neApercu(){
   const prev = $('#nePrev'); prev.innerHTML = mdRender($('#neText').value) || '<p><em>Note vide.</em></p>';
@@ -1337,12 +1350,12 @@ function neApercu(){
     window.location.href = `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent(n)}`;
   });
 }
-async function ouvrirNote(nom){
+async function ouvrirNote(nom, dossier = dailyCfg().dossier){
   if (ne && ne.sale) await enregistrerNote();
   let r;
-  try { r = await cadence.lireNote(dailyCfg().dossier, nom); } catch(e){ alert(messageErreur(e)); return; }
-  ne = {nom, mtime: r.mtime, sale: false, minuteur: null};
-  $('#neTitle').value = nom; $('#neText').value = r.texte; $('#neObs').innerHTML = OBS; $('#neObs').href = neUrl(nom);
+  try { r = await cadence.lireNote(dossier, nom); } catch(e){ alert(messageErreur(e)); return; }
+  ne = {nom, dossier, mtime: r.mtime, sale: false, minuteur: null};
+  $('#neTitle').value = nom; $('#neText').value = r.texte; $('#neObs').innerHTML = OBS; $('#neObs').href = neUrl(nom, dossier);
   neEtat('Enregistré'); neApercu();
   if (!$('#dlgNote').open) $('#dlgNote').showModal();
   $('#neText').focus();
@@ -1350,7 +1363,7 @@ async function ouvrirNote(nom){
 async function enregistrerNote(){
   if (!ne || !ne.sale) return;
   clearTimeout(ne.minuteur);
-  try { ne.mtime = await cadence.ecrireNote(dailyCfg().dossier, ne.nom, $('#neText').value, ne.mtime); ne.sale = false; neEtat('Enregistré ✓'); }
+  try { ne.mtime = await cadence.ecrireNote(ne.dossier, ne.nom, $('#neText').value, ne.mtime); ne.sale = false; neEtat('Enregistré ✓'); }
   catch(e){ neEtat('Non enregistré'); alert(messageErreur(e)); }
 }
 async function fermerNote(){ await enregistrerNote(); $('#dlgNote').close(); ne = null; chargerNotes(); }
@@ -1364,7 +1377,7 @@ async function renommerNote(){
   const v = $('#neTitle').value.trim();
   if (!v || v === ne.nom){ $('#neTitle').value = ne.nom; return; }
   await enregistrerNote();
-  try { const r = await cadence.renommerNote(dailyCfg().dossier, ne.nom, v); ne.nom = r.nom; $('#neTitle').value = r.nom; $('#neObs').href = neUrl(r.nom);
+  try { const r = await cadence.renommerNote(ne.dossier, ne.nom, v); ne.nom = r.nom; $('#neTitle').value = r.nom; $('#neObs').href = neUrl(r.nom, ne.dossier);
         toast(`✏️ Note renommée en « ${r.nom} »${r.liens ? ` · liens mis à jour dans ${r.liens} note${r.liens > 1 ? 's' : ''}` : ''}.`); await chargerTaches(); }
   catch(e){ alert(messageErreur(e)); $('#neTitle').value = ne.nom; }
   chargerNotes();
@@ -1449,11 +1462,11 @@ function programmeDuJour(jour = new Date()){
 }
 async function majDaily(){
   if (!BUREAU) return;
-  const nom = nomDuJour();
+  const pc = progCfg();
   try {
-    const r = await cadence.ecrireSection(dailyCfg().dossier, nom, programmeDuJour());
-    toast(r.cree ? `Note du jour « ${nom} » créée avec le programme.` : `Programme du jour mis à jour dans « ${nom} ».`);
-    lireNote(nom);
+    const r = await cadence.ecrireSection(pc.dossier, pc.nom, programmeDuJour());
+    toast(r.cree ? `« ${pc.nom} » créée avec le programme du jour.` : `Programme du jour mis à jour dans « ${pc.nom} ».`);
+    ouvrirNote(pc.nom, pc.dossier);
   } catch(e){ alert(messageErreur(e)); }
   chargerNotes();
 }
@@ -1494,7 +1507,7 @@ function ouvrirReglages(premier){
   $('#sVault').textContent = (CFG && CFG.coffre) || '—';
   $('#sData').value = (CFG && CFG.donnees) || 'Cadence.json';
   $('#sTasks').textContent = TN ? TN.dossier : '—';
-  $('#sDailyDir').value = dailyCfg().dossier; $('#sDailyFmt').value = dailyCfg().format;
+  $('#sDailyDir').value = dailyCfg().dossier; $('#sDailyFmt').value = dailyCfg().format; $('#sProg').value = progCfg().chemin;
   $('#sTags').value = tagDefs().map(t => [t.name, t.label || t.name, t.cat || ''].join(' | ')).join('\n');
   $('#sProj').value = projDefs().map(p => [p.name, p.cat || ''].join(' | ')).join('\n');
   $('#sCats').textContent = 'Couleurs possibles : ' + Object.keys(CATS).join(', ');
@@ -1514,6 +1527,7 @@ $('#setForm').onsubmit = async (e) => {
   const lignes = (v) => v.split('\n').map(l => l.split('|').map(x => x.trim())).filter(x => x[0]);
   state.tags = lignes($('#sTags').value).map(([name, label, cat]) => ({name, label: label || name, cat: CATS[cat] ? cat : 'routine'}));
   state.projects = lignes($('#sProj').value).map(([name, cat]) => ({name, cat: CATS[cat] ? cat : 'routine'}));
+  state.programme = {chemin: ($('#sProg').value.trim() || 'CADENCE').replace(/\.md$/, '')};
   state.daily = {dossier: $('#sDailyDir').value.trim().replace(/^\/+|\/+$/g, ''), format: $('#sDailyFmt').value.trim() || 'YYYY-MM-DD'};
   if (BUREAU) cadence.suivreNotes(state.daily.dossier).catch(() => {});
   const data = $('#sData').value.trim() || 'Cadence.json';
@@ -1536,7 +1550,7 @@ async function demarrer(){
   cadence.suivreNotes(dailyCfg().dossier).catch(() => {});
   cadence.surChangementNotes(async () => {
     if (ongletNotes) chargerNotes();
-    if (ne && !ne.sale){ try { const r = await cadence.lireNote(dailyCfg().dossier, ne.nom); if (r.mtime !== ne.mtime){ ne.mtime = r.mtime; $('#neText').value = r.texte; neApercu(); neEtat('Mise à jour depuis le coffre'); } } catch(e){} }
+    if (ne && !ne.sale){ try { const r = await cadence.lireNote(ne.dossier, ne.nom); if (r.mtime !== ne.mtime){ ne.mtime = r.mtime; $('#neText').value = r.texte; neApercu(); neEtat('Mise à jour depuis le coffre'); } } catch(e){} }
   });
   cadence.surChangementTaches(chargerTaches);
   cadence.surChangementDonnees(async () => { await chargerDonnees(); render(); });
