@@ -378,6 +378,22 @@ svg.lu{flex:none;display:block}
 .task.repoussee{border-left-style:dashed}
 .task .tcut{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;font:inherit;font-size:11px;padding:1px 8px;margin-top:5px;cursor:pointer}
 .task .tcut:hover{border-color:var(--accent)}
+#dlgAide{width:min(980px,94vw);height:min(720px,88vh);max-width:none;max-height:none;padding:0}
+#dlgAide .aide{display:grid;grid-template-columns:240px 1fr;height:100%;position:relative}
+.aide-nav{border-right:1px solid var(--line);padding:14px 10px;overflow:auto;background:var(--paper)}
+.aide-nav input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--card);color:inherit;font:inherit;font-size:13px;margin-bottom:10px}
+.aide-nav ol{list-style:none;margin:0;padding:0}
+.aide-nav li{padding:7px 10px;border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--ink)}
+.aide-nav li:hover{background:var(--card)}
+.aide-nav li.on{background:var(--accent);color:var(--card);font-weight:700}
+.aide-txt{padding:20px 28px 16px;overflow:auto;font-size:14px;line-height:1.55;color:var(--ink)}
+.aide-txt h2{margin:0 0 12px;font-size:20px}
+.aide-txt li{margin-bottom:6px}
+.aide-txt code{background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:0 4px;font-size:12.5px}
+.aide-tip{background:var(--routine-bg);color:var(--routine-fg);border-radius:8px;padding:8px 12px}
+.aide-pied{display:flex;justify-content:space-between;gap:10px;margin-top:22px;padding-top:12px;border-top:1px solid var(--line)}
+.aide-x{position:absolute;top:10px;right:12px;padding:3px 9px}
+@media (max-width: 700px){ #dlgAide .aide{grid-template-columns:1fr} .aide-nav{display:none} }
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -408,6 +424,7 @@ svg.lu{flex:none;display:block}
       <button class="btn" id="btnExport" title="Sauvegarder la semaine dans un fichier">💾 Exporter</button>
       <button class="btn" id="btnImport">📥 Importer</button>
       <button class="btn" id="btnClearPlan" title="Retirer toutes les tâches prévues (nouvelle semaine)">🧹 Vider la semaine</button>
+      <button class="btn" id="btnAide" title="Guide de Cadence (F1)">❓ Aide</button>
       <button class="btn" id="btnTheme" title="Thème clair / sombre">🌓</button>
       <input type="file" id="dirInput" webkitdirectory directory multiple class="hidden">
       <input type="file" id="jsonInput" accept="application/json" class="hidden">
@@ -538,6 +555,17 @@ svg.lu{flex:none;display:block}
       <button type="submit" class="btn on">Enregistrer</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="dlgAide">
+  <div class="aide">
+    <nav class="aide-nav">
+      <input type="search" id="aideCherche" placeholder="Chercher dans l'aide…" autocomplete="off">
+      <ol id="aideSommaire"></ol>
+    </nav>
+    <article class="aide-txt" id="aideTexte"></article>
+    <button type="button" class="btn aide-x" id="aideFermer" title="Fermer (Échap)">✕</button>
+  </div>
 </dialog>
 
 <dialog id="dlgIcone">
@@ -835,6 +863,85 @@ function planTask(file, k){
 /* ---------- thème ---------- */
 const applyTheme = (t) => { if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); };
 applyTheme(store.get(THKEY));
+/* ---------- guide intégré ---------- */
+const AIDE = [
+ {t: 'Bienvenue', h: `<p>Cadence organise ta <b>semaine type</b> en blocs (routines, travail, loisirs…) et y range tes <b>tâches Obsidian</b>. Tout ce que tu fais ici est écrit directement dans ton coffre : rien n'est stocké ailleurs.</p>
+  <p>Ce guide suit l'ordre logique de découverte : lis les étapes une par une, chacune s'appuie sur la précédente.</p>
+  <ol><li>Relier ton coffre</li><li>Construire ta semaine type</li><li>Ranger tes tâches dans les blocs</li><li>Organiser tags, projets et lieux</li><li>Travailler avec tes notes</li><li>Ajouter tes agendas</li><li>Les petits plus : météo, équilibre, entourage</li></ol>`},
+ {t: '1. Relier ton coffre', h: `<ol><li>Ouvre <b>⚙️ Réglages</b> et choisis le dossier de ton coffre Obsidian.</li>
+  <li>Cadence lit les tâches du plugin <b>TaskNotes</b> (le dossier est repris de ses réglages).</li>
+  <li>Ta semaine est enregistrée dans un fichier du coffre (par défaut <code>Cadence.json</code>), donc synchronisée comme le reste de tes notes.</li></ol>
+  <p class="aide-tip">Toute modification faite dans Obsidian apparaît en direct dans Cadence, et inversement.</p>`},
+ {t: '2. La semaine type : les blocs', h: `<p>Un <b>bloc</b> est un créneau de ta semaine : « Bilan de compétences 9h–11h », « Courses », « Cardio boxe »…</p>
+  <ol><li><b>Créer</b> : laisse la souris 3 secondes sur un espace vide, un <b>＋</b> apparaît ; clique dessus.</li>
+  <li><b>Modifier</b> : double-clic sur le bloc (titre, horaires, catégorie, tag ou projet, jours).</li>
+  <li><b>Déplacer</b> : glisse le bloc. <b>Étirer</b> : tire son bord du bas (par pas de 15 min).</li>
+  <li><b>Supprimer</b> : survole-le puis 🗑 ; une notification permet d'<b>annuler</b>.</li></ol>
+  <p>Les blocs identiques sur des jours qui se suivent sont fusionnés visuellement. Un bloc trop petit pour son contenu s'écrit sur une ligne ; un <b>▾</b> indique qu'il se déplie au survol.</p>
+  <p class="aide-tip">Un bloc qui porte un <b>tag</b> ou un <b>projet</b> n'accepte que les tâches correspondantes (voir l'étape 4).</p>`},
+ {t: '3. Les tâches', h: `<p>Le panneau de droite <b>Mes tâches</b> liste tes tâches ouvertes, groupées par tag. Les filtres en haut (tags, projets, lieux, Aujourd'hui, À trier) réduisent la liste.</p>
+  <ol><li><b>Créer</b> : bouton <b>＋ Tâche</b>.</li>
+  <li><b>Planifier</b> : glisse la tâche sur un bloc du calendrier. Elle reçoit la date et l'heure, avec un rappel 30 min avant.</li>
+  <li>Pas de bloc libre ? Garde la tâche 3 secondes au-dessus d'un espace vide : un créneau s'ouvre.</li>
+  <li><b>Terminer</b> : clic sur le rond ○ (avec annulation possible).</li>
+  <li><b>Modifier</b> : double-clic sur la tâche. <b>Ouvrir dans Obsidian</b> : l'icône violette.</li>
+  <li><b>Checklist</b> : clique sur une tâche à étapes pour les voir ; glisse une étape sur le calendrier pour en faire une tâche à part.</li></ol>
+  <p class="aide-tip">Le groupe <b>📥 À trier</b> rassemble les tâches sans tag : commence par lui. Un clic sur un bloc affiche ses tâches dans le panneau.</p>`},
+ {t: '4. Tags, projets, lieux, icônes', h: `<p>Dans <b>⚙️ Réglages → Tags, projets et lieux</b> :</p>
+  <ul><li><b>Tags</b> : nom (celui des tâches), libellé affiché, couleur (catégorie) et nature.</li>
+  <li><b>Projets</b> : le nom de leur note Obsidian ; une pastille 📁 sur les blocs les rappelle.</li>
+  <li><b>Lieux</b> : les contextes (magasins, endroits) proposés à la création d'une tâche.</li>
+  <li><b>Catégories</b> : l'icône de chaque catégorie de couleur.</li>
+  <li><b>Entourage</b> : voir l'étape 9.</li></ul>
+  <p>Clique sur l'<b>icône ronde</b> d'une ligne pour en choisir une autre parmi la bibliothèque Lucide (recherche en anglais : <i>cart, hammer, book…</i>). Elle s'affiche dans les cercles en haut à droite des blocs.</p>`},
+ {t: '5. Les notes', h: `<p>L'onglet <b>Notes</b> (à côté de Mes tâches) liste tes notes du jour.</p>
+  <ol><li><b>CADENCE</b>, en tête, est ton programme du jour, mis à jour automatiquement.</li>
+  <li>Clic sur une note pour la lire ; l'éditeur permet de l'écrire, avec aperçu (Ctrl+S enregistre, l'enregistrement est aussi automatique).</li>
+  <li><b>Surligne un passage</b> : la bulle <b>« En faire une tâche »</b> crée la tâche et remplace le passage par un lien.</li>
+  <li><b>Glisse une note</b> sur le calendrier : elle devient une tâche planifiée à cet endroit, liée à la note.</li>
+  <li>🔗 relie une note à une tâche existante.</li></ol>`},
+ {t: '6. Agendas et Google', h: `<p>Dans <b>⚙️ Réglages → Agendas</b>, ajoute tes agendas (lien iCal) et connecte ton <b>Google Agenda</b>.</p>
+  <ol><li>Chaque rendez-vous va dans le <b>bloc</b> qu'il chevauche, sous forme de ligne 📆. S'il ne tombe sur aucun bloc, il forme son <b>propre bloc</b> pour ce jour-là.</li>
+  <li>L'<b>icône Google</b> en bas à gauche d'un bloc : grisée = bloc non synchronisé, ses rendez-vous sont masqués (une petite pastille dit combien) ; en couleurs = synchronisé : ses rendez-vous s'affichent et le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu).</li>
+  <li>Sur un bloc de rendez-vous seul, l'icône Google le masque (annulable).</li>
+  <li>Rendez-vous Google : glisse pour déplacer, tire le bas pour allonger, double-clic pour le renommer ou le modifier, 🗑 pour le supprimer.</li>
+  <li>Glisse une tâche ou une note <b>sur un rendez-vous</b> pour l'y rattacher (📎).</li></ol>
+  <p class="aide-tip">Masquer un rendez-vous ne le supprime jamais de ton agenda.</p>`},
+ {t: '7. Météo', h: `<p>Dans <b>⚙️ Réglages → Météo</b>, cherche ta commune. Chaque jour affiche alors <b>M</b> (matin) et <b>A</b> (après-midi) en vert, orange ou rouge selon la pluie et le vent.</p>
+  <p>Les blocs dont le tag est un travail dehors (réglable) sont entourés selon la météo de leur créneau : <b>OK dehors</b>, <b>limite</b> ou <b>pas dehors</b>.</p>`},
+ {t: '8. Équilibre de la semaine', h: `<p>Chaque tag et projet a une <b>nature</b> : plaisir, obligation ou neutre (réglable dans le gestionnaire, colonne « Nature »).</p>
+  <ol><li>La <b>jauge</b> au-dessus du calendrier compare le temps prévu des deux ; la cible est d'au moins un tiers de plaisir.</li>
+  <li>Un jour sans aucun moment plaisir porte une pastille <b>＋ plaisir</b> : un clic place un créneau d'une heure dans le premier trou libre de l'après-midi.</li>
+  <li>Si le plaisir prend beaucoup de place, la jauge propose la plus petite obligation disponible.</li>
+  <li>Une tâche repoussée plusieurs fois affiche <b>↻</b> et le bouton <b>✂ Juste démarrer</b> : il crée une première étape de 15 min pour aujourd'hui.</li></ol>`},
+ {t: '9. Entourage', h: `<ol><li>Ajoute les personnes dans <b>⚙️ Réglages → Tags, projets et lieux → 💬 Entourage</b>, avec la date du dernier message si tu la connais.</li>
+  <li>En haut du panneau des tâches, Cadence propose chaque jour <b>un petit message</b> à la personne à qui tu n'as pas écrit depuis le plus longtemps : chacun son tour.</li>
+  <li><b>✓ C'est fait</b> note la date ; <b>Un autre</b> propose quelqu'un d'autre pour aujourd'hui.</li>
+  <li>Au-delà de 3 semaines, la personne passe en orange.</li></ol>`},
+ {t: 'Astuces et raccourcis', h: `<ul><li><b>F1</b> : ouvrir ce guide. <b>Échap</b> : fermer une fenêtre.</li>
+  <li><b>Alt</b> en déposant une tâche : forcer un bloc d'une autre catégorie.</li>
+  <li><b>Ctrl+S</b> dans une note : enregistrer tout de suite.</li>
+  <li>◀ ▶ et <b>Auj.</b> : changer de semaine.</li>
+  <li><b>🖨️ Imprimer</b>, <b>💾 Exporter</b> / <b>📥 Importer</b> : garder une copie de ta semaine.</li>
+  <li><b>🌓</b> : thème clair ou sombre.</li></ul>`},
+];
+let aideCourante = 0;
+function ouvrirAide(i = aideCourante){ $('#aideCherche').value = ''; dessinerAide(i); if (!$('#dlgAide').open) $('#dlgAide').showModal(); }
+function dessinerAide(i){
+  aideCourante = i;
+  const q = $('#aideCherche').value.trim().toLowerCase(), plat = (h) => h.replace(/<[^>]+>/g, ' ').toLowerCase();
+  const ol = $('#aideSommaire'); ol.innerHTML = '';
+  AIDE.forEach((c, k) => { if (q && !(c.t.toLowerCase().includes(q) || plat(c.h).includes(q))) return;
+    const li = document.createElement('li'); li.textContent = c.t; li.className = k === i ? 'on' : ''; li.onclick = () => dessinerAide(k); ol.appendChild(li); });
+  const c = AIDE[i];
+  $('#aideTexte').innerHTML = `<h2>${c.t}</h2>${c.h}<div class="aide-pied">${i > 0 ? `<button type="button" class="btn" data-k="${i - 1}">← ${AIDE[i - 1].t}</button>` : '<span></span>'}${i < AIDE.length - 1 ? `<button type="button" class="btn on" data-k="${i + 1}">${AIDE[i + 1].t} →</button>` : ''}</div>`;
+  $('#aideTexte').querySelectorAll('.aide-pied button').forEach(b => b.onclick = () => dessinerAide(+b.dataset.k));
+  $('#aideTexte').scrollTop = 0;
+}
+$('#btnAide').onclick = () => ouvrirAide();
+$('#aideFermer').onclick = () => $('#dlgAide').close();
+$('#aideCherche').oninput = () => { const q = $('#aideCherche').value.trim().toLowerCase(); const k = AIDE.findIndex(c => c.t.toLowerCase().includes(q) || c.h.replace(/<[^>]+>/g, ' ').toLowerCase().includes(q)); dessinerAide(k >= 0 ? k : aideCourante); };
+document.addEventListener('keydown', (e) => { if (e.key === 'F1'){ e.preventDefault(); ouvrirAide(); } });
 $('#btnTheme').onclick = () => {
   const dark = matchMedia('(prefers-color-scheme: dark)').matches;
   const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
