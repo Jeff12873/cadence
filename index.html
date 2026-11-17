@@ -252,6 +252,20 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
 .ne-body.edit .ne-prev{display:none}
 .ne-body.view textarea{display:none}
 .md img{max-width:100%;border-radius:8px;margin:.4em 0;display:block}
+#dlgCat{width:min(640px,calc(100vw - 32px))}
+.cat-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cat-head h3{margin:0}
+.cat-rows{max-height:55vh;overflow:auto;margin:10px 0}
+.cat-row{display:grid;grid-template-columns:28px 1fr 1fr 110px 52px 30px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+.cat-row.p,.cat-row.c{grid-template-columns:28px 1fr 110px 52px 30px}
+.cat-row.c{grid-template-columns:28px 1fr 52px 30px}
+.cat-row input,.cat-row select{width:100%;border:1px solid var(--line);border-radius:7px;padding:5px 7px;background:var(--paper);color:inherit;font:inherit;font-size:13px}
+.cat-row .sw{width:22px;height:22px;border-radius:6px;background:var(--bg);border-left:4px solid var(--fg)}
+.cat-row .n{font-size:11.5px;color:var(--muted);text-align:right}
+.cat-row .n.neuf{color:#B45309}
+.cat-row button{border:none;background:none;cursor:pointer;font-size:14px;opacity:.6}
+.cat-row button:hover{opacity:1}
+.cat-row.hdr{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:none}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -389,6 +403,26 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
   </form>
 </dialog>
 
+<dialog id="dlgCat">
+  <form method="dialog" id="catForm">
+    <div class="cat-head">
+      <h3>Tags, projets et lieux</h3>
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab on" data-k="tags">🏷 Tags</button>
+        <button type="button" class="tab" data-k="projects">📁 Projets</button>
+        <button type="button" class="tab" data-k="contexts">📍 Lieux</button>
+      </div>
+    </div>
+    <div class="set-hint" id="catHint"></div>
+    <div class="cat-rows" id="catRows"></div>
+    <button type="button" class="btn" id="catAdd">＋ Ajouter</button>
+    <div class="actions">
+      <button type="button" class="btn" id="catCancel">Annuler</button>
+      <button type="submit" class="btn on">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlgLink">
   <form method="dialog" id="linkForm">
     <h3 id="linkTitle">Associer la note à une tâche</h3>
@@ -418,11 +452,8 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
     <div class="set-hint">Dans le nom : YYYY = année, MM = mois, DD = jour (ex. « YYYYMMDD - Inbox »).</div>
     <label for="sProg">Note du programme (↻ Daily), unique et sans date</label>
     <input type="text" id="sProg" autocomplete="off" placeholder="CADENCE">
-    <label for="sTags">Tags : un par ligne, « nom | libellé | couleur »</label>
-    <textarea id="sTags" rows="6" placeholder="Achats | 🛒 Achats | courses"></textarea>
-    <label for="sProj">Projets : un par ligne, « nom | couleur »</label>
-    <textarea id="sProj" rows="4" placeholder="Mon projet | travaux"></textarea>
-    <div class="set-hint" id="sCats"></div>
+    <label>Tags, projets et lieux</label>
+    <button type="button" class="btn" id="sCatBtn">🏷 Gérer les tags, projets et lieux…</button>
     <div class="actions">
       <button type="button" class="btn" id="sCancel">Fermer</button>
       <button type="submit" class="btn on">Enregistrer</button>
@@ -472,7 +503,7 @@ const projNames = () => projDefs().map(p => p.name);
 function tagsObj(){
   const o = {'': 'Aucune'};
   tagDefs().forEach(t => { o[t.name] = t.label || t.name; });
-  if (tasks) tasks.items.forEach(x => x.tags.forEach(n => { if (n !== 'Aucun' && !(n in o)) o[n] = n; }));
+  if (tasks) tasks.items.forEach(x => x.tags.forEach(n => { if (n !== A_TRIER && !(n in o)) o[n] = n; }));
   return o;
 }
 const catOf = (v) => v && v.startsWith('p:') ? ((projDefs().find(p => p.name === v.slice(2)) || {}).cat || 'routine') : (tagDefs().find(t => t.name === v) || {}).cat;
@@ -638,11 +669,12 @@ function parseTask(name, text){
   return {
     subs, projects, notes, rappel, contexts,
     file: name.replace(/\.md$/,''), title: o.title && o.title !== '""' ? o.title : name.replace(/\.md$/,''),
-    tags: tags.length ? tags : ['Aucun'], priority: o.priority || '', status: o.status || '',
+    tags: (t => t.length ? t : [A_TRIER])([...new Set(tags.map(x => x === 'Aucun' ? A_TRIER : x))]), priority: o.priority || '', status: o.status || '',
     scheduled: o.scheduled || '', due: o.due || '', recurring: !!o.recurrence,
     blockedBy: o._blocked || [], boxes: boxes.length, done: boxes.filter(b => b[1] !== ' ').length
   };
 }
+const A_TRIER = 'À trier';
 const sansGuillemets = (v) => String(v || '').replace(/^["']+|["']+$/g, '').trim();
 function estTache(o, tags){
   if (!TN) return 'status' in o || tags.includes('task');            // navigateur : heuristique simple
@@ -862,7 +894,7 @@ async function supprimerCase(grp){
   });
 }
 // Case créée à partir d'une tâche glissée : même titre, tag, couleur et projet que la tâche
-const tacheTag = (t) => (t.tags || []).find(x => x !== 'Aucun') || '';
+const tacheTag = (t) => (t.tags || []).find(x => x !== A_TRIER) || '';
 const tacheProj = (t) => (t.projects || []).find(p => !(tasks && tasks.items.some(x => x.file === p))) || '';
 // Bloc créé par une tâche : il porte le nom de la catégorie (tag, sinon projet), la tâche s'affiche dedans
 function typerSurTache(e, t){
@@ -920,7 +952,7 @@ function appliquerDepot(c, t, d, m){
 let extraction = null;
 function remplirLieux(){
   const dl = $('#ctxList'); dl.innerHTML = '';
-  [...new Set((tasks ? tasks.items : []).flatMap(t => t.contexts || []))].sort((a, b) => a.localeCompare(b, 'fr')).forEach(c => dl.appendChild(new Option(c)));
+  [...new Set((state.contexts || []).concat((tasks ? tasks.items : []).flatMap(t => t.contexts || [])))].sort((a, b) => a.localeCompare(b, 'fr')).forEach(c => dl.appendChild(new Option(c)));
 }
 function ouvrirExtraction(sub, t, d, m, c){
   extraction = {sub, t, d, m, c};
@@ -941,7 +973,7 @@ $('#exForm').onsubmit = async (ev) => {
   const r = appliquerDepot(x.c, x.t, x.d, x.m);
   const planifie = `${isoOf(weekDays[x.d])}T${hhmm(r.start)}`;
   try {
-    const nom = await cadence.creerTache({titre, tags: pt.tags.filter(g => g !== 'Aucun'), projets: (pt.projects || []).filter(p => !tasks.items.some(y => y.file === p)),
+    const nom = await cadence.creerTache({titre, tags: pt.tags, projets: (pt.projects || []).filter(p => !tasks.items.some(y => y.file === p)),
       priorite: sansGuillemets(pt.priority) || undefined, planifie, contextes: $('#exCtx').value.trim() ? [$('#exCtx').value.trim()] : []});
     await cadence.remplacerLigne(pt.file, x.sub.i, `[[${nom}]]`, pt.mtime);
     toast(`✂️ « ${nom} » créée ${x.c.label.replace(/^dans /, 'dans ')}, et liée dans « ${pt.title} ».`);
@@ -1116,6 +1148,7 @@ function renderTasks(){
     const cat = catOf(val); if (cat){ c.style.setProperty('--bg', `var(--${cat}-bg)`); c.style.setProperty('--fg', `var(--${cat}-fg)`); }
     c.textContent = label; c.onclick = () => { filter = filter===val ? '' : val; renderTasks(); }; f.appendChild(c); };
   mk('', 'Toutes');
+  if (tasks.items.some(t => t.tags.includes(A_TRIER))) mk('@trier', '📥 À trier');
   mk('@today', '📅 Aujourd\'hui');
   order.filter(t => tagsPresent.includes(t)).forEach(t => mk(t, TG[t] || t));
   const taskFiles = new Set(tasks.items.map(t => t.file));
@@ -1134,7 +1167,8 @@ function renderTasks(){
     if (hide.dated) items = items.filter(t => !t.scheduled && !t.due);
   }
   if (filter === '@today') items = items.filter(t => (t.scheduled||'').slice(0,10) === iso || (t.due||'').slice(0,10) === iso || ((t.due||t.scheduled||'9999').slice(0,10) < iso && !t.recurring));
-  const groups = filter.startsWith('@plan:') ? [filter] : filter && filter !== '@today' ? [filter] : order.filter(t => items.some(x => x.tags.includes(t)));
+  const groups = filter.startsWith('@plan:') ? [filter] : filter === '@trier' ? [A_TRIER] : filter && filter !== '@today' ? [filter]
+    : (items.some(x => x.tags.includes(A_TRIER)) ? [A_TRIER] : []).concat(order.filter(t => items.some(x => x.tags.includes(t))));
   if (!items.length){ list.innerHTML = '<div class="empty-tasks">Rien ici.</div>'; return; }
   const shown = groups.reduce((n, g) => n + (renderGroup(g, items, list, renderTasks) || 0), 0);
   if (!shown) list.innerHTML = '<div class="empty-tasks">Aucune tâche ici pour l\'instant.</div>';
@@ -1150,10 +1184,10 @@ function renderGroup(g, items, container, rerender){
     const isP = g.startsWith('p:'), isC = g.startsWith('c:'), isPlan = g.startsWith('@plan:'), pk = isPlan ? g.slice(6) : '';
     const gi = items.filter(t => isPlan ? dayFiles(pk).includes(t.file) : isC ? (t.contexts||[]).includes(g.slice(2)) : isP ? (t.projects||[]).includes(g.slice(2)) : t.tags.includes(g)).sort((a,b) => (a.blocked-b.blocked) || ((prioN(a.priority)||9)-(prioN(b.priority)||9)) || a.title.localeCompare(b.title,'fr'));
     if (!gi.length) return 0;
-    const cat = isPlan ? 'routine' : isC ? 'courses' : (catOf(g) || 'routine');
+    const cat = isPlan || g === A_TRIER ? 'routine' : isC ? 'courses' : (catOf(g) || 'routine');
     const box = document.createElement('div'); box.className = 'group';
     box.style.setProperty('--fg', `var(--${cat}-fg)`); box.style.setProperty('--bg', `var(--${cat}-bg)`);
-    box.innerHTML = `<h3><span>${esc(isPlan ? '📌 Prévu ' + keyLabel(pk) : isC ? '📍 ' + g.slice(2) : isP ? '📁 ' + g.slice(2) : (tagsObj()[g] || g))}</span><span>${gi.filter(t=>!t.blocked).length} prêtes</span></h3>`;
+    box.innerHTML = `<h3><span>${esc(g === A_TRIER ? '📥 À trier' : isPlan ? '📌 Prévu ' + keyLabel(pk) : isC ? '📍 ' + g.slice(2) : isP ? '📁 ' + g.slice(2) : (tagsObj()[g] || g))}</span><span>${gi.filter(t=>!t.blocked).length} prêtes</span></h3>`;
     gi.forEach(t => {
       const a = document.createElement('div'); a.className = 'task' + (t.blocked ? ' blocked' : '') + (t.boxes ? ' has-subs' : '');
       const url = `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent(TASK_DIR + t.file)}`;
@@ -1360,6 +1394,71 @@ function renommer(t, span){
   inp.addEventListener('blur', valider2);
   inp.addEventListener('click', (e) => e.stopPropagation());
 }
+
+/* ---------- gestionnaire : tags, projets, lieux ---------- */
+let catTab = 'tags', catEdit = null;
+const compte = (k, n) => tasks ? tasks.items.filter(t => k === 'tags' ? t.tags.includes(n) : k === 'projects' ? (t.projects || []).includes(n) : (t.contexts || []).includes(n)).length : 0;
+function ouvrirCategories(){
+  const taskFiles = new Set(tasks ? tasks.items.map(t => t.file) : []);
+  const vus = {
+    tags: [...new Set((tasks ? tasks.items : []).flatMap(t => t.tags).filter(t => t !== A_TRIER))],
+    projects: [...new Set((tasks ? tasks.items : []).flatMap(t => t.projects || []).filter(p => !taskFiles.has(p)))],
+    contexts: [...new Set((tasks ? tasks.items : []).flatMap(t => t.contexts || []))],
+  };
+  catEdit = {
+    tags: tagDefs().map(t => ({...t})).concat(vus.tags.filter(n => !tagDefs().some(t => t.name === n)).map(n => ({name: n, label: n, cat: 'routine', neuf: true}))),
+    projects: projDefs().map(p => ({...p})).concat(vus.projects.filter(n => !projDefs().some(p => p.name === n)).map(n => ({name: n, cat: 'routine', neuf: true}))),
+    contexts: (state.contexts || []).map(n => ({name: n})).concat(vus.contexts.filter(n => !(state.contexts || []).includes(n)).map(n => ({name: n, neuf: true}))),
+  };
+  catTab = 'tags'; dessinerCategories();
+  $('#dlgCat').showModal();
+}
+function dessinerCategories(){
+  document.querySelectorAll('#dlgCat .tab').forEach(b => b.classList.toggle('on', b.dataset.k === catTab));
+  const k = catTab, rows = $('#catRows'); rows.innerHTML = '';
+  $('#catHint').textContent = {
+    tags: 'Le libellé (avec une icône si tu veux) et la couleur s\'affichent dans Cadence. Le nom est celui écrit dans les tâches. En orange : trouvé dans tes tâches, pas encore déclaré.',
+    projects: 'Le nom du projet est le nom de sa note (lien [[…]] dans les tâches). La couleur sert aux blocs et aux pastilles 📁.',
+    contexts: 'Les lieux proposés à la création d\'une tâche (contexte TaskNotes, ex. Würth, Carrefour).',
+  }[k];
+  const cls = k === 'tags' ? '' : k === 'projects' ? ' p' : ' c';
+  const h = document.createElement('div'); h.className = 'cat-row hdr' + cls;
+  h.innerHTML = k === 'tags' ? '<span></span><span>Nom</span><span>Libellé</span><span>Couleur</span><span>Tâches</span><span></span>'
+    : k === 'projects' ? '<span></span><span>Nom</span><span>Couleur</span><span>Tâches</span><span></span>' : '<span></span><span>Nom</span><span>Tâches</span><span></span>';
+  rows.appendChild(h);
+  catEdit[k].forEach((it, i) => {
+    const r = document.createElement('div'); r.className = 'cat-row' + cls;
+    const cat = it.cat || (k === 'contexts' ? 'courses' : 'routine');
+    const n = compte(k, it.name);
+    const sel = `<select data-f="cat">${Object.entries(CATS).filter(([c]) => c !== 'pause').map(([c, v]) => `<option value="${c}"${c === cat ? ' selected' : ''}>${v}</option>`).join('')}</select>`;
+    r.innerHTML = `<span class="sw" style="--bg:var(--${cat}-bg);--fg:var(--${cat}-fg)"></span><input data-f="name" value="${esc(it.name)}" placeholder="nom">`
+      + (k === 'tags' ? `<input data-f="label" value="${esc(it.label || '')}" placeholder="🛒 Achats">` : '')
+      + (k !== 'contexts' ? sel : '')
+      + `<span class="n${it.neuf ? ' neuf' : ''}" title="${it.neuf ? 'Trouvé dans les tâches, pas encore déclaré' : ''}">${n}</span><button type="button" title="Retirer de la liste">🗑</button>`;
+    r.querySelectorAll('[data-f]').forEach(inp => inp.addEventListener('input', () => {
+      it[inp.dataset.f] = inp.value; delete it.neuf;
+      if (inp.dataset.f === 'cat') r.querySelector('.sw').style.cssText = `--bg:var(--${inp.value}-bg);--fg:var(--${inp.value}-fg)`;
+    }));
+    r.querySelector('button').onclick = () => {
+      if (n && !confirm(`« ${it.name} » est utilisé par ${n} tâche${n > 1 ? 's' : ''}. Il sera seulement retiré de la liste (les tâches gardent leur ${k === 'tags' ? 'tag' : k === 'projects' ? 'projet' : 'lieu'}). Continuer ?`)) return;
+      catEdit[k].splice(i, 1); dessinerCategories();
+    };
+    rows.appendChild(r);
+  });
+}
+document.querySelectorAll('#dlgCat .tab').forEach(b => b.onclick = () => { catTab = b.dataset.k; dessinerCategories(); });
+$('#catAdd').onclick = () => { catEdit[catTab].push(catTab === 'tags' ? {name: '', label: '', cat: 'routine'} : catTab === 'projects' ? {name: '', cat: 'routine'} : {name: ''}); dessinerCategories(); const ins = $('#catRows').querySelectorAll('input[data-f="name"]'); if (ins.length) ins[ins.length - 1].focus(); };
+$('#catCancel').onclick = () => $('#dlgCat').close();
+$('#catForm').onsubmit = (e) => {
+  e.preventDefault();
+  const propre = (l) => { const vu = new Set(); return l.map(x => ({...x, name: String(x.name || '').trim()})).filter(x => x.name && !vu.has(x.name) && vu.add(x.name)); };
+  state.tags = propre(catEdit.tags).map(t => ({name: t.name, label: (t.label || '').trim() || t.name, cat: CATS[t.cat] ? t.cat : 'routine'}));
+  state.projects = propre(catEdit.projects).map(p => ({name: p.name, cat: CATS[p.cat] ? p.cat : 'routine'}));
+  state.contexts = propre(catEdit.contexts).map(c => c.name);
+  save(); $('#dlgCat').close(); render();
+  toast('🏷 Tags, projets et lieux enregistrés.');
+};
+$('#sCatBtn').onclick = () => { ouvrirCategories(); };
 
 /* ---------- onglet Notes ---------- */
 let ongletNotes = false, notes = [], liaison = null;
@@ -1641,7 +1740,7 @@ $('#newForm').onsubmit = async (e) => {
   const jour = $('#nDay').value, heure = $('#nTime').value.trim().replace('h', ':');
   if (heure && !/^\d{1,2}:\d{2}$/.test(heure)){ alert('Heure au format 14:00'); return; }
   const planifie = jour ? jour + (heure ? 'T' + heure.padStart(5, '0') : '') : null;
-  const t = {titre: $('#nTitle').value, tags: $('#nTag').value ? [$('#nTag').value] : [], projets: $('#nProj').value ? [$('#nProj').value] : [],
+  const t = {titre: $('#nTitle').value, tags: $('#nTag').value ? [$('#nTag').value] : [A_TRIER], projets: $('#nProj').value ? [$('#nProj').value] : [],
              priorite: $('#nPrio').value, planifie, note: $('#nNote').value, contextes: $('#nCtx').value.trim() ? [$('#nCtx').value.trim()] : []};
   try {
     if (tacheEditee){
@@ -1662,9 +1761,7 @@ function ouvrirReglages(premier){
   $('#sData').value = (CFG && CFG.donnees) || 'Cadence.json';
   $('#sTasks').textContent = TN ? TN.dossier : '—';
   $('#sDailyDir').value = dailyCfg().dossier; $('#sDailyFmt').value = dailyCfg().format; $('#sProg').value = progCfg().chemin;
-  $('#sTags').value = tagDefs().map(t => [t.name, t.label || t.name, t.cat || ''].join(' | ')).join('\n');
-  $('#sProj').value = projDefs().map(p => [p.name, p.cat || ''].join(' | ')).join('\n');
-  $('#sCats').textContent = 'Couleurs possibles : ' + Object.keys(CATS).join(', ');
+
   $('#dlgSet').showModal();
 }
 $('#btnSettings').onclick = () => ouvrirReglages(false);
@@ -1678,9 +1775,7 @@ $('#sPick').onclick = async () => {
 $('#setForm').onsubmit = async (e) => {
   e.preventDefault();
   if (!CFG || !CFG.coffre){ alert("Choisis d'abord le coffre Obsidian."); return; }
-  const lignes = (v) => v.split('\n').map(l => l.split('|').map(x => x.trim())).filter(x => x[0]);
-  state.tags = lignes($('#sTags').value).map(([name, label, cat]) => ({name, label: label || name, cat: CATS[cat] ? cat : 'routine'}));
-  state.projects = lignes($('#sProj').value).map(([name, cat]) => ({name, cat: CATS[cat] ? cat : 'routine'}));
+
   state.programme = {chemin: ($('#sProg').value.trim() || 'CADENCE').replace(/\.md$/, '')};
   state.daily = {dossier: $('#sDailyDir').value.trim().replace(/^\/+|\/+$/g, ''), format: $('#sDailyFmt').value.trim() || 'YYYY-MM-DD'};
   if (BUREAU) cadence.suivreNotes(state.daily.dossier).catch(() => {});

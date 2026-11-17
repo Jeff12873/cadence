@@ -13,6 +13,8 @@ qui utilise le plugin [TaskNotes](https://github.com/callumalpass/tasknotes).
   « + » après 3 s de survol entre deux créneaux, double-clic pour le modifier. Les chevauchements sont refusés.
 - Une tâche déposée sur un espace libre crée un bloc au nom de sa catégorie (tag, sinon projet), avec la tâche dedans ; collée à un bloc de même catégorie, elle l'agrandit. Un bloc d'une autre catégorie la refuse (Alt pour forcer), et un bloc créé ainsi qui se vide propose sa suppression ; maintenue 3 s entre deux créneaux collés, elle en ouvre un. Quand une case bouge ou disparaît, ses tâches datées suivent dans Obsidian.
 - Trait de l'heure actuelle sur la semaine en cours.
+- Boîte de réception : les tâches sans tag (ou avec le tag « Aucun » de TaskForge) sont rangées sous le tag « À trier », en tête du panneau.
+- Gestionnaire des tags, projets et lieux (⚙️ Réglages) : libellé, icône, couleur, nombre de tâches, ajout et retrait.
 - Une ligne de checklist glissée sur le calendrier devient une tâche (après confirmation) : elle hérite du tag, du projet et de la priorité,
   prend le titre de section comme lieu, et la ligne d'origine est remplacée par un lien.
 - Lieux (contextes TaskNotes, ex. Würth, Carrefour) : saisie à la création, filtre 📍 dans le panneau, sous-blocs par lieu dans la note CADENCE.
