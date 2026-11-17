@@ -349,6 +349,8 @@ svg.lu{flex:none;display:block}
 .dp .pi.rdv.cible,.dp .pi.rdv.choisi{box-shadow:0 0 0 2px var(--accent)}
 .gsync{position:relative}
 .gsync .gn{position:absolute;right:-7px;top:-6px;min-width:13px;height:13px;border-radius:999px;background:#5f6368;color:#fff;font-size:9px;font-weight:700;line-height:13px;text-align:center;padding:0 2px;box-sizing:border-box}
+.ne-bulle{position:absolute;z-index:30;border:none;border-radius:999px;background:var(--accent);color:var(--card);font:inherit;font-size:12.5px;font-weight:700;padding:6px 12px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.25);white-space:nowrap}
+.ne-bulle:hover{filter:brightness(1.1)}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -468,6 +470,7 @@ svg.lu{flex:none;display:block}
     <textarea id="neText" spellcheck="true"></textarea>
     <div class="md ne-prev" id="nePrev"></div>
   </div>
+  <button type="button" id="neBulle" class="ne-bulle hidden" title="Créer une tâche avec ce texte ; il sera remplacé par un lien vers la tâche">＋ En faire une tâche</button>
 </dialog>
 
 <dialog id="dlgExtract">
@@ -2194,6 +2197,45 @@ async function enregistrerNote(){
   try { ne.mtime = await cadence.ecrireNote(ne.dossier, ne.nom, $('#neText').value, ne.mtime); ne.sale = false; neEtat('Enregistré ✓'); }
   catch(e){ neEtat('Non enregistré'); alert(messageErreur(e)); }
 }
+/* ---------- texte surligné dans une note → tâche ---------- */
+let tacheDepuisNote = null;
+const cacherBulle = () => $('#neBulle').classList.add('hidden');
+function montrerBulle(x, y){
+  const ta = $('#neText'), sel = ta.value.slice(ta.selectionStart, ta.selectionEnd);
+  if (!ne || !sel.trim()){ cacherBulle(); return; }
+  const r = $('#dlgNote').getBoundingClientRect(), b = $('#neBulle');
+  b.classList.remove('hidden');
+  b.style.left = Math.max(8, Math.min(r.width - b.offsetWidth - 8, x - r.left - b.offsetWidth / 2)) + 'px';
+  b.style.top = Math.max(8, y - r.top - b.offsetHeight - 10) + 'px';
+}
+$('#neText').addEventListener('mouseup', (e) => setTimeout(() => montrerBulle(e.clientX, e.clientY), 0));
+$('#neText').addEventListener('keyup', (e) => { if (!e.shiftKey && !/^(Shift|Control|Meta)$/.test(e.key)) { cacherBulle(); return; }
+  const r = $('#neText').getBoundingClientRect(); montrerBulle(r.left + r.width / 2, r.top + 40); });
+$('#neText').addEventListener('input', cacherBulle);
+$('#neText').addEventListener('scroll', cacherBulle);
+$('#neBulle').addEventListener('mousedown', (e) => e.preventDefault());
+$('#neBulle').onclick = () => {
+  const ta = $('#neText'), deb = ta.selectionStart, fin = ta.selectionEnd, texte = ta.value.slice(deb, fin);
+  cacherBulle(); if (!ne || !texte.trim()) return;
+  tacheDepuisNote = {deb, fin, texte, nom: ne.nom, dossier: ne.dossier};
+  const titre = texte.split('\n').map(l => l.replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[.\]\s+)?/, '').trim()).filter(Boolean)[0] || '';
+  ouvrirTache(null);
+  $('#nTitle').value = titre.replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/\s+/g, ' ').slice(0, 110);
+  const reste = texte.split('\n').length > 1 ? texte.trim() + '\n\n' : '';
+  $('#nNote').value = `${reste}📝 [[${ne.nom}]]`;
+  $('#nTitle').select();
+};
+// Après création : le passage surligné devient un lien vers la tâche
+async function lierSelectionNote(nom){
+  const x = tacheDepuisNote; tacheDepuisNote = null;
+  if (!x || !ne || ne.nom !== x.nom) return;
+  const ta = $('#neText'); let v = ta.value, deb = x.deb, fin = x.fin;
+  if (v.slice(deb, fin) !== x.texte){ deb = v.indexOf(x.texte); if (deb < 0) return; fin = deb + x.texte.length; }
+  const garde = x.texte.match(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[.\]\s+)?/);
+  ta.value = v.slice(0, deb) + (garde ? garde[0].replace(/\[.\]\s+/, '') : '') + `→ [[${nom}]]` + v.slice(fin);
+  ne.sale = true; neApercu(); await enregistrerNote();
+}
+$('#dlgNew').addEventListener('close', () => { setTimeout(() => { tacheDepuisNote = null; }, 0); });
 async function fermerNote(){ await enregistrerNote(); $('#dlgNote').close(); ne = null; chargerNotes(); }
 $('#neText').addEventListener('input', () => {
   if (!ne) return; ne.sale = true; neEtat('Modifications…'); neApercu();
@@ -2358,7 +2400,7 @@ $('#newForm').onsubmit = async (e) => {
       if (tacheEditee.recurring) delete t.planifie;
       const r = await cadence.modifierTache(tacheEditee.file, t, tacheEditee.mtime);
       toast(`✏️ « ${r.nom} » mise à jour${r.liens ? ` · liens mis à jour dans ${r.liens} note${r.liens > 1 ? 's' : ''}` : ''}.`);
-    } else await cadence.creerTache(t);
+    } else { const nom = await cadence.creerTache(t); if (tacheDepuisNote) await lierSelectionNote(nom); }
     $('#dlgNew').close();
   } catch(err){ alert(messageErreur(err)); }
   tacheEditee = null;
