@@ -6,6 +6,7 @@
 <title>Cadence</title>
 <style>
 :root{
+  --icf:80%; --icb:16%;
   --paper:#FAFAF7; --card:#FFFFFF; --ink:#1F2937; --muted:#6B7280; --line:#E5E7EB; --head:#374151; --headwe:#9CA3AF;
   --accent:#2B4C7E; --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05); --weekend:#F1F1EC;
   --routine-bg:#E8EEF6; --routine-fg:#2B4C7E; --bilan-bg:#DCD6F7; --bilan-fg:#3F2E8C; --ordi-bg:#D4F0EC; --ordi-fg:#0F6B5F;
@@ -14,6 +15,7 @@
   --pause-bg:transparent; --pause-fg:#9CA3AF;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --icf:100%; --icb:26%;
   --paper:#15171C; --card:#1D2027; --ink:#E5E7EB; --muted:#9CA3AF; --line:#2C303A; --head:#3B4252; --headwe:#2C303A;
   --accent:#9DB8E6; --shadow:0 1px 2px rgba(0,0,0,.4); --weekend:#1A1C21;
   --routine-bg:#22304A; --routine-fg:#B7CBEE; --bilan-bg:#2E2850; --bilan-fg:#CFC6FF; --ordi-bg:#173B37; --ordi-fg:#9EE3D8;
@@ -21,6 +23,7 @@
   --travaux-bg:#43301F; --travaux-fg:#F1C29B; --loisir-bg:#3D2140; --loisir-fg:#EDB8E6; --soir-bg:#262E42; --soir-fg:#C3CDE6;
 }}
 :root[data-theme="dark"]{
+  --icf:100%; --icb:26%;
   --paper:#15171C; --card:#1D2027; --ink:#E5E7EB; --muted:#9CA3AF; --line:#2C303A; --head:#3B4252; --headwe:#2C303A;
   --accent:#9DB8E6; --shadow:0 1px 2px rgba(0,0,0,.4); --weekend:#1A1C21;
   --routine-bg:#22304A; --routine-fg:#B7CBEE; --bilan-bg:#2E2850; --bilan-fg:#CFC6FF; --ordi-bg:#173B37; --ordi-fg:#9EE3D8;
@@ -320,6 +323,22 @@ dialog input[type=date]{width:100%;border:1px solid var(--line);border-radius:8p
 .ev .gsync:hover{opacity:.85}
 .ev .gsync.on{filter:none;opacity:1;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .ev.short .gsync{bottom:auto;top:50%;transform:translateY(-50%);padding:1px}
+svg.lu{flex:none;display:block}
+.badge{display:inline-flex;align-items:center;gap:3px;background:color-mix(in srgb, var(--fg) var(--icb), var(--bg));color:color-mix(in srgb, var(--fg) var(--icf), #000);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--fg) 28%, transparent);min-height:18px;box-sizing:border-box}
+.badge.proj{background:color-mix(in srgb, var(--fg) var(--icb), var(--bg));box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--fg) 60%, transparent)}
+.badge.ico{width:20px;height:20px;padding:0;justify-content:center;cursor:default}
+.badge .lu{width:12px;height:12px}
+.chip{display:inline-flex;align-items:center;gap:5px}
+.chip .lu{color:color-mix(in srgb, var(--fg, currentColor) var(--icf), #000)}
+.group h3 .gh{display:inline-flex;align-items:center;gap:6px}
+.group h3 .gh .lu{color:color-mix(in srgb, var(--fg) var(--icf), #000)}
+.cat-row.k{grid-template-columns:28px 1fr}
+.ic-btn{width:26px!important;height:26px!important;border-radius:999px!important;padding:0!important;display:grid;place-items:center;border:none!important;opacity:1!important;cursor:pointer;background:color-mix(in srgb, var(--fg) var(--icb), var(--bg))!important;color:color-mix(in srgb, var(--fg) var(--icf), #000);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--fg) 30%, transparent)}
+.ic-btn:disabled{cursor:default}
+#dlgIcone input[type=search]{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--paper);color:inherit;font:inherit;margin:6px 0 10px;box-sizing:border-box}
+.ic-grille{display:grid;grid-template-columns:repeat(auto-fill, minmax(40px, 1fr));gap:6px;max-height:50vh;overflow:auto;width:min(520px, 80vw)}
+.ic-choix{height:40px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.ic-choix:hover,.ic-choix.on{border-color:var(--accent);color:var(--accent)}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -465,6 +484,7 @@ dialog input[type=date]{width:100%;border:1px solid var(--line);border-radius:8p
         <button type="button" class="tab on" data-k="tags">🏷 Tags</button>
         <button type="button" class="tab" data-k="projects">📁 Projets</button>
         <button type="button" class="tab" data-k="contexts">📍 Lieux</button>
+        <button type="button" class="tab" data-k="cats">🎨 Catégories</button>
       </div>
     </div>
     <div class="set-hint" id="catHint"></div>
@@ -474,6 +494,15 @@ dialog input[type=date]{width:100%;border:1px solid var(--line);border-radius:8p
       <button type="button" class="btn" id="catCancel">Annuler</button>
       <button type="submit" class="btn on">Enregistrer</button>
     </div>
+  </form>
+</dialog>
+
+<dialog id="dlgIcone">
+  <form method="dialog" id="icForm">
+    <h3>Choisir une icône <small style="font-weight:400;color:var(--muted)">· Lucide</small></h3>
+    <input type="search" id="icCherche" placeholder="Chercher en anglais : cart, hammer, book, dog…" autocomplete="off">
+    <div class="ic-grille" id="icGrille"></div>
+    <div class="actions"><button type="button" class="btn" id="icDefaut">Icône par défaut</button><button type="button" class="btn" id="icAnnuler">Annuler</button></div>
   </form>
 </dialog>
 
@@ -605,6 +634,25 @@ function tagsObj(){
   if (tasks) tasks.items.forEach(x => x.tags.forEach(n => { if (n !== A_TRIER && !(n in o)) o[n] = n; }));
   return o;
 }
+/* ---------- icônes Lucide (ISC, embarquées dans bureau/lucide) ---------- */
+let ICONES = {};
+fetch('bureau/lucide/icones.json').then(r => r.json()).then(j => { ICONES = j; if (state) render(); }).catch(() => {});
+const CAT_ICONES = {routine: 'sunrise', sport: 'dumbbell', bilan: 'brain', ordi: 'laptop', corvee: 'spray-can', courses: 'shopping-cart', travaux: 'hammer', loisir: 'palette', soir: 'moon', pause: 'coffee'};
+const EMOJI_ICONES = {'🛒': 'shopping-cart', '💻': 'laptop', '🔧': 'wrench', '🛠': 'wrench', '🌤': 'sun', '☀': 'sun', '🌳': 'trees', '🧹': 'brush', '🎨': 'palette', '📁': 'folder', '🥊': 'swords', '🏋': 'dumbbell', '📚': 'book-open', '📖': 'book-open', '🎲': 'dice-5', '🐱': 'cat', '🐶': 'dog', '🍳': 'cooking-pot', '🧺': 'shirt', '📞': 'phone', '✉': 'mail', '📧': 'mail', '💶': 'wallet', '💰': 'wallet', '🚗': 'car', '🏠': 'house', '🪵': 'axe', '🔥': 'flame', '🧠': 'brain', '🎮': 'gamepad-2', '🎵': 'music', '🌙': 'moon', '☕': 'coffee', '🧘': 'flower-2', '🏃': 'footprints', '🛁': 'bath'};
+const RE_EMOJI = /^\s*(\p{Extended_Pictographic}|\p{Regional_Indicator})[️‍\p{Extended_Pictographic}\p{Emoji_Modifier}]*\s*/u;
+const sansEmoji = (t) => String(t || '').replace(RE_EMOJI, '');
+const emojiVersIcone = (t) => { const m = String(t || '').match(RE_EMOJI); if (!m) return ''; const e = m[0].trim().replace(/️/g, ''); return EMOJI_ICONES[e] || EMOJI_ICONES[[...e][0]] || ''; };
+const iconeCat = (c) => ((state && state.catIcons) || {})[c] || CAT_ICONES[c] || 'circle';
+const iconeTag = (n) => { const d = tagDefs().find(t => t.name === n); return (d && (d.icon || emojiVersIcone(d.label))) || iconeCat(d ? d.cat : 'routine'); };
+const iconeProj = (n) => { const d = projDefs().find(p => p.name === n); return (d && d.icon) || 'folder'; };
+const svgIcone = (nom, taille = 13) => { const i = ICONES[nom]; return i ? `<svg class="lu" viewBox="0 0 24 24" width="${taille}" height="${taille}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${i[0]}</svg>` : ''; };
+// Libellé d'un filtre / groupe : icône + texte (sans l'emoji d'origine)
+function iconeFiltre(v){
+  if (v.startsWith('p:')) return iconeProj(v.slice(2));
+  if (v.startsWith('c:')) return 'map-pin';
+  return {'@trier': 'inbox', '@today': 'calendar-days'}[v] || (v ? iconeTag(v) : '');
+}
+const texteFiltre = (v, label) => sansEmoji(label);
 const catOf = (v) => v && v.startsWith('p:') ? ((projDefs().find(p => p.name === v.slice(2)) || {}).cat || 'routine') : (tagDefs().find(t => t.name === v) || {}).cat;
 const H = (h, m = 0) => h * 60 + m;
 const E = (d, start, end, title, cat, sub = '', tag = '', project = '') => ({d, start, end, title, cat, sub, tag, project});
@@ -900,19 +948,23 @@ function evElement(grp){
   const b = document.createElement('div'); b.className = 'block ' + e.cat;
   b.style.setProperty('--bg', `var(--${e.cat}-bg)`); b.style.setProperty('--fg', `var(--${e.cat}-fg)`); b.style.background = 'var(--bg)';
   el.style.setProperty('--fg', `var(--${e.cat}-fg)`);
-  b.innerHTML = `<div class="t">${esc(e.title)}</div><div class="s">${fmtMin(e.start)} – ${fmtMin(e.end)}${e.sub ? ' · ' + esc(e.sub) : ''}</div>`;
+  b.innerHTML = `<div class="t">${esc(sansEmoji(e.title))}</div><div class="s">${fmtMin(e.start)} – ${fmtMin(e.end)}${e.sub ? ' · ' + esc(e.sub) : ''}</div>`;
   b.title = `${e.title} · ${fmtMin(e.start)} – ${fmtMin(e.end)}\nDouble-clic : modifier · bas du bloc : étirer · glisser : déplacer · 🗑 : supprimer`;
   if (tasks && (e.tag || e.project)){
     const wrap = document.createElement('div'); wrap.className = 'badges';
     const mkBadge = (n, label, val, proj) => {
       const bd = document.createElement('button'); bd.className = 'badge' + (proj ? ' proj' : '') + (n ? '' : ' zero');
-      bd.textContent = (proj ? '📁 ' : '') + n; bd.title = `${n} tâche(s) prête(s) · ${label}`;
+      bd.innerHTML = svgIcone(proj ? iconeProj(val.slice(2)) : iconeTag(val)) + `<span>${n}</span>`; bd.title = `${n} tâche(s) prête(s) · ${sansEmoji(label)}`;
       bd.onclick = (ev) => { ev.stopPropagation(); filter = val; renderTasks(); $('#tasks').scrollIntoView({behavior:'smooth', block:'nearest'}); };
       wrap.appendChild(bd);
     };
     if (e.project) mkBadge(readyProject(e.project), 'projet ' + e.project, 'p:' + e.project, true);
     if (e.tag) mkBadge(readyCount(e.tag), tagsObj()[e.tag] || e.tag, e.tag, false);
     b.appendChild(wrap); b.classList.add('has-badge');
+  } else if (e.cat !== 'pause' && ICONES[iconeCat(e.cat)]){
+    const wrap = document.createElement('div'); wrap.className = 'badges';
+    const bd = document.createElement('span'); bd.className = 'badge ico'; bd.innerHTML = svgIcone(iconeCat(e.cat)); bd.title = CATS[e.cat] || '';
+    wrap.appendChild(bd); b.appendChild(wrap); b.classList.add('has-badge');
   }
   const keys = grp.map(x => x.id);
   if (keys.some(k => dayFiles(k).length)){
@@ -1039,7 +1091,7 @@ const tacheProj = (t) => (t.projects || []).find(p => !(tasks && tasks.items.som
 // Bloc créé par une tâche : il porte le nom de la catégorie (tag, sinon projet), la tâche s'affiche dedans
 function typerSurTache(e, t){
   const tag = tacheTag(t), proj = tag ? '' : tacheProj(t);
-  const titre = tag ? (tagsObj()[tag] || tag) : proj ? '📁 ' + proj : 'Tâches';
+  const titre = tag ? sansEmoji(tagsObj()[tag] || tag) : proj ? proj : 'Tâches';
   Object.assign(e, {title: titre, tag, project: proj, cat: (tag ? catOf(tag) : proj ? catOf('p:' + proj) : '') || 'routine', auto: true});
   return e;
 }
@@ -1574,7 +1626,7 @@ function renderTasks(){
   const f = $('#filters'); f.innerHTML = '';
   const mk = (val, label) => { const c = document.createElement('button'); c.className = 'chip' + (filter===val ? ' on' : '');
     const cat = catOf(val); if (cat){ c.style.setProperty('--bg', `var(--${cat}-bg)`); c.style.setProperty('--fg', `var(--${cat}-fg)`); }
-    c.textContent = label; c.onclick = () => { filter = filter===val ? '' : val; state.choixRdv = null; renderTasks(); renderCal(); }; f.appendChild(c); };
+    const ic = iconeFiltre(val); c.innerHTML = (ic ? svgIcone(ic, 13) : '') + `<span>${esc(ic ? texteFiltre(val, label) : label)}</span>`; c.onclick = () => { filter = filter===val ? '' : val; state.choixRdv = null; renderTasks(); renderCal(); }; f.appendChild(c); };
   mk('', 'Toutes');
   if (tasks.items.some(t => t.tags.includes(A_TRIER))) mk('@trier', '📥 À trier');
   mk('@today', '📅 Aujourd\'hui');
@@ -1627,7 +1679,8 @@ function renderGroup(g, items, container, rerender){
     const cat = isPlan || isEv || g === A_TRIER ? 'routine' : isC ? 'courses' : (catOf(g) || 'routine');
     const box = document.createElement('div'); box.className = 'group';
     box.style.setProperty('--fg', `var(--${cat}-fg)`); box.style.setProperty('--bg', `var(--${cat}-bg)`);
-    box.innerHTML = `<h3><span>${esc(isEv ? '☐ Tâches rattachées' : g === A_TRIER ? '📥 À trier' : isPlan ? '📌 Prévu ' + keyLabel(pk) : isC ? '📍 ' + g.slice(2) : isP ? '📁 ' + g.slice(2) : (tagsObj()[g] || g))}</span><span>${gi.filter(t=>!t.blocked).length} prêtes</span></h3>`;
+    const icG = isEv || isPlan ? '' : g === A_TRIER ? 'inbox' : isC ? 'map-pin' : isP ? iconeProj(g.slice(2)) : iconeTag(g);
+    box.innerHTML = `<h3><span class="gh">${icG ? svgIcone(icG, 14) : ''}${esc(isEv ? '☐ Tâches rattachées' : g === A_TRIER ? 'À trier' : isPlan ? '📌 Prévu ' + keyLabel(pk) : isC ? g.slice(2) : isP ? g.slice(2) : sansEmoji(tagsObj()[g] || g))}</span><span>${gi.filter(t=>!t.blocked).length} prêtes</span></h3>`;
     gi.forEach(t => {
       const a = document.createElement('div'); a.className = 'task' + (t.blocked ? ' blocked' : '') + (t.boxes ? ' has-subs' : '');
       const url = `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent(TASK_DIR + t.file)}`;
@@ -1852,6 +1905,7 @@ function ouvrirCategories(){
     tags: tagDefs().map(t => ({...t})).concat(vus.tags.filter(n => !tagDefs().some(t => t.name === n)).map(n => ({name: n, label: n, cat: 'routine', neuf: true}))),
     projects: projDefs().map(p => ({...p})).concat(vus.projects.filter(n => !projDefs().some(p => p.name === n)).map(n => ({name: n, cat: 'routine', neuf: true}))),
     contexts: (state.contexts || []).map(n => ({name: n})).concat(vus.contexts.filter(n => !(state.contexts || []).includes(n)).map(n => ({name: n, neuf: true}))),
+    cats: Object.keys(CATS).map(c => ({name: c, cat: c, icon: ((state.catIcons || {})[c]) || ''})),
   };
   catTab = 'tags'; dessinerCategories();
   $('#dlgCat').showModal();
@@ -1863,26 +1917,35 @@ function dessinerCategories(){
     tags: 'Le libellé (avec une icône si tu veux) et la couleur s\'affichent dans Cadence. Le nom est celui écrit dans les tâches. En orange : trouvé dans tes tâches, pas encore déclaré.',
     projects: 'Le nom du projet est le nom de sa note (lien [[…]] dans les tâches). La couleur sert aux blocs et aux pastilles 📁.',
     contexts: 'Les lieux proposés à la création d\'une tâche (contexte TaskNotes, ex. Würth, Carrefour).',
+    cats: 'L\'icône de chaque catégorie : elle sert aux cases sans tag ni projet, et aux tags sans icône. Clique sur une icône pour la changer.',
   }[k];
-  const cls = k === 'tags' ? '' : k === 'projects' ? ' p' : ' c';
+  $('#catAdd').classList.toggle('hidden', k === 'cats');
+  const cls = k === 'tags' ? '' : k === 'projects' ? ' p' : k === 'cats' ? ' k' : ' c';
   const h = document.createElement('div'); h.className = 'cat-row hdr' + cls;
   h.innerHTML = k === 'tags' ? '<span></span><span>Nom</span><span>Libellé</span><span>Couleur</span><span>Tâches</span><span></span>'
-    : k === 'projects' ? '<span></span><span>Nom</span><span>Couleur</span><span>Tâches</span><span></span>' : '<span></span><span>Nom</span><span>Tâches</span><span></span>';
+    : k === 'projects' ? '<span></span><span>Nom</span><span>Couleur</span><span>Tâches</span><span></span>' : k === 'cats' ? '<span></span><span>Catégorie</span>' : '<span></span><span>Nom</span><span>Tâches</span><span></span>';
   rows.appendChild(h);
   catEdit[k].forEach((it, i) => {
     const r = document.createElement('div'); r.className = 'cat-row' + cls;
     const cat = it.cat || (k === 'contexts' ? 'courses' : 'routine');
+    if (k === 'cats'){
+      r.innerHTML = `<button type="button" class="ic-btn" style="--bg:var(--${cat}-bg);--fg:var(--${cat}-fg)" title="Changer l'icône">${svgIcone(it.icon || CAT_ICONES[cat], 15)}</button><span>${esc(CATS[cat])}</span>`;
+      r.querySelector('.ic-btn').onclick = () => choisirIcone(it.icon || CAT_ICONES[cat], (v) => { it.icon = v; dessinerCategories(); });
+      rows.appendChild(r); return;
+    }
     const n = compte(k, it.name);
     const sel = `<select data-f="cat">${Object.entries(CATS).filter(([c]) => c !== 'pause').map(([c, v]) => `<option value="${c}"${c === cat ? ' selected' : ''}>${v}</option>`).join('')}</select>`;
-    r.innerHTML = `<span class="sw" style="--bg:var(--${cat}-bg);--fg:var(--${cat}-fg)"></span><input data-f="name" value="${esc(it.name)}" placeholder="nom">`
-      + (k === 'tags' ? `<input data-f="label" value="${esc(it.label || '')}" placeholder="🛒 Achats">` : '')
+    const icA = k === 'contexts' ? 'map-pin' : it.icon || (k === 'projects' ? 'folder' : emojiVersIcone(it.label) || iconeCat(cat));
+    r.innerHTML = `<button type="button" class="ic-btn sw" style="--bg:var(--${cat}-bg);--fg:var(--${cat}-fg)" title="${k === 'contexts' ? '' : 'Changer l\'icône'}"${k === 'contexts' ? ' disabled' : ''}>${svgIcone(icA, 15)}</button><input data-f="name" value="${esc(it.name)}" placeholder="nom">`
+      + (k === 'tags' ? `<input data-f="label" value="${esc(sansEmoji(it.label || ''))}" placeholder="Achats">` : '')
       + (k !== 'contexts' ? sel : '')
       + `<span class="n${it.neuf ? ' neuf' : ''}" title="${it.neuf ? 'Trouvé dans les tâches, pas encore déclaré' : ''}">${n}</span><button type="button" title="Retirer de la liste">🗑</button>`;
     r.querySelectorAll('[data-f]').forEach(inp => inp.addEventListener('input', () => {
       it[inp.dataset.f] = inp.value; delete it.neuf;
-      if (inp.dataset.f === 'cat') r.querySelector('.sw').style.cssText = `--bg:var(--${inp.value}-bg);--fg:var(--${inp.value}-fg)`;
+      if (inp.dataset.f === 'cat') r.querySelector('.ic-btn').style.cssText = `--bg:var(--${inp.value}-bg);--fg:var(--${inp.value}-fg)`;
     }));
-    r.querySelector('button').onclick = () => {
+    if (k !== 'contexts') r.querySelector('.ic-btn').onclick = () => choisirIcone(icA, (v) => { it.icon = v; delete it.neuf; dessinerCategories(); });
+    r.querySelector('button:not(.ic-btn)').onclick = () => {
       if (n && !confirm(`« ${it.name} » est utilisé par ${n} tâche${n > 1 ? 's' : ''}. Il sera seulement retiré de la liste (les tâches gardent leur ${k === 'tags' ? 'tag' : k === 'projects' ? 'projet' : 'lieu'}). Continuer ?`)) return;
       catEdit[k].splice(i, 1); dessinerCategories();
     };
@@ -1895,13 +1958,30 @@ $('#catCancel').onclick = () => $('#dlgCat').close();
 $('#catForm').onsubmit = (e) => {
   e.preventDefault();
   const propre = (l) => { const vu = new Set(); return l.map(x => ({...x, name: String(x.name || '').trim()})).filter(x => x.name && !vu.has(x.name) && vu.add(x.name)); };
-  state.tags = propre(catEdit.tags).map(t => ({name: t.name, label: (t.label || '').trim() || t.name, cat: CATS[t.cat] ? t.cat : 'routine'}));
-  state.projects = propre(catEdit.projects).map(p => ({name: p.name, cat: CATS[p.cat] ? p.cat : 'routine'}));
+  state.tags = propre(catEdit.tags).map(t => ({name: t.name, label: sansEmoji((t.label || '').trim()) || t.name, cat: CATS[t.cat] ? t.cat : 'routine', icon: t.icon || emojiVersIcone(t.label) || ''}));
+  state.projects = propre(catEdit.projects).map(p => ({name: p.name, cat: CATS[p.cat] ? p.cat : 'routine', icon: p.icon || ''}));
+  state.catIcons = Object.fromEntries(catEdit.cats.filter(c => c.icon).map(c => [c.cat, c.icon]));
   state.contexts = propre(catEdit.contexts).map(c => c.name);
   save(); $('#dlgCat').close(); render();
   toast('🏷 Tags, projets et lieux enregistrés.');
 };
 $('#sCatBtn').onclick = () => { ouvrirCategories(); };
+// Sélecteur d'icônes Lucide
+const IC_SUGG = ['shopping-cart', 'shopping-basket', 'store', 'laptop', 'monitor', 'mail', 'phone', 'wrench', 'hammer', 'drill', 'paint-roller', 'paintbrush', 'ruler', 'axe', 'trees', 'flower-2', 'sun', 'cloud-sun', 'house', 'sofa', 'bed', 'bath', 'brush', 'spray-can', 'trash-2', 'shirt', 'cooking-pot', 'utensils', 'apple', 'coffee', 'dumbbell', 'swords', 'bike', 'footprints', 'heart-pulse', 'brain', 'book-open', 'graduation-cap', 'briefcase', 'file-text', 'calendar-days', 'wallet', 'receipt', 'car', 'fuel', 'flame', 'zap', 'lightbulb', 'palette', 'music', 'gamepad-2', 'dice-5', 'film', 'camera', 'cat', 'dog', 'paw-print', 'baby', 'users', 'user', 'moon', 'sunrise', 'alarm-clock', 'smile', 'star', 'folder', 'map-pin', 'inbox', 'list-checks', 'package', 'gift', 'plane', 'tent', 'scissors', 'droplets', 'thermometer', 'shield', 'key', 'printer', 'server', 'wifi'];
+let icRetour = null;
+function choisirIcone(actuelle, retour){
+  icRetour = retour; $('#icCherche').value = ''; dessinerIcones(actuelle); $('#dlgIcone').showModal(); $('#icCherche').focus();
+}
+function dessinerIcones(actuelle){
+  const q = $('#icCherche').value.trim().toLowerCase(), g = $('#icGrille'); g.innerHTML = '';
+  const noms = q ? Object.keys(ICONES).filter(n => n.includes(q) || ICONES[n][1].includes(q)).slice(0, 240) : IC_SUGG.filter(n => ICONES[n]);
+  if (!noms.length){ g.innerHTML = '<div class="set-hint">Aucune icône. Essaie un mot anglais (house, tool, food…).</div>'; return; }
+  noms.forEach(n => { const b = document.createElement('button'); b.type = 'button'; b.className = 'ic-choix' + (n === actuelle ? ' on' : ''); b.title = n; b.innerHTML = svgIcone(n, 20);
+    b.onclick = () => { $('#dlgIcone').close(); if (icRetour) icRetour(n); }; g.appendChild(b); });
+}
+$('#icCherche').oninput = () => dessinerIcones('');
+$('#icAnnuler').onclick = () => $('#dlgIcone').close();
+$('#icDefaut').onclick = () => { $('#dlgIcone').close(); if (icRetour) icRetour(''); };
 
 /* ---------- onglet Notes ---------- */
 let ongletNotes = false, notes = [], liaison = null;
