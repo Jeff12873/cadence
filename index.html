@@ -133,7 +133,7 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
 dialog form{padding:18px}
 dialog h3{margin:0 0 12px}
 dialog label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
-dialog input[type=text],dialog select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--paper)}
+dialog input[type=text],dialog input[type=search],dialog select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--paper)}
 .days{display:flex;flex-wrap:wrap;gap:6px}
 .days label{display:inline-flex;align-items:center;gap:4px;margin:0;color:var(--ink);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:4px 8px;cursor:pointer}
 .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
@@ -192,6 +192,19 @@ dialog input[type=time]{width:100%;border:1px solid var(--line);border-radius:8p
 .hovering-hint{position:absolute;z-index:14;pointer-events:none;height:0;border-top:2px dotted var(--accent);opacity:.7}
 .dayhead .dchip{display:inline-block;margin-left:6px;background:var(--card);color:var(--ink);border-radius:999px;font-size:10.5px;padding:0 6px;cursor:pointer}
 body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
+.tabs{display:flex;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:2px}
+.tab{border:none;background:transparent;padding:5px 11px;border-radius:7px;cursor:pointer;font-weight:600;color:var(--muted)}
+.tab.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.aside-head{flex-wrap:wrap}
+.search{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--paper);margin-bottom:8px}
+.note{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-bottom:6px;background:var(--paper)}
+.note.today{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.note .nt{flex:1;min-width:0}
+.note .nn{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note .nd{font-size:11px;color:var(--muted)}
+.note button,.note a{border:none;background:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 4px;text-decoration:none}
+.note button:hover,.note a:hover{color:var(--ink)}
+.note.missing{border-style:dashed;cursor:pointer}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -235,7 +248,20 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
       <div class="note" id="note">Modifications enregistrées automatiquement dans ce navigateur. « Exporter » en garde une copie dans un fichier.</div>
     </main>
     <aside id="tasks" class="hidden">
-      <div class="aside-head"><h2>Mes tâches</h2><button class="btn hidden" id="btnNewTask" title="Créer une tâche dans le coffre">＋ Tâche</button></div>
+      <div class="aside-head">
+        <div class="tabs" role="tablist">
+          <button class="tab on" id="tabTasks" role="tab">Mes tâches</button>
+          <button class="tab hidden" id="tabNotes" role="tab">Notes</button>
+        </div>
+        <button class="btn hidden" id="btnNewTask" title="Créer une tâche dans le coffre">＋ Tâche</button>
+        <button class="btn hidden" id="btnDaily" title="Écrit le programme du jour, bloc par bloc, dans la note du jour">↻ Daily</button>
+      </div>
+      <div id="notesView" class="hidden">
+        <div class="meta" id="notesMeta"></div>
+        <input type="search" id="notesFilter" class="search" placeholder="Filtrer les notes…">
+        <div id="notesList"></div>
+      </div>
+      <div id="tasksView">
       <div class="meta" id="tasksMeta"></div>
       <div class="toggles">
         <label><input type="checkbox" id="hidePlaced"> Masquer les tâches placées</label>
@@ -245,6 +271,7 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
       </div>
       <div class="filters" id="filters"></div>
       <div id="taskList"></div>
+      </div>
     </aside>
   </div>
 </div>
@@ -273,6 +300,18 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
   </form>
 </dialog>
 
+<dialog id="dlgLink">
+  <form method="dialog" id="linkForm">
+    <h3 id="linkTitle">Associer la note à une tâche</h3>
+    <input type="search" id="linkFilter" placeholder="Chercher une tâche…" autocomplete="off">
+    <select id="linkTask" size="10" style="margin-top:8px"></select>
+    <div class="actions">
+      <button type="button" class="btn" id="linkCancel">Annuler</button>
+      <button type="submit" class="btn on">Associer</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlgSet">
   <form method="dialog" id="setForm">
     <h3>Réglages</h3>
@@ -283,6 +322,11 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
     <input type="text" id="sData" autocomplete="off" placeholder="Cadence.json">
     <label>Dossier des tâches (réglage du plugin TaskNotes)</label>
     <div class="set-row"><code id="sTasks">—</code></div>
+    <div class="hrow">
+      <div><label for="sDailyDir">Dossier des notes du jour</label><input type="text" id="sDailyDir" autocomplete="off" placeholder="Journal"></div>
+      <div><label for="sDailyFmt">Nom de la note du jour</label><input type="text" id="sDailyFmt" autocomplete="off" placeholder="YYYY-MM-DD"></div>
+    </div>
+    <div class="set-hint">Dans le nom : YYYY = année, MM = mois, DD = jour (ex. « YYYYMMDD - Inbox »).</div>
     <label for="sTags">Tags : un par ligne, « nom | libellé | couleur »</label>
     <textarea id="sTags" rows="6" placeholder="Achats | 🛒 Achats | courses"></textarea>
     <label for="sProj">Projets : un par ligne, « nom | couleur »</label>
@@ -494,8 +538,9 @@ function parseTask(name, text){
   }
   const projects = (Array.isArray(o.projects) ? o.projects : (o.projects ? [o.projects] : []))
     .map(p => p.replace(/^\+?\[\[|\]\]$/g, '').split('|')[0].trim()).filter(Boolean);
+  const notes = [...body.matchAll(/📝\s*\[\[([^\]|]+)/g)].map(m => m[1].trim());
   return {
-    subs, projects,
+    subs, projects, notes,
     file: name.replace(/\.md$/,''), title: o.title && o.title !== '""' ? o.title : name.replace(/\.md$/,''),
     tags: tags.length ? tags : ['Aucun'], priority: o.priority || '', status: o.status || '',
     scheduled: o.scheduled || '', due: o.due || '', recurring: !!o.recurrence,
@@ -939,6 +984,7 @@ function renderGroup(g, items, container, rerender){
       if (t.due) meta.push(`⏰ ${fmt(t.due)}`);
       if (t.recurring) meta.push('↻');
       if (t.status === 'in-progress') meta.push('en cours');
+      if ((t.notes || []).length) meta.push(`📝 ${t.notes.length}`);
       if (t.blocked) meta.push(`⛔ attend : ${t.waitingOn.join(', ')}`);
       const wkMan = whereIs(t.file), wkDate = BUREAU && !t.recurring ? Object.keys(dated).find(k => dated[k].includes(t.file)) : null;
       const wk = wkMan || wkDate; if (wkMan && !isPlan) meta.push(`📌 ${keyLabel(wkMan)}`);
@@ -1093,6 +1139,105 @@ async function chargerTaches(){
   render();
 }
 
+/* ---------- onglet Notes ---------- */
+let ongletNotes = false, notes = [], liaison = null;
+const dailyCfg = () => Object.assign({dossier: '', format: 'YYYY-MM-DD'}, state.daily || {});
+const nomDuJour = (d = new Date()) => dailyCfg().format.replace(/YYYY/g, d.getFullYear()).replace(/MM/g, String(d.getMonth() + 1).padStart(2, '0')).replace(/DD/g, String(d.getDate()).padStart(2, '0'));
+function basculer(n){
+  ongletNotes = n;
+  $('#tabTasks').classList.toggle('on', !n); $('#tabNotes').classList.toggle('on', n);
+  $('#tasksView').classList.toggle('hidden', n); $('#notesView').classList.toggle('hidden', !n);
+  $('#btnNewTask').classList.toggle('hidden', n || !BUREAU); $('#btnDaily').classList.toggle('hidden', !n || !BUREAU);
+  if (n) chargerNotes();
+}
+$('#tabTasks').onclick = () => basculer(false);
+$('#tabNotes').onclick = () => basculer(true);
+$('#notesFilter').oninput = () => renderNotes();
+async function chargerNotes(){
+  if (!BUREAU || !CFG || !CFG.coffre) return;
+  try { notes = await cadence.listerNotes(dailyCfg().dossier); } catch(e){ notes = []; }
+  const auj = nomDuJour();
+  notes.sort((a, b) => (b.name === auj) - (a.name === auj) || b.mtime - a.mtime || b.name.localeCompare(a.name, 'fr', {numeric: true}));
+  renderNotes();
+}
+function renderNotes(){
+  const list = $('#notesList'); if (!list) return; list.innerHTML = '';
+  const dossier = dailyCfg().dossier, auj = nomDuJour();
+  $('#notesMeta').textContent = `${notes.length} note${notes.length > 1 ? 's' : ''} dans « ${dossier || 'racine du coffre'} » · mises à jour en direct`;
+  const q = $('#notesFilter').value.trim().toLowerCase();
+  const url = (n) => `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent((dossier ? dossier.replace(/\/?$/, '/') : '') + n)}`;
+  if (!notes.some(n => n.name === auj) && !q){
+    const m = document.createElement('div'); m.className = 'note today missing';
+    m.innerHTML = `<div class="nt"><div class="nn">${esc(auj)}</div><div class="nd">Note du jour pas encore créée : ↻ Daily la crée avec le programme</div></div>`;
+    m.onclick = () => majDaily(); list.appendChild(m);
+  }
+  notes.filter(n => !q || n.name.toLowerCase().includes(q)).forEach(n => {
+    const el = document.createElement('div'); el.className = 'note' + (n.name === auj ? ' today' : '');
+    const d = new Date(n.mtime);
+    const liees = tasks ? tasks.items.filter(t => (t.notes || []).includes(n.name)).length : 0;
+    el.innerHTML = `<div class="nt"><div class="nn">${esc(n.name)}</div><div class="nd">${n.name === auj ? "Aujourd'hui · " : ''}modifiée le ${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}${liees ? ` · 📝 ${liees} tâche${liees > 1 ? 's' : ''}` : ''}</div></div>`
+      + `<button class="lk" title="Associer à une tâche">🔗</button><a href="${url(n.name)}" title="Ouvrir dans Obsidian">↗</a>`;
+    el.querySelector('.lk').onclick = () => ouvrirLiaison(n.name);
+    list.appendChild(el);
+  });
+}
+function ouvrirLiaison(note){
+  liaison = note;
+  $('#linkTitle').textContent = `Associer « ${note} » à une tâche`;
+  $('#linkFilter').value = ''; remplirLiaison();
+  $('#dlgLink').showModal(); $('#linkFilter').focus();
+}
+function remplirLiaison(){
+  const sel = $('#linkTask'), q = $('#linkFilter').value.trim().toLowerCase(); sel.innerHTML = '';
+  (tasks ? tasks.items : []).filter(t => !q || t.title.toLowerCase().includes(q)).sort((a, b) => a.title.localeCompare(b.title, 'fr'))
+    .forEach(t => sel.add(new Option(t.title + ((t.notes || []).includes(liaison) ? '  (déjà associée)' : ''), t.file)));
+  if (sel.options.length) sel.selectedIndex = 0;
+}
+$('#linkFilter').oninput = remplirLiaison;
+$('#linkCancel').onclick = () => $('#dlgLink').close();
+$('#linkForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const f = $('#linkTask').value, t = tasks && tasks.items.find(x => x.file === f); if (!t) return;
+  try { const ok = await cadence.lierNote(t.file, liaison, t.mtime); $('#dlgLink').close(); toast(ok ? `📝 « ${liaison} » associée à « ${t.title} ».` : 'Déjà associée.'); }
+  catch(err){ alert(messageErreur(err)); }
+  await chargerTaches(); renderNotes();
+};
+
+/* ---------- daily : programme du jour, bloc par bloc ---------- */
+function programmeDuJour(jour = new Date()){
+  const iso = isoOf(jour), d = (jour.getDay() + 6) % 7;
+  const lien = (t) => `[[${t.file}${t.file !== t.title ? '|' + t.title.replace(/[\[\]|]/g, '') : ''}]]`;
+  const datees = tasks ? tasks.items.filter(t => (t.scheduled || t.due || '').slice(0, 10) === iso) : [];
+  const heure = (t) => { const s = t.scheduled || t.due || ''; return s.length > 10 ? tmin(s.slice(11)) : null; };
+  const pris = new Set(), L = [];
+  const titreJour = jour.toLocaleDateString('fr-FR', {weekday: 'long', day: 'numeric', month: 'long'});
+  L.push(`## 📅 Programme du ${titreJour}`, '');
+  dayEvents(d).forEach(e => {
+    L.push(`- **${fmtMin(e.start)} – ${fmtMin(e.end)}** · ${e.title}${e.sub ? ` — ${e.sub}` : ''}`);
+    const ici = datees.filter(t => !pris.has(t.file) && ((h => h != null && h >= e.start && h < e.end)(heure(t)) || (heure(t) == null && e.tag && t.tags.includes(e.tag))));
+    ici.forEach(t => { pris.add(t.file); L.push(`    - 📅 ${lien(t)}${t.boxes ? ` (${t.done}/${t.boxes})` : ''}`); });
+    const pretes = tasks && (e.tag || e.project) ? tasks.items.filter(t => !pris.has(t.file) && !t.blocked && !isLater(t) && !t.recurring && !(t.scheduled || t.due)
+      && ((e.tag && t.tags.includes(e.tag)) || (e.project && (t.projects || []).includes(e.project)))).sort((a, b) => (prioN(a.priority) || 9) - (prioN(b.priority) || 9)) : [];
+    pretes.slice(0, 5).forEach(t => L.push(`    - ${lien(t)}`));
+    if (pretes.length > 5) L.push(`    - … et ${pretes.length - 5} autre${pretes.length - 5 > 1 ? 's' : ''}`);
+  });
+  const reste = datees.filter(t => !pris.has(t.file));
+  if (reste.length){ L.push('', '**Aussi aujourd\'hui**'); reste.forEach(t => L.push(`- 📅 ${lien(t)}`)); }
+  const n = new Date();
+  L.push('', `*Mis à jour par Cadence le ${n.toLocaleDateString('fr-FR')} à ${n.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}*`);
+  return L.join('\n');
+}
+async function majDaily(){
+  if (!BUREAU) return;
+  const nom = nomDuJour();
+  try {
+    const r = await cadence.ecrireSection(dailyCfg().dossier, nom, programmeDuJour());
+    toast(r.cree ? `Note du jour « ${nom} » créée avec le programme.` : `Programme du jour mis à jour dans « ${nom} ».`);
+  } catch(e){ alert(messageErreur(e)); }
+  chargerNotes();
+}
+$('#btnDaily').onclick = majDaily;
+
 /* nouvelle tâche */
 $('#btnNewTask').onclick = () => {
   const nTag = $('#nTag'), nProj = $('#nProj'), nPrio = $('#nPrio'), nDay = $('#nDay');
@@ -1128,6 +1273,7 @@ function ouvrirReglages(premier){
   $('#sVault').textContent = (CFG && CFG.coffre) || '—';
   $('#sData').value = (CFG && CFG.donnees) || 'Cadence.json';
   $('#sTasks').textContent = TN ? TN.dossier : '—';
+  $('#sDailyDir').value = dailyCfg().dossier; $('#sDailyFmt').value = dailyCfg().format;
   $('#sTags').value = tagDefs().map(t => [t.name, t.label || t.name, t.cat || ''].join(' | ')).join('\n');
   $('#sProj').value = projDefs().map(p => [p.name, p.cat || ''].join(' | ')).join('\n');
   $('#sCats').textContent = 'Couleurs possibles : ' + Object.keys(CATS).join(', ');
@@ -1147,22 +1293,27 @@ $('#setForm').onsubmit = async (e) => {
   const lignes = (v) => v.split('\n').map(l => l.split('|').map(x => x.trim())).filter(x => x[0]);
   state.tags = lignes($('#sTags').value).map(([name, label, cat]) => ({name, label: label || name, cat: CATS[cat] ? cat : 'routine'}));
   state.projects = lignes($('#sProj').value).map(([name, cat]) => ({name, cat: CATS[cat] ? cat : 'routine'}));
+  state.daily = {dossier: $('#sDailyDir').value.trim().replace(/^\/+|\/+$/g, ''), format: $('#sDailyFmt').value.trim() || 'YYYY-MM-DD'};
+  if (BUREAU) cadence.suivreNotes(state.daily.dossier).catch(() => {});
   const data = $('#sData').value.trim() || 'Cadence.json';
   try {
     if (data !== CFG.donnees){ await cadence.reglerDonnees(data); await chargerConfig(); const d = await cadence.lireDonnees(); if (d && d.semaine) await chargerDonnees(); }
-    persist(); $('#dlgSet').close(); render();
+    persist(); $('#dlgSet').close(); render(); if (ongletNotes) chargerNotes();
   } catch(err){ alert(messageErreur(err)); }
 };
 
 async function demarrer(){
   if (!BUREAU){ render(); return; }
   ['#btnTasks', '#btnClearPlan'].forEach(s => $(s).classList.add('hidden'));
-  ['#btnSettings', '#btnNewTask'].forEach(s => $(s).classList.remove('hidden'));
+  ['#btnSettings', '#btnNewTask', '#tabNotes'].forEach(s => $(s).classList.remove('hidden'));
   await chargerConfig();
   if (!CFG.coffre){ state = clone(DEFAULT); ensureIds(); render(); ouvrirReglages(true); return; }
   await chargerDonnees();
+  if (!state.daily){ try { state.daily = await cadence.reglagesDaily(); } catch(e){} }
   render();
   await chargerTaches();
+  cadence.suivreNotes(dailyCfg().dossier).catch(() => {});
+  cadence.surChangementNotes(() => { if (ongletNotes) chargerNotes(); });
   cadence.surChangementTaches(chargerTaches);
   cadence.surChangementDonnees(async () => { await chargerDonnees(); render(); });
 }

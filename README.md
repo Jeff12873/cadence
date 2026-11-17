@@ -13,6 +13,9 @@ qui utilise le plugin [TaskNotes](https://github.com/callumalpass/tasknotes).
   « + » après 3 s de survol entre deux créneaux, double-clic pour le modifier. Les chevauchements sont refusés.
 - Une tâche déposée sur un espace libre crée une case de son type (titre, tag, couleur, projet) ; maintenue 3 s entre deux créneaux collés, elle en ouvre un. Quand une case bouge ou disparaît, ses tâches datées suivent dans Obsidian.
 - Trait de l'heure actuelle sur la semaine en cours.
+- Onglet **Notes** : les notes d'un dossier réglable (par défaut celui des notes quotidiennes d'Obsidian), à associer à une tâche (🔗),
+  et **↻ Daily** qui écrit dans la note du jour le programme bloc par bloc, avec les liens vers les tâches
+  (section entre `%% cadence:debut %%` et `%% cadence:fin %%`, remplacée à chaque mise à jour).
 - Impression A4 paysage de la semaine.
 
 ## Principes

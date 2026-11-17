@@ -268,17 +268,87 @@ ipcMain.handle('creer-tache', async (evenement, t) => {
   return path.basename(chemin, '.md');
 });
 
+// --- Notes (daily) ------------------------------------------------------------
+
+function dossierNotes(relatif) {
+  if (!config.coffre) throw new Error('Aucun coffre Obsidian choisi.');
+  const rel = String(relatif || '').replace(/^\/+|\/+$/g, '');
+  if (rel.includes('..')) throw new Error('Dossier invalide.');
+  const d = path.normalize(path.join(config.coffre, rel));
+  if (d !== path.normalize(config.coffre) && !d.startsWith(path.normalize(config.coffre) + path.sep)) throw new Error('Dossier invalide.');
+  return d;
+}
+function fichierNote(relatif, nom) {
+  if (typeof nom !== 'string' || !nom || /[\\/]/.test(nom) || nom.startsWith('.')) throw new Error('Nom de note invalide.');
+  return path.join(dossierNotes(relatif), nom.endsWith('.md') ? nom : nom + '.md');
+}
+
+// Réglages du plugin « Notes quotidiennes » d'Obsidian (dossier, format), s'il est configuré
+ipcMain.handle('reglages-daily', () => {
+  try {
+    const d = JSON.parse(fs.readFileSync(path.join(config.coffre, '.obsidian/daily-notes.json'), 'utf8'));
+    return { dossier: d.folder || '', format: d.format || 'YYYY-MM-DD' };
+  } catch { return { dossier: '', format: 'YYYY-MM-DD' }; }
+});
+
+ipcMain.handle('lister-notes', async (evenement, relatif) => {
+  const dossier = dossierNotes(relatif);
+  let noms = [];
+  try { noms = await fsp.readdir(dossier); } catch { return []; }
+  const out = [];
+  for (const nom of noms) {
+    if (!nom.endsWith('.md') || nom.startsWith('.') || nom.includes('sync-conflict')) continue;
+    try { const i = await fsp.stat(path.join(dossier, nom)); if (i.isFile()) out.push({ name: nom.slice(0, -3), mtime: i.mtimeMs }); } catch { /* fichier en cours de synchro */ }
+  }
+  return out;
+});
+
+// Écrit (ou remplace) la section Cadence d'une note, entre deux balises de commentaire Obsidian
+const DEBUT = '%% cadence:debut %%', FIN = '%% cadence:fin %%';
+ipcMain.handle('ecrire-section', async (evenement, relatif, nom, section) => {
+  const chemin = fichierNote(relatif, nom);
+  const bloc = `${DEBUT}\n${String(section).trim()}\n${FIN}`;
+  let texte = '';
+  try { texte = await fsp.readFile(chemin, 'utf8'); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+  const i = texte.indexOf(DEBUT), j = texte.indexOf(FIN);
+  let nouveau;
+  if (i >= 0 && j > i) nouveau = texte.slice(0, i) + bloc + texte.slice(j + FIN.length);
+  else nouveau = (texte.trim() ? texte.replace(/\s*$/, '\n\n') : '') + bloc + '\n';
+  await fsp.mkdir(path.dirname(chemin), { recursive: true });
+  await ecrireAtomique(chemin, nouveau);
+  return { cree: !texte };
+});
+
+// Associer une note à une tâche : ligne « 📝 [[note]] » ajoutée au corps de la tâche
+ipcMain.handle('lier-note', async (evenement, tache, note, mtime) => {
+  if (typeof note !== 'string' || !note || /[\[\]|\n]/.test(note)) throw new Error('Nom de note invalide.');
+  const tn = reglagesTaskNotes();
+  const { chemin, texte } = await lireVerifie(tache, mtime);
+  if (texte.includes(`📝 [[${note}]]`)) return false;
+  let nouveau = texte.replace(/\s*$/, '\n') + `\n📝 [[${note}]]\n`;
+  nouveau = changerCle(nouveau, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, nouveau);
+  return true;
+});
+
+let veilleurNotes = null;
+ipcMain.handle('suivre-notes', (evenement, relatif) => {
+  if (veilleurNotes) { veilleurNotes.close(); veilleurNotes = null; }
+  try { veilleurNotes = fs.watch(dossierNotes(relatif), () => prevenir('notes-changees')); } catch { /* dossier absent */ }
+  return true;
+});
+
 ipcMain.handle('ouvrir-lien', (evenement, url) => {
   if (typeof url === 'string' && url.startsWith('obsidian://')) shell.openExternal(url);
 });
 
 // --- Suivi en direct du dossier des tâches et du fichier de données -------------
 
-let veilleurs = [], minuterie = null, dernierEcritDonnees = 0;
+let veilleurs = [], minuteries = {}, dernierEcritDonnees = 0;
 
 function prevenir(canal) {
-  clearTimeout(minuterie);
-  minuterie = setTimeout(() => BrowserWindow.getAllWindows().forEach(f => f.webContents.send(canal)), 250);
+  clearTimeout(minuteries[canal]);
+  minuteries[canal] = setTimeout(() => BrowserWindow.getAllWindows().forEach(f => f.webContents.send(canal)), 250);
 }
 
 function surveiller() {
