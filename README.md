@@ -13,6 +13,9 @@ qui utilise le plugin [TaskNotes](https://github.com/callumalpass/tasknotes).
   « + » après 3 s de survol entre deux créneaux, double-clic pour le modifier. Les chevauchements sont refusés.
 - Une tâche déposée sur un espace libre crée un bloc au nom de sa catégorie (tag, sinon projet), avec la tâche dedans ; collée à un bloc de même catégorie, elle l'agrandit. Un bloc d'une autre catégorie la refuse (Alt pour forcer), et un bloc créé ainsi qui se vide propose sa suppression ; maintenue 3 s entre deux créneaux collés, elle en ouvre un. Quand une case bouge ou disparaît, ses tâches datées suivent dans Obsidian.
 - Trait de l'heure actuelle sur la semaine en cours.
+- Une ligne de checklist glissée sur le calendrier devient une tâche (après confirmation) : elle hérite du tag, du projet et de la priorité,
+  prend le titre de section comme lieu, et la ligne d'origine est remplacée par un lien.
+- Lieux (contextes TaskNotes, ex. Würth, Carrefour) : saisie à la création, filtre 📍 dans le panneau, sous-blocs par lieu dans la note CADENCE.
 - Tâches : rappel automatique 30 min avant l'heure prévue, renommage par double-clic (liens mis à jour dans tout le coffre),
   🗑 suppression avec confirmation (vers la corbeille `.trash` du coffre).
 - Onglet **Notes** : les notes d'un dossier réglable (par défaut celui des notes quotidiennes d'Obsidian), à associer à une tâche (🔗),

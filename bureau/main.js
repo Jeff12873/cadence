@@ -236,6 +236,26 @@ ipcMain.handle('planifier', async (evenement, nom, valeur, mtime) => {
   return true;
 });
 
+// Remplacer la n-ième case « - [ ] » du corps par un simple lien (ligne extraite en tâche)
+ipcMain.handle('remplacer-ligne', async (evenement, nom, index, lien, mtime) => {
+  if (typeof lien !== 'string' || /[\n\r]/.test(lien)) throw new Error('Lien invalide.');
+  const { chemin, texte } = await lireVerifie(nom, mtime);
+  const m = texte.match(RE_FM), debut = m ? m[0].length : 0;
+  const lignes = texte.slice(debut).split('\n');
+  let n = -1;
+  for (let i = 0; i < lignes.length; i++) {
+    const c = lignes[i].match(/^(\s*)- \[( |x|X)\]/);
+    if (c && ++n === index) {
+      lignes[i] = `${c[1]}- → ${lien}`;
+      let nouveau = texte.slice(0, debut) + lignes.join('\n');
+      nouveau = changerCle(nouveau, champ(reglagesTaskNotes(), 'dateModified'), maintenant());
+      await ecrireAtomique(chemin, nouveau);
+      return true;
+    }
+  }
+  throw new Error('Ligne de checklist introuvable.');
+});
+
 // Valider une tâche (statut « terminé » de TaskNotes + date de fin). Les tâches récurrentes restent
 // à valider dans TaskNotes ou TaskForge, qui gèrent les occurrences et l'archivage.
 ipcMain.handle('terminer', async (evenement, nom, mtime) => {
@@ -287,6 +307,8 @@ ipcMain.handle('creer-tache', async (evenement, t) => {
   if (tn.methode === 'property' && tn.propriete) l.push(`${tn.propriete}: ${JSON.stringify(tn.valeur)}`);
   if (tags.length) l.push('tags:', ...tags.map(x => `  - ${yamlTexte(x)}`));
   if ((t.projets || []).length) l.push(`${champ(tn, 'projects')}:`, ...t.projets.map(p => `  - "[[${p}]]"`));
+  const ctx = (t.contextes || []).map(c => String(c).replace(/^@/, '').trim()).filter(Boolean);
+  if (ctx.length) l.push(`${champ(tn, 'contexts')}:`, ...ctx.map(c => `  - ${yamlTexte(c)}`));
   l.push(`${champ(tn, 'title')}: ${yamlTexte(titre)}`);
   const corps = t.note ? `\n${String(t.note).trim()}\n` : '';
   await fsp.mkdir(path.dirname(chemin), { recursive: true });
