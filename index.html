@@ -174,6 +174,12 @@ dialog input[type=time]{width:100%;border:1px solid var(--line);border-radius:8p
 .ev .rz2{position:absolute;left:0;right:0;bottom:-3px;height:9px;cursor:ns-resize;z-index:4}
 .ev .rz2::after{content:"";position:absolute;left:40%;right:40%;top:3px;height:3px;border-radius:3px;background:var(--fg);opacity:0;transition:opacity .15s}
 .ev:hover .rz2::after,.ev.resizing .rz2::after{opacity:.7}
+.ev .trash{position:absolute;right:5px;bottom:6px;z-index:5;border:none;border-radius:6px;background:color-mix(in srgb, var(--card) 85%, transparent);font-size:12px;line-height:1;padding:3px 4px;cursor:pointer;opacity:0;transition:opacity .15s}
+.ev:hover .trash{opacity:.9}
+.ev .trash:hover{opacity:1;background:#E5484D}
+.ev.short .trash{bottom:auto;top:50%;transform:translateY(-50%);padding:1px 4px}
+.ev.neuf .block{animation:neuf 1.6s ease-out;outline:2px solid var(--accent);outline-offset:-2px}
+@keyframes neuf{0%{transform:scale(.92);opacity:.3}25%{transform:scale(1.02);opacity:1}100%{transform:scale(1)}}
 .ev .hold{position:absolute;left:4px;bottom:3px;height:3px;width:0;border-radius:3px;background:var(--fg);opacity:.8;z-index:3}
 .ev.pressing .hold{width:calc(100% - 8px);transition:width 3s linear}
 .ev.lifted{opacity:.35}
@@ -602,7 +608,7 @@ function evElement(grp){
   b.style.setProperty('--bg', `var(--${e.cat}-bg)`); b.style.setProperty('--fg', `var(--${e.cat}-fg)`); b.style.background = 'var(--bg)';
   el.style.setProperty('--fg', `var(--${e.cat}-fg)`);
   b.innerHTML = `<div class="t">${esc(e.title)}</div><div class="s">${fmtMin(e.start)} – ${fmtMin(e.end)}${e.sub ? ' · ' + esc(e.sub) : ''}</div>`;
-  b.title = `${e.title} · ${fmtMin(e.start)} – ${fmtMin(e.end)}\nDouble-clic : modifier · bas du bloc : étirer · appui 3 s : déplacer`;
+  b.title = `${e.title} · ${fmtMin(e.start)} – ${fmtMin(e.end)}\nDouble-clic : modifier · bas du bloc : étirer · glisser : déplacer · 🗑 : supprimer`;
   if (tasks && (e.tag || e.project)){
     const wrap = document.createElement('div'); wrap.className = 'badges';
     const mkBadge = (n, label, val, proj) => {
@@ -633,7 +639,7 @@ function evElement(grp){
     b.appendChild(row2);
   }
   el.appendChild(b);
-  const hold = document.createElement('div'); hold.className = 'hold'; el.appendChild(hold);
+  const tr = document.createElement('button'); tr.className = 'trash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = nd > 1 ? 'Supprimer ce créneau (tous les jours du bloc)' : 'Supprimer ce créneau'; el.appendChild(tr);
   const rz = document.createElement('div'); rz.className = 'rz2'; rz.title = 'Glisser pour changer l\'heure de fin (par 15 min)'; el.appendChild(rz);
   return el;
 }
@@ -649,11 +655,11 @@ function posAgenda(evs, x, y){
 const groupOf = (el) => (el.dataset.ids || '').split(',').map(evById).filter(Boolean);
 const mins2y = (m) => yOf(m) + 'px';
 
-function ghost(evs, d, start, end, n, bad){
+function ghost(evs, d, start, end, n, bad, label){
   let g = evs.querySelector('.ghost'); if (!g){ g = document.createElement('div'); g.className = 'ghost'; evs.appendChild(g); }
   g.classList.toggle('bad', !!bad);
   g.style.left = colX(d); g.style.width = colW(n || 1); g.style.top = mins2y(start); g.style.height = ((end - start) / 60 * PXH) + 'px';
-  g.textContent = `${fmtMin(start)} – ${fmtMin(end)}` + (bad ? ' · chevauchement' : '');
+  g.textContent = (label ? label + ' · ' : '') + `${fmtMin(start)} – ${fmtMin(end)}` + (bad ? ' · chevauchement' : '');
 }
 const clearGhost = (evs) => evs.querySelectorAll('.ghost').forEach(g => g.remove());
 
@@ -676,11 +682,60 @@ function ouvrirCreneau(d, m, titre, ouvrirDialogue){
   return e;
 }
 
+// Tâches datées (champ scheduled) actuellement rattachées à ces créneaux
+function liees(grp){
+  const out = {};
+  grp.forEach(g => { out[g.id] = (dated[g.id] || []).map(f => tasks && tasks.items.find(x => x.file === f)).filter(t => t && t.scheduled && !t.recurring); });
+  return out;
+}
+// Quand un créneau bouge, ses tâches datées le suivent (même décalage), dans Obsidian
+async function suivreTaches(chg, lies){
+  if (!BUREAU) return;
+  const maj = [];
+  chg.forEach(c => (lies[c.id] || []).forEach(t => {
+    const tm = t.scheduled.length > 10 ? tmin(t.scheduled.slice(11)) : null;
+    const nm = tm == null ? null : Math.max(0, Math.min(24 * 60 - 1, c.ns + (tm - c.start)));
+    maj.push([t, isoOf(weekDays[c.nd]) + (nm == null ? '' : 'T' + hhmm(nm))]);
+  }));
+  if (!maj.length) return;
+  for (const [t, v] of maj){ try { await cadence.planifier(t.file, v, t.mtime); } catch(e){ toast(messageErreur(e)); } }
+  await chargerTaches();
+  toast(`${maj.length} tâche${maj.length > 1 ? 's' : ''} déplacée${maj.length > 1 ? 's' : ''} avec le créneau.`);
+}
+// Supprimer un créneau : ses tâches datées perdent leur date ; « Annuler » remet tout
+async function supprimerCase(grp){
+  const ids = grp.map(g => g.id), copie = clone(grp), lies = liees(grp);
+  const taches = Object.values(lies).flat(), anciennes = taches.map(t => [t.file, t.scheduled]);
+  state.events = state.events.filter(x => !ids.includes(x.id)); save(); renderCal();
+  if (BUREAU && taches.length){
+    for (const t of taches){ try { await cadence.planifier(t.file, null, t.mtime); } catch(e){ toast(messageErreur(e)); } }
+    await chargerTaches();
+  }
+  toast(`Créneau « ${grp[0].title} » supprimé${taches.length ? ` (${taches.length} tâche${taches.length > 1 ? 's' : ''} sans date)` : ''}.`, 'Annuler', async () => {
+    state.events.push(...copie); save(); renderCal();
+    if (BUREAU && anciennes.length){
+      await chargerTaches();
+      for (const [f, v] of anciennes){ const t = tasks.items.find(x => x.file === f); if (t) try { await cadence.planifier(f, v, t.mtime); } catch(e){} }
+      await chargerTaches();
+    }
+  });
+}
+// Case créée à partir d'une tâche glissée : même titre, tag, couleur et projet que la tâche
+function typerSurTache(e, t){
+  const tag = (t.tags || []).find(x => x !== 'Aucun') || '';
+  Object.assign(e, {title: t.title, tag, cat: catOf(tag) || 'routine', project: (t.projects || [])[0] || ''});
+  return e;
+}
+function finCase(d, m){ const suivant = dayEvents(d).find(e => e.start >= m); return Math.min(m + 60, suivant ? suivant.start : 24 * 60); }
+let dernierNeuf = null;
+
 function installerAgenda(evs){
+  if (dernierNeuf){ const el = [...evs.querySelectorAll('.ev')].find(x => x.dataset.ids.split(',').includes(dernierNeuf)); if (el) el.classList.add('neuf'); dernierNeuf = null; }
   // --- étirer (bas du bloc) et déplacer (appui long) ---
   evs.querySelectorAll('.ev').forEach(el => {
     const grp = groupOf(el);
     el.querySelector('.block').addEventListener('dblclick', (ev) => { ev.stopPropagation(); openDlg(grp); });
+    el.querySelector('.trash').addEventListener('click', (ev) => { ev.stopPropagation(); supprimerCase(grp); });
     el.querySelector('.rz2').addEventListener('pointerdown', (ev) => {
       ev.preventDefault(); ev.stopPropagation();
       const e0 = grp[0], limite = Math.min(24 * 60, ...grp.map(g => { const n = dayEvents(g.d).find(x => x.start >= g.end && x.id !== g.id); return n ? n.start : 24 * 60; }));
@@ -705,11 +760,9 @@ function installerAgenda(evs){
       const x0 = ev.clientX, y0 = ev.clientY, p0 = posAgenda(evs, x0, y0);
       const presse = grp.find(g => g.d === p0.d) || grp[0];
       let leve = false, cible = null;
-      el.classList.add('pressing');
-      const timer = setTimeout(() => { leve = true; el.classList.remove('pressing'); el.classList.add('lifted'); document.body.classList.add('dragging-ev'); }, 3000);
       const decalM = p0.m - presse.start;
       const move = (mv) => {
-        if (!leve){ if (Math.hypot(mv.clientX - x0, mv.clientY - y0) > 6) fin(); return; }
+        if (!leve){ if (Math.hypot(mv.clientX - x0, mv.clientY - y0) < 5) return; leve = true; el.classList.add('lifted'); document.body.classList.add('dragging-ev'); }
         const p = posAgenda(evs, mv.clientX, mv.clientY), dur = presse.end - presse.start;
         let start = Math.max(0, Math.min(24 * 60 - dur, snap(p.m - decalM)));
         const memeJour = p.d === presse.d && grp.length > 1;
@@ -720,16 +773,18 @@ function installerAgenda(evs){
         ghost(evs, memeJour ? grp[0].d : p.d, start, start + dur, memeJour ? grp.length : 1, bad);
       };
       const fin = () => {
-        clearTimeout(timer); el.classList.remove('pressing', 'lifted'); document.body.classList.remove('dragging-ev');
+        el.classList.remove('lifted'); document.body.classList.remove('dragging-ev');
         window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', lacher);
       };
       const lacher = () => {
         fin(); clearGhost(evs);
         if (!leve || !cible) return;
         if (cible.bad){ toast('Chevauchement : déplacement refusé.'); return; }
+        const lies = liees(cible.lot), avant = cible.lot.map(g => ({id: g.id, d: g.d, start: g.start}));
         if (cible.memeJour) cible.lot.forEach(g => { g.start = cible.start; g.end = cible.start + cible.dur; });
         else { presse.d = cible.d; presse.start = cible.start; presse.end = cible.start + cible.dur; }
         save(); renderCal();
+        suivreTaches(avant.map(a => ({...a, nd: evById(a.id).d, ns: evById(a.id).start})), lies);
       };
       window.addEventListener('pointermove', move); window.addEventListener('pointerup', lacher);
     });
@@ -772,15 +827,17 @@ function installerAgenda(evs){
     ev.preventDefault(); ev.dataTransfer.dropEffect = 'move';
     const p = posAgenda(evs, ev.clientX, ev.clientY); if (!p.inside) return;
     const m = snap(p.m), e = dayEvents(p.d).find(x => x.start <= m && m < x.end);
-    if (e) ghost(evs, p.d, e.start, e.end, 1, false); else ghost(evs, p.d, m, m + SNAP, 1, false);
+    const tg = tasks && tasks.items.find(x => x.file === dragFile);
+    if (e) ghost(evs, p.d, e.start, e.end, 1, false, tg ? `→ ${e.title}` : '');
+    else { const f2 = finCase(p.d, m); if (f2 - m >= SNAP) ghost(evs, p.d, m, f2, 1, false, tg ? `＋ ${tg.title}` : 'Nouvelle case'); else clearGhost(evs); }
     if (ptTache && Math.hypot(ev.clientX - ptTache.x, ev.clientY - ptTache.y) < 8) return;
     clearTimeout(tTache); ptTache = {x: ev.clientX, y: ev.clientY};
     const libre = pointLibre(p);
     if (libre == null) return;
     tTache = setTimeout(() => {
       const t = tasks && tasks.items.find(x => x.file === dragFile);
-      const n = ouvrirCreneau(p.d, libre, t ? (tagsObj()[t.tags[0]] || t.title) : 'Créneau', false);
-      if (n && t && t.tags[0] && tagDefs().some(x => x.name === t.tags[0])){ n.tag = t.tags[0]; n.cat = catOf(t.tags[0]) || 'routine'; save(); renderCal(); }
+      const n = ouvrirCreneau(p.d, libre, t ? t.title : 'Créneau', false);
+      if (n && t){ typerSurTache(n, t); dernierNeuf = n.id; save(); renderCal(); }
       if (n) toast(`Créneau ouvert ${DAYS[p.d]} à ${fmtMin(n.start)} : dépose la tâche dessus.`);
     }, 3000);
   };
@@ -790,8 +847,15 @@ function installerAgenda(evs){
     const f = ev.dataTransfer.getData('text/plain') || dragFile; dragFile = null; document.body.classList.remove('dragging-task');
     if (!f) return;
     const p = posAgenda(evs, ev.clientX, ev.clientY), m = snap(p.m);
-    const e = dayEvents(p.d).find(x => x.start <= m && m < x.end);
-    deposer(f, p.d, e ? e.start : m, e ? e.id : null);
+    let e = dayEvents(p.d).find(x => x.start <= m && m < x.end);
+    if (!e){
+      const t = tasks && tasks.items.find(x => x.file === f), fin = finCase(p.d, m);
+      if (!t) return;
+      if (fin - m < SNAP){ toast('Pas de place ici : maintiens la tâche 3 s pour ouvrir un créneau.'); return; }
+      e = typerSurTache({id: rid(), d: p.d, start: m, end: fin, sub: ''}, t);
+      state.events.push(e); save(); dernierNeuf = e.id; renderCal();
+    }
+    deposer(f, p.d, e.start, e.id);
   };
 }
 

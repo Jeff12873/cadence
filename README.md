@@ -9,9 +9,9 @@ qui utilise le plugin [TaskNotes](https://github.com/callumalpass/tasknotes).
 - Les tâches déjà datées dans la semaine apparaissent toutes seules dans le bon créneau (📅).
 - **Cocher une ligne de checklist** l'écrit dans la note ; **＋ Tâche** crée une nouvelle tâche TaskNotes.
 - Filtres : masquer les tâches placées, bloquées par une autre, ou datées à plus de 30 jours.
-- Édition directe des créneaux, sans mode spécial : étirer le bas d'un bloc (par 15 min), appui de 3 s pour le déplacer,
+- Édition directe des créneaux, sans mode spécial : étirer le bas d'un bloc (par 15 min), glisser pour le déplacer, 🗑 pour le supprimer,
   « + » après 3 s de survol entre deux créneaux, double-clic pour le modifier. Les chevauchements sont refusés.
-- Une tâche maintenue 3 s entre deux créneaux pendant qu'on la glisse y ouvre un nouveau créneau.
+- Une tâche déposée sur un espace libre crée une case de son type (titre, tag, couleur, projet) ; maintenue 3 s entre deux créneaux collés, elle en ouvre un. Quand une case bouge ou disparaît, ses tâches datées suivent dans Obsidian.
 - Trait de l'heure actuelle sur la semaine en cours.
 - Impression A4 paysage de la semaine.
 
