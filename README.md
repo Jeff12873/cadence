@@ -16,7 +16,7 @@ qui utilise le plugin [TaskNotes](https://github.com/callumalpass/tasknotes).
 - Une ligne de checklist glissée sur le calendrier devient une tâche (après confirmation) : elle hérite du tag, du projet et de la priorité,
   prend le titre de section comme lieu, et la ligne d'origine est remplacée par un lien.
 - Lieux (contextes TaskNotes, ex. Würth, Carrefour) : saisie à la création, filtre 📍 dans le panneau, sous-blocs par lieu dans la note CADENCE.
-- Tâches : rappel automatique 30 min avant l'heure prévue, renommage par double-clic (liens mis à jour dans tout le coffre),
+- Tâches : rappel automatique 30 min avant l'heure prévue, double-clic sur une tâche pour la modifier (titre, tag, projet, lieu, priorité, date ; liens mis à jour dans tout le coffre au renommage),
   🗑 suppression avec confirmation (vers la corbeille `.trash` du coffre).
 - Onglet **Notes** : les notes d'un dossier réglable (par défaut celui des notes quotidiennes d'Obsidian), à associer à une tâche (🔗),
   notes ouvertes dans un grand cadre pour les éditer (titre compris, enregistrement automatique, aperçu avec images), et **↻ Daily** qui écrit le programme du jour bloc par bloc (encadré violet) dans une note unique, `CADENCE` à la racine du coffre par défaut, avec les liens vers les tâches

@@ -329,7 +329,7 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
 
 <dialog id="dlgNew">
   <form method="dialog" id="newForm">
-    <h3>Nouvelle tâche</h3>
+    <h3 id="nHead">Nouvelle tâche</h3>
     <label for="nTitle">Titre</label>
     <input type="text" id="nTitle" autocomplete="off" required>
     <label for="nTag">Tag</label>
@@ -345,11 +345,12 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
     <select id="nDay"></select>
     <label for="nTime">Heure (facultatif, ex. 14:00)</label>
     <input type="text" id="nTime" autocomplete="off" placeholder="14:00">
-    <label for="nNote">Note (facultatif)</label>
+    <div class="set-hint hidden" id="nRec">Tâche récurrente : sa date se change dans TaskForge ou Obsidian.</div>
+    <label for="nNote" id="nNoteL">Note (facultatif)</label>
     <input type="text" id="nNote" autocomplete="off">
     <div class="actions">
       <button type="button" class="btn" id="nCancel">Annuler</button>
-      <button type="submit" class="btn on">Créer</button>
+      <button type="submit" class="btn on" id="nOk">Créer</button>
     </div>
   </form>
 </dialog>
@@ -1201,8 +1202,8 @@ function renderGroup(g, items, container, rerender){
         if (!t.boxes) return;
         open ? expanded.delete(t.file) : expanded.add(t.file); rerender();
       });
-      if (BUREAU) a.querySelector('.tl').addEventListener('dblclick', (ev) => { ev.stopPropagation(); renommer(t, a.querySelector('.tl')); });
-      a.querySelector('.tl').title = BUREAU ? 'Double-clic pour renommer' : '';
+      if (BUREAU) a.addEventListener('dblclick', (ev) => { if (ev.target.closest('button,a,.sub,.rename')) return; ev.preventDefault(); ev.stopPropagation(); ouvrirTache(t); });
+      a.querySelector('.tl').title = BUREAU ? 'Double-clic pour modifier la tâche' : '';
       box.appendChild(a);
     });
     container.appendChild(box);
@@ -1599,8 +1600,11 @@ async function majDaily(){
 }
 $('#btnDaily').onclick = majDaily;
 
-/* nouvelle tâche */
-$('#btnNewTask').onclick = () => {
+/* nouvelle tâche / modifier une tâche (même fenêtre) */
+let tacheEditee = null;
+$('#btnNewTask').onclick = () => ouvrirTache(null);
+function ouvrirTache(te){
+  tacheEditee = te;
   const nTag = $('#nTag'), nProj = $('#nProj'), nPrio = $('#nPrio'), nDay = $('#nDay');
   nTag.innerHTML = ''; Object.entries(tagsObj()).forEach(([k, v]) => nTag.add(new Option(v, k)));
   if (filter && !filter.startsWith('@') && !filter.startsWith('p:')) nTag.value = filter;
@@ -1615,8 +1619,22 @@ $('#btnNewTask').onclick = () => {
   weekDays.forEach((x, i) => nDay.add(new Option(`${DAYS[i]} ${x.getDate()}/${String(x.getMonth() + 1).padStart(2, '0')}`, isoOf(x))));
   $('#nTitle').value = ''; $('#nTime').value = ''; $('#nNote').value = ''; $('#nCtx').value = filter.startsWith('c:') ? filter.slice(2) : '';
   remplirLieux();
-  $('#dlgNew').showModal(); $('#nTitle').focus();
-};
+  const edition = !!te;
+  $('#nHead').textContent = edition ? 'Modifier la tâche' : 'Nouvelle tâche'; $('#nOk').textContent = edition ? 'Enregistrer' : 'Créer';
+  $('#nNote').classList.toggle('hidden', edition); $('#nNoteL').classList.toggle('hidden', edition);
+  $('#nRec').classList.toggle('hidden', !(edition && te.recurring));
+  nDay.disabled = $('#nTime').disabled = !!(edition && te.recurring);
+  if (edition){
+    $('#nTitle').value = te.title;
+    const tag = tacheTag(te); if (tag && ![...nTag.options].some(o => o.value === tag)) nTag.add(new Option(tag, tag)); nTag.value = tag;
+    const pr = tacheProj(te); if (pr && ![...nProj.options].some(o => o.value === pr)) nProj.add(new Option('📁 ' + pr, pr)); nProj.value = pr;
+    $('#nCtx').value = (te.contexts || [])[0] || '';
+    const pv = sansGuillemets(te.priority); if (pv && ![...nPrio.options].some(o => o.value === pv)) nPrio.add(new Option(pv, pv)); if (pv) nPrio.value = pv;
+    const sc = te.scheduled || '';
+    if (sc){ const d = sc.slice(0, 10); if (![...nDay.options].some(o => o.value === d)) nDay.add(new Option(fmt(d), d), 1); nDay.value = d; if (sc.length > 10) $('#nTime').value = sc.slice(11, 16); }
+  }
+  $('#dlgNew').showModal(); $('#nTitle').focus(); if (edition) $('#nTitle').select();
+}
 $('#nCancel').onclick = () => $('#dlgNew').close();
 $('#newForm').onsubmit = async (e) => {
   e.preventDefault();
@@ -1625,7 +1643,15 @@ $('#newForm').onsubmit = async (e) => {
   const planifie = jour ? jour + (heure ? 'T' + heure.padStart(5, '0') : '') : null;
   const t = {titre: $('#nTitle').value, tags: $('#nTag').value ? [$('#nTag').value] : [], projets: $('#nProj').value ? [$('#nProj').value] : [],
              priorite: $('#nPrio').value, planifie, note: $('#nNote').value, contextes: $('#nCtx').value.trim() ? [$('#nCtx').value.trim()] : []};
-  try { await cadence.creerTache(t); $('#dlgNew').close(); } catch(err){ alert(messageErreur(err)); }
+  try {
+    if (tacheEditee){
+      if (tacheEditee.recurring) delete t.planifie;
+      const r = await cadence.modifierTache(tacheEditee.file, t, tacheEditee.mtime);
+      toast(`✏️ « ${r.nom} » mise à jour${r.liens ? ` · liens mis à jour dans ${r.liens} note${r.liens > 1 ? 's' : ''}` : ''}.`);
+    } else await cadence.creerTache(t);
+    $('#dlgNew').close();
+  } catch(err){ alert(messageErreur(err)); }
+  tacheEditee = null;
   await chargerTaches();
 };
 

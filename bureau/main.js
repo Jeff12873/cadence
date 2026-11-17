@@ -256,6 +256,62 @@ ipcMain.handle('remplacer-ligne', async (evenement, nom, index, lien, mtime) => 
   throw new Error('Ligne de checklist introuvable.');
 });
 
+// Remplace une clé de liste du frontmatter (ou la retire si la liste est vide)
+function changerListe(texte, cle, valeurs) {
+  const m = texte.match(RE_FM); if (!m) throw new Error('Tâche sans frontmatter.');
+  const lignes = m[1].split(/\r?\n/);
+  const i = lignes.findIndex(l => l.startsWith(cle + ':'));
+  const bloc = valeurs.length ? [`${cle}:`, ...valeurs.map(v => `  - ${v}`)] : [];
+  if (i >= 0) { let j = i + 1; while (j < lignes.length && /^\s+\S/.test(lignes[j])) j++; lignes.splice(i, j - i, ...bloc); }
+  else lignes.push(...bloc);
+  return texte.replace(m[0], '---\n' + lignes.join('\n') + '\n---');
+}
+function lireListe(texte, cle) {
+  const m = texte.match(RE_FM); if (!m) return [];
+  const lignes = m[1].split(/\r?\n/), i = lignes.findIndex(l => l.startsWith(cle + ':'));
+  if (i < 0) return [];
+  const enLigne = lignes[i].slice(cle.length + 1).trim();
+  if (enLigne.startsWith('[')) return enLigne.slice(1, -1).split(',').map(x => x.trim()).filter(Boolean);
+  const out = []; for (let j = i + 1; j < lignes.length && /^\s+\S/.test(lignes[j]); j++) { const v = lignes[j].match(/^\s+-\s+(.*)$/); if (v) out.push(v[1].trim()); }
+  return out;
+}
+
+// Modifier une tâche depuis Cadence : catégorie, projet, lieu, priorité, date prévue, puis titre (avec les liens)
+ipcMain.handle('modifier-tache', async (evenement, nom, c, mtime) => {
+  const tn = reglagesTaskNotes();
+  const { chemin, texte } = await lireVerifie(nom, mtime);
+  let t = texte;
+  // tags : le tag d'identification TaskNotes et « archived » sont conservés
+  const garder = lireListe(t, 'tags').filter(x => { const v = x.replace(/^["']|["']$/g, ''); return v === 'archived' || (tn.methode === 'tag' && v === tn.tag); });
+  t = changerListe(t, 'tags', [...garder, ...(c.tags || []).filter(Boolean).map(yamlTexte)]);
+  // projets : les liens vers des tâches (sous-tâches) sont conservés, le projet choisi remplace les autres
+  const cleP = champ(tn, 'projects'), dossier = path.dirname(chemin);
+  const parents = lireListe(t, cleP).filter(x => { const n = x.replace(/^["']|["']$/g, '').replace(/^\[\[|\]\]$/g, '').split('|')[0]; return fs.existsSync(path.join(dossier, n + '.md')); });
+  t = changerListe(t, cleP, [...parents, ...(c.projets || []).filter(Boolean).map(p => `"[[${p}]]"`)]);
+  t = changerListe(t, champ(tn, 'contexts'), (c.contextes || []).map(x => String(x).replace(/^@/, '').trim()).filter(Boolean).map(yamlTexte));
+  if (c.priorite) t = changerCle(t, champ(tn, 'priority'), yamlTexte(c.priorite));
+  if (c.planifie !== undefined) {
+    if (c.planifie != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(c.planifie)) throw new Error('Date invalide.');
+    t = changerCle(t, champ(tn, 'scheduled'), c.planifie);
+    t = regleRappel(t, tn, c.planifie);
+  }
+  t = changerCle(t, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, t);
+  // renommage en dernier
+  const titre = String(c.titre || '').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+  const ancien = path.basename(chemin, '.md');
+  if (titre && titre !== ancien) {
+    const dest = fichierTache(titre);
+    if (fs.existsSync(dest)) throw new Error('Les informations sont enregistrées, mais une tâche porte déjà ce nom : titre inchangé.');
+    let t2 = await fsp.readFile(chemin, 'utf8');
+    t2 = changerCle(t2, champ(tn, 'title'), yamlTexte(titre));
+    await ecrireAtomique(chemin, t2);
+    await fsp.rename(chemin, dest);
+    return { nom: titre, liens: await majLiens(ancien, titre) };
+  }
+  return { nom: ancien, liens: 0 };
+});
+
 // Valider une tâche (statut « terminé » de TaskNotes + date de fin). Les tâches récurrentes restent
 // à valider dans TaskNotes ou TaskForge, qui gèrent les occurrences et l'archivage.
 ipcMain.handle('terminer', async (evenement, nom, mtime) => {
