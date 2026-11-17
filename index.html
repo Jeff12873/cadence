@@ -194,6 +194,8 @@ dialog input[type=time]{width:100%;border:1px solid var(--line);border-radius:8p
 .ev.pressing .hold{width:calc(100% - 8px);transition:width 3s linear}
 .ev.lifted{opacity:.35}
 .ev.resizing{z-index:10}
+.ev .block{cursor:pointer}
+.ev.choisi .block{box-shadow:0 0 0 2px var(--accent)}
 .ghost{position:absolute;box-sizing:border-box;border:2px dashed var(--accent);border-radius:7px;background:color-mix(in srgb, var(--accent) 16%, transparent);pointer-events:none;z-index:15;font-size:11px;font-weight:700;color:var(--accent);padding:3px 6px}
 .ghost.bad{border-color:#E5484D;color:#E5484D;background:color-mix(in srgb, #E5484D 14%, transparent)}
 .tip{position:absolute;z-index:16;pointer-events:none;background:var(--ink);color:var(--paper);font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px;transform:translate(-50%,-130%)}
@@ -1055,6 +1057,19 @@ function installerAgenda(evs){
   evs.querySelectorAll('.ev').forEach(el => {
     const grp = groupOf(el);
     el.querySelector('.block').addEventListener('dblclick', (ev) => { ev.stopPropagation(); openDlg(grp); });
+    // clic simple : les tâches de la case (le jour cliqué) dans le panneau de droite
+    el.querySelector('.block').addEventListener('click', (ev) => {
+      if (ev.target.closest('button') || document.body.classList.contains('dragging-ev')) return;
+      const p = posAgenda(evs, ev.clientX, ev.clientY), e = grp.find(g => g.d === p.d) || grp[0];
+      if (dayFiles(e.id).length) filter = '@plan:' + e.id;
+      else if (e.tag) filter = e.tag;
+      else if (e.project) filter = 'p:' + e.project;
+      else { toast(`Aucune tâche dans « ${e.title} ».`); return; }
+      if (ongletNotes) basculer(false);
+      renderTasks();
+      evs.querySelectorAll('.ev.choisi').forEach(x => x.classList.remove('choisi')); el.classList.add('choisi');
+      $('#tasks').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    });
     el.querySelector('.trash').addEventListener('click', (ev) => { ev.stopPropagation(); supprimerCase(grp); });
     el.querySelector('.rz2').addEventListener('pointerdown', (ev) => {
       ev.preventDefault(); ev.stopPropagation();
