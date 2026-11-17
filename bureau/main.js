@@ -102,6 +102,29 @@ function changerCle(texte, cle, valeur) {
   return texte.replace(m[0], '---\n' + lignes.join('\n') + '\n---');
 }
 
+// Rappels TaskNotes : on garde ceux qui ne dépendent pas de la date prévue, et on (re)met « 30 min avant » si elle a une heure
+const RAPPEL_AVANT = '-PT30M';
+function regleRappel(texte, tn, valeur) {
+  const m = texte.match(RE_FM); if (!m) return texte;
+  const cle = champ(tn, 'reminders'), lignes = m[1].split(/\r?\n/);
+  const i = lignes.findIndex(l => l.startsWith(cle + ':'));
+  const items = [];
+  if (i >= 0) {
+    let j = i + 1, cur = null;
+    while (j < lignes.length && /^\s+\S/.test(lignes[j])) {
+      if (/^\s+-\s/.test(lignes[j])) { cur = [lignes[j]]; items.push(cur); } else if (cur) cur.push(lignes[j]);
+      j++;
+    }
+    lignes.splice(i, j - i);
+  }
+  const autres = items.filter(it => !it.some(l => /relatedTo:\s*scheduled/.test(l)));
+  if (valeur && /T\d{2}:\d{2}$/.test(valeur)) {
+    autres.push([`  - id: rem_${Date.now()}`, '    type: relative', '    relatedTo: scheduled', `    offset: ${RAPPEL_AVANT}`, '    description: Cadence']);
+  }
+  if (autres.length) lignes.push(`${cle}:`, ...autres.flat());
+  return texte.replace(m[0], '---\n' + lignes.join('\n') + '\n---');
+}
+
 function maintenant() {
   const d = new Date(), z = -d.getTimezoneOffset(), s = z >= 0 ? '+' : '-', p = n => String(Math.abs(n)).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.000${s}${p(Math.trunc(z / 60))}:${p(z % 60)}`;
@@ -206,6 +229,7 @@ ipcMain.handle('planifier', async (evenement, nom, valeur, mtime) => {
   const tn = reglagesTaskNotes();
   const { chemin, texte } = await lireVerifie(nom, mtime);
   let nouveau = changerCle(texte, champ(tn, 'scheduled'), valeur);
+  nouveau = regleRappel(nouveau, tn, valeur);
   nouveau = changerCle(nouveau, champ(tn, 'dateModified'), maintenant());
   await ecrireAtomique(chemin, nouveau);
   return true;
@@ -257,6 +281,7 @@ ipcMain.handle('creer-tache', async (evenement, t) => {
     `${champ(tn, 'priority')}: ${yamlTexte(t.priorite || tn.prioriteParDefaut)}`,
   ];
   if (t.planifie) l.push(`${champ(tn, 'scheduled')}: ${t.planifie}`);
+  if (t.planifie && /T\d{2}:\d{2}$/.test(t.planifie)) l.push(`${champ(tn, 'reminders')}:`, `  - id: rem_${Date.now()}`, '    type: relative', '    relatedTo: scheduled', `    offset: ${RAPPEL_AVANT}`, '    description: Cadence');
   l.push(`${champ(tn, 'dateCreated')}: ${maintenant()}`);
   if (tn.methode === 'property' && tn.propriete) l.push(`${tn.propriete}: ${JSON.stringify(tn.valeur)}`);
   if (tags.length) l.push('tags:', ...tags.map(x => `  - ${yamlTexte(x)}`));
@@ -298,7 +323,10 @@ ipcMain.handle('lister-notes', async (evenement, relatif) => {
   const out = [];
   for (const nom of noms) {
     if (!nom.endsWith('.md') || nom.startsWith('.') || nom.includes('sync-conflict')) continue;
-    try { const i = await fsp.stat(path.join(dossier, nom)); if (i.isFile()) out.push({ name: nom.slice(0, -3), mtime: i.mtimeMs }); } catch { /* fichier en cours de synchro */ }
+    try {
+      const f = path.join(dossier, nom), i = await fsp.stat(f);
+      if (i.isFile()) out.push({ name: nom.slice(0, -3), mtime: i.mtimeMs, cadence: (await fsp.readFile(f, 'utf8')).includes('%% cadence:debut %%') });
+    } catch { /* fichier en cours de synchro */ }
   }
   return out;
 });
@@ -336,6 +364,55 @@ ipcMain.handle('suivre-notes', (evenement, relatif) => {
   if (veilleurNotes) { veilleurNotes.close(); veilleurNotes = null; }
   try { veilleurNotes = fs.watch(dossierNotes(relatif), () => prevenir('notes-changees')); } catch { /* dossier absent */ }
   return true;
+});
+
+ipcMain.handle('lire-note', async (evenement, relatif, nom) => fsp.readFile(fichierNote(relatif, nom), 'utf8'));
+
+// --- Tâches : supprimer (vers la corbeille du coffre) et renommer (avec mise à jour des liens) ----
+
+ipcMain.handle('supprimer-tache', async (evenement, nom, mtime) => {
+  const { chemin } = await lireVerifie(nom, mtime);
+  const corbeille = path.join(config.coffre, '.trash');
+  await fsp.mkdir(corbeille, { recursive: true });
+  let dest = path.join(corbeille, path.basename(chemin)), n = 1;
+  while (fs.existsSync(dest)) dest = path.join(corbeille, `${path.basename(chemin, '.md')} ${++n}.md`);
+  await fsp.rename(chemin, dest);
+  return true;
+});
+
+async function fichiersMd(dossier, out = []) {
+  for (const e of await fsp.readdir(dossier, { withFileTypes: true })) {
+    if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+    const p = path.join(dossier, e.name);
+    if (e.isDirectory()) await fichiersMd(p, out);
+    else if (e.name.endsWith('.md')) out.push(p);
+  }
+  return out;
+}
+
+ipcMain.handle('renommer-tache', async (evenement, nom, titre, mtime) => {
+  const tn = reglagesTaskNotes();
+  const nouveauTitre = String(titre || '').replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (!nouveauTitre) throw new Error('Il faut un titre.');
+  const { chemin, texte } = await lireVerifie(nom, mtime);
+  const ancien = path.basename(chemin, '.md');
+  if (nouveauTitre === ancien) return { liens: 0 };
+  const dest = fichierTache(nouveauTitre);
+  if (fs.existsSync(dest)) throw new Error('Une tâche porte déjà ce nom.');
+  let nouveau = changerCle(texte, champ(tn, 'title'), yamlTexte(nouveauTitre));
+  nouveau = changerCle(nouveau, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, nouveau);
+  await fsp.rename(chemin, dest);
+  // Liens [[ancien]], [[ancien|…]], [[ancien#…]] partout dans le coffre
+  const echap = ancien.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`\\[\\[${echap}(?=[\\]|#])`, 'g');
+  let liens = 0;
+  for (const f of await fichiersMd(config.coffre)) {
+    let t; try { t = await fsp.readFile(f, 'utf8'); } catch { continue; }
+    if (!re.test(t)) continue; re.lastIndex = 0;
+    await ecrireAtomique(f, t.replace(re, `[[${nouveauTitre}`)); liens++;
+  }
+  return { liens, nom: nouveauTitre };
 });
 
 ipcMain.handle('ouvrir-lien', (evenement, url) => {
