@@ -778,7 +778,7 @@ function ghost(evs, d, start, end, n, bad, label){
   let g = evs.querySelector('.ghost'); if (!g){ g = document.createElement('div'); g.className = 'ghost'; evs.appendChild(g); }
   g.classList.toggle('bad', !!bad);
   g.style.left = colX(d); g.style.width = colW(n || 1); g.style.top = mins2y(start); g.style.height = ((end - start) / 60 * PXH) + 'px';
-  g.textContent = (label ? label + ' · ' : '') + `${fmtMin(start)} – ${fmtMin(end)}` + (bad ? ' · chevauchement' : '');
+  g.textContent = (label ? label + ' · ' : '') + `${fmtMin(start)} – ${fmtMin(end)}` + (bad && !label ? ' · chevauchement' : '');
 }
 const clearGhost = (evs) => evs.querySelectorAll('.ghost').forEach(g => g.remove());
 
@@ -840,10 +840,31 @@ async function supprimerCase(grp){
   });
 }
 // Case créée à partir d'une tâche glissée : même titre, tag, couleur et projet que la tâche
+const tacheTag = (t) => (t.tags || []).find(x => x !== 'Aucun') || '';
+const tacheProj = (t) => (t.projects || []).find(p => !(tasks && tasks.items.some(x => x.file === p))) || '';
+// Bloc créé par une tâche : il porte le nom de la catégorie (tag, sinon projet), la tâche s'affiche dedans
 function typerSurTache(e, t){
-  const tag = (t.tags || []).find(x => x !== 'Aucun') || '';
-  Object.assign(e, {title: t.title, tag, cat: catOf(tag) || 'routine', project: (t.projects || [])[0] || ''});
+  const tag = tacheTag(t), proj = tag ? '' : tacheProj(t);
+  const titre = tag ? (tagsObj()[tag] || tag) : proj ? '📁 ' + proj : 'Tâches';
+  Object.assign(e, {title: titre, tag, project: proj, cat: (tag ? catOf(tag) : proj ? catOf('p:' + proj) : '') || 'routine', auto: true});
   return e;
+}
+// Une tâche peut aller dans un bloc s'il n'a pas de catégorie, ou si son tag ou un de ses projets correspond
+const compatible = (e, t) => (!e.tag && !e.project) || (e.tag && t.tags.includes(e.tag)) || (e.project && (t.projects || []).includes(e.project));
+const memeCategorie = (e, t) => { const tag = tacheTag(t); if (tag) return e.tag === tag; const p = tacheProj(t); return !!p && !e.tag && e.project === p; };
+// Bloc de même catégorie collé (ou à moins de 15 min) : on l'agrandit au lieu d'en créer un autre
+function voisinFusion(d, m, t){
+  const day = dayEvents(d);
+  const avant = day.filter(e => e.end <= m && m - e.end <= 15 && memeCategorie(e, t)).pop();
+  if (avant) return {e: avant, cote: 'apres'};
+  const apres = day.find(e => e.start > m && e.start - m <= 75 && memeCategorie(e, t));
+  return apres ? {e: apres, cote: 'avant'} : null;
+}
+function fusionner(v, d, m){
+  const day = dayEvents(d).filter(x => x.id !== v.e.id);
+  if (v.cote === 'apres'){ const nxt = day.find(x => x.start >= v.e.end); v.e.end = Math.max(v.e.end, Math.min(m + 60, nxt ? nxt.start : 24 * 60)); }
+  else { const prv = day.filter(x => x.end <= v.e.start).pop(); v.e.start = Math.min(v.e.start, Math.max(m, prv ? prv.end : 0)); }
+  v.e.vu = true;
 }
 function finCase(d, m){ const suivant = dayEvents(d).find(e => e.start >= m); return Math.min(m + 60, suivant ? suivant.start : 24 * 60); }
 let dernierNeuf = null;
@@ -947,15 +968,19 @@ function installerAgenda(evs){
     const p = posAgenda(evs, ev.clientX, ev.clientY); if (!p.inside) return;
     const m = snap(p.m), e = dayEvents(p.d).find(x => x.start <= m && m < x.end);
     const tg = tasks && tasks.items.find(x => x.file === dragFile);
-    if (e) ghost(evs, p.d, e.start, e.end, 1, false, tg ? `→ ${e.title}` : '');
-    else { const f2 = finCase(p.d, m); if (f2 - m >= SNAP) ghost(evs, p.d, m, f2, 1, false, tg ? `＋ ${tg.title}` : 'Nouvelle case'); else clearGhost(evs); }
+    if (e){ const ok = !tg || compatible(e, tg) || ev.altKey; ghost(evs, p.d, e.start, e.end, 1, !ok, ok ? `→ ${e.title}` : 'Catégorie différente · Alt pour forcer'); }
+    else if (tg){
+      const v = voisinFusion(p.d, m, tg);
+      if (v){ const tmp = {...v.e}; fusionner({e: tmp, cote: v.cote}, p.d, m); ghost(evs, p.d, tmp.start, tmp.end, 1, false, `⤢ ${v.e.title}`); }
+      else { const f2 = finCase(p.d, m); if (f2 - m >= SNAP) ghost(evs, p.d, m, f2, 1, false, `＋ ${typerSurTache({}, tg).title}`); else clearGhost(evs); }
+    } else clearGhost(evs);
     if (ptTache && Math.hypot(ev.clientX - ptTache.x, ev.clientY - ptTache.y) < 8) return;
     clearTimeout(tTache); ptTache = {x: ev.clientX, y: ev.clientY};
     const libre = pointLibre(p);
     if (libre == null) return;
     tTache = setTimeout(() => {
       const t = tasks && tasks.items.find(x => x.file === dragFile);
-      const n = ouvrirCreneau(p.d, libre, t ? t.title : 'Créneau', false);
+      const n = ouvrirCreneau(p.d, libre, 'Créneau', false);
       if (n && t){ typerSurTache(n, t); dernierNeuf = n.id; save(); renderCal(); }
       if (n) toast(`Créneau ouvert ${DAYS[p.d]} à ${fmtMin(n.start)} : dépose la tâche dessus.`);
     }, 3000);
@@ -967,13 +992,19 @@ function installerAgenda(evs){
     if (!f) return;
     const p = posAgenda(evs, ev.clientX, ev.clientY), m = snap(p.m);
     let e = dayEvents(p.d).find(x => x.start <= m && m < x.end);
-    if (!e){
-      const t = tasks && tasks.items.find(x => x.file === f), fin = finCase(p.d, m);
-      if (!t) return;
-      if (fin - m < SNAP){ toast('Pas de place ici : maintiens la tâche 3 s pour ouvrir un créneau.'); return; }
-      e = typerSurTache({id: rid(), d: p.d, start: m, end: fin, sub: ''}, t);
-      state.events.push(e); save(); dernierNeuf = e.id; renderCal();
+    const t = tasks && tasks.items.find(x => x.file === f);
+    if (e){
+      if (t && !compatible(e, t) && !ev.altKey){ toast(`« ${e.title} » n'est pas la catégorie de cette tâche (maintiens Alt pour forcer).`); return; }
+      if (e.auto){ e.vu = true; save(); }
+      deposer(f, p.d, e.start, e.id); return;
     }
+    if (!t) return;
+    const v = voisinFusion(p.d, m, t);
+    if (v){ fusionner(v, p.d, m); save(); dernierNeuf = v.e.id; renderCal(); deposer(f, p.d, Math.max(m, v.e.start), v.e.id); return; }
+    const fin = finCase(p.d, m);
+    if (fin - m < SNAP){ toast('Pas de place ici : maintiens la tâche 3 s pour ouvrir un créneau.'); return; }
+    e = typerSurTache({id: rid(), d: p.d, start: m, end: fin, sub: '', vu: true}, t);
+    state.events.push(e); save(); dernierNeuf = e.id; renderCal();
     deposer(f, p.d, e.start, e.id);
   };
 }
@@ -1211,12 +1242,22 @@ async function chargerDonnees(){
   } else { state = clone(DEFAULT); plan = {}; ensureIds(); persist(); }
   $('#hidePlaced').checked = hide.placed; $('#hideBlocked').checked = hide.blocked; $('#hideLater').checked = hide.later; $('#hideDated').checked = !!hide.dated;
 }
+const videsProposes = new Set();
+function verifierBlocsVides(){
+  if (!BUREAU || !tasks) return;
+  if (document.querySelector('.toast')){ clearTimeout(verifierBlocsVides.t); verifierBlocsVides.t = setTimeout(verifierBlocsVides, 7300); return; }
+  const vide = state.events.find(e => e.auto && e.vu && !videsProposes.has(e.id) && !dayFiles(e.id).length);
+  if (!vide) return;
+  videsProposes.add(vide.id);
+  toast(`Le bloc « ${vide.title} » (${DAYS[vide.d]} ${fmtMin(vide.start)}) est vide : le supprimer ?`, 'Supprimer', () => supprimerCase([vide]));
+}
 async function chargerTaches(){
   if (!CFG || !CFG.coffre) return;
   const files = await cadence.lireTaches(), items = [];
   for (const f of files){ try { const t = parseTask(f.name, f.text); if (t){ t.mtime = f.mtime; items.push(t); } } catch(e){} }
   tasks = {loadedAt: new Date().toISOString(), items: resolveBlocked(items)};
   render();
+  setTimeout(verifierBlocsVides, 500);
 }
 
 /* ---------- tâches : supprimer, renommer ---------- */

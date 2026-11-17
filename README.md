@@ -11,7 +11,7 @@ qui utilise le plugin [TaskNotes](https://github.com/callumalpass/tasknotes).
 - Filtres : masquer les tâches placées, bloquées par une autre, ou datées à plus de 30 jours.
 - Édition directe des créneaux, sans mode spécial : étirer le bas d'un bloc (par 15 min), glisser pour le déplacer, 🗑 pour le supprimer,
   « + » après 3 s de survol entre deux créneaux, double-clic pour le modifier. Les chevauchements sont refusés.
-- Une tâche déposée sur un espace libre crée une case de son type (titre, tag, couleur, projet) ; maintenue 3 s entre deux créneaux collés, elle en ouvre un. Quand une case bouge ou disparaît, ses tâches datées suivent dans Obsidian.
+- Une tâche déposée sur un espace libre crée un bloc au nom de sa catégorie (tag, sinon projet), avec la tâche dedans ; collée à un bloc de même catégorie, elle l'agrandit. Un bloc d'une autre catégorie la refuse (Alt pour forcer), et un bloc créé ainsi qui se vide propose sa suppression ; maintenue 3 s entre deux créneaux collés, elle en ouvre un. Quand une case bouge ou disparaît, ses tâches datées suivent dans Obsidian.
 - Trait de l'heure actuelle sur la semaine en cours.
 - Tâches : rappel automatique 30 min avant l'heure prévue, renommage par double-clic (liens mis à jour dans tout le coffre),
   🗑 suppression avec confirmation (vers la corbeille `.trash` du coffre).
