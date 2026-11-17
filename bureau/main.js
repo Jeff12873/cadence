@@ -635,6 +635,17 @@ ipcMain.handle('google-creer', async (evenement, c) => {
   if (simule()) { const x = { id: 'f' + Date.now(), uid: '', description: '', lieu: '', recurrent: false, modifiable: true, ...c }; fauxGoogle().push(x); return x; }
   return agendas.creerRdv(config.google, { ...c, fuseau: fuseau() });
 });
+// Cases Cadence synchronisées : crée / met à jour (ev.id) l'évènement, renvoie son identifiant
+let fauxBlocs = {};
+ipcMain.handle('google-bloc', async (evenement, ev) => {
+  if (simule()) { const id = ev.id && fauxBlocs[ev.id] ? ev.id : 'b' + Date.now() + Math.random().toString(36).slice(2, 5); fauxBlocs[id] = { ...ev, id }; return id; }
+  return agendas.envoyerEvenement(config.google, { ...ev, fuseau: fuseau() });
+});
+ipcMain.handle('google-bloc-retirer', async (evenement, id) => {
+  if (simule()) { delete fauxBlocs[id]; return true; }
+  await agendas.supprimerEvenement(config.google, id); return true;
+});
+ipcMain.handle('google-blocs-simules', () => simule() ? fauxBlocs : null);
 ipcMain.handle('google-supprimer', async (evenement, id) => {
   if (simule()) { faux = fauxGoogle().filter(y => y.id !== id); return true; }
   await agendas.supprimerRdv(config.google, id); return true;
