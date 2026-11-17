@@ -271,8 +271,9 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
 .cat-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .cat-head h3{margin:0}
 .cat-rows{max-height:55vh;overflow:auto;margin:10px 0}
-.cat-row{display:grid;grid-template-columns:28px 1fr 1fr 110px 52px 30px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
-.cat-row.p,.cat-row.c{grid-template-columns:28px 1fr 110px 52px 30px}
+.cat-row{display:grid;grid-template-columns:28px 1fr 1fr 110px 110px 52px 30px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+.cat-row.p{grid-template-columns:28px 1fr 110px 110px 52px 30px}
+.cat-row.e{grid-template-columns:28px 1fr 150px 52px 30px}
 .cat-row.c{grid-template-columns:28px 1fr 52px 30px}
 .cat-row input,.cat-row select{width:100%;border:1px solid var(--line);border-radius:7px;padding:5px 7px;background:var(--paper);color:inherit;font:inherit;font-size:13px}
 .cat-row .sw{width:22px;height:22px;border-radius:6px;background:var(--bg);border-left:4px solid var(--fg)}
@@ -351,6 +352,32 @@ svg.lu{flex:none;display:block}
 .gsync .gn{position:absolute;right:-7px;top:-6px;min-width:13px;height:13px;border-radius:999px;background:#5f6368;color:#fff;font-size:9px;font-weight:700;line-height:13px;text-align:center;padding:0 2px;box-sizing:border-box}
 .ne-bulle{position:absolute;z-index:30;border:none;border-radius:999px;background:var(--accent);color:var(--card);font:inherit;font-size:12.5px;font-weight:700;padding:6px 12px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.25);white-space:nowrap}
 .ne-bulle:hover{filter:brightness(1.1)}
+.equilibre{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 10px;font-size:12.5px;box-shadow:var(--shadow)}
+.equilibre .eq-l{display:flex;flex-direction:column;line-height:1.25}
+.equilibre .eq-n{color:var(--muted);font-size:11.5px}
+.eq-bar{position:relative;height:14px;border-radius:999px;background:var(--bilan-bg);overflow:hidden}
+.eq-bar .eq-p{position:absolute;left:0;top:0;bottom:0;background:var(--loisir-fg);opacity:.75}
+.eq-bar i{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);opacity:.35}
+.eq-bar em{position:absolute;right:8px;top:0;font-style:normal;font-size:10px;font-weight:700;line-height:14px;color:var(--bilan-fg)}
+.eq-msg{grid-column:1 / -1;color:var(--ink)}
+.equilibre.ok .eq-msg{color:var(--muted)}
+.equilibre.peu{border-color:#E8890C}
+.eq-msg button{border:1px solid var(--line);background:var(--paper);color:inherit;font:inherit;font-size:11.5px;border-radius:999px;padding:1px 8px;cursor:pointer;margin-left:2px}
+.eq-msg button:hover{border-color:var(--accent)}
+.eq-j{margin-left:8px;color:var(--muted)}
+.dayhead .dplaisir{display:block;margin:3px auto 0;border:1px dashed currentColor;background:transparent;color:inherit;opacity:.8;border-radius:999px;font:inherit;font-size:10px;font-weight:700;padding:0 7px;cursor:pointer;letter-spacing:0}
+.dayhead .dplaisir:hover{opacity:1}
+.ent{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:4px 0 10px;background:var(--paper);font-size:13px}
+.ent.tard{border-color:#E8890C}
+.ent small{color:var(--muted)}
+.ent .ent-b{display:flex;gap:6px}
+.ent .btn{padding:3px 9px;font-size:12px}
+.ent .ent-r{flex-basis:100%;font-size:12px;color:#B45309}
+.ent .ent-r button{border:1px solid #E8890C;background:transparent;color:inherit;border-radius:999px;font:inherit;padding:0 7px;cursor:pointer}
+.ent.vide span,.ent.ok span{color:var(--muted);font-size:12.5px}
+.task.repoussee{border-left-style:dashed}
+.task .tcut{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;font:inherit;font-size:11px;padding:1px 8px;margin-top:5px;cursor:pointer}
+.task .tcut:hover{border-color:var(--accent)}
 .hidden{display:none!important}
 @media print{
   @page{size:A4 landscape;margin:9mm}
@@ -389,6 +416,7 @@ svg.lu{flex:none;display:block}
 
   <div class="layout" id="layout">
     <main>
+      <div class="equilibre hidden" id="equilibre"></div>
       <div class="cal-scroll"><div class="cal" id="cal"></div></div>
       <div class="legend" id="legend"></div>
       <div class="note" id="note">Modifications enregistrées automatiquement dans ce navigateur. « Exporter » en garde une copie dans un fichier.</div>
@@ -419,6 +447,7 @@ svg.lu{flex:none;display:block}
         <label title="Tâches datées à plus de 30 jours"><input type="checkbox" id="hideLater"> Masquer les tâches lointaines (+30 j)</label>
         <label title="Tâches qui ont une date planifiée ou une échéance"><input type="checkbox" id="hideDated"> Masquer les tâches datées</label>
       </div>
+      <div id="entourage"></div>
       <div class="filters" id="filters"></div>
       <div id="taskList"></div>
       </div>
@@ -498,6 +527,7 @@ svg.lu{flex:none;display:block}
         <button type="button" class="tab" data-k="projects">📁 Projets</button>
         <button type="button" class="tab" data-k="contexts">📍 Lieux</button>
         <button type="button" class="tab" data-k="cats">🎨 Catégories</button>
+        <button type="button" class="tab" data-k="people">💬 Entourage</button>
       </div>
     </div>
     <div class="set-hint" id="catHint"></div>
@@ -666,6 +696,55 @@ function iconeFiltre(v){
   return {'@trier': 'inbox', '@today': 'calendar-days'}[v] || (v ? iconeTag(v) : '');
 }
 const texteFiltre = (v, label) => sansEmoji(label);
+/* ---------- équilibre plaisir / obligation ---------- */
+const NATURE_CAT = {loisir: 'plaisir', sport: 'plaisir', bilan: 'oblig', ordi: 'oblig', corvee: 'oblig', courses: 'oblig', travaux: 'oblig'};
+const NATURES = {plaisir: 'Plaisir', oblig: 'Obligation', neutre: 'Neutre'};
+const natureDe = (def, cat) => { const n = def && def.nature; return n === 'neutre' ? '' : n || NATURE_CAT[cat] || ''; };
+const natureTag = (n) => { const d = tagDefs().find(t => t.name === n); return natureDe(d, d ? d.cat : ''); };
+const natureProj = (n) => { const d = projDefs().find(p => p.name === n); return natureDe(d, d ? d.cat : ''); };
+const natureBloc = (e) => e.project ? natureProj(e.project) : e.tag ? natureTag(e.tag) : (NATURE_CAT[e.cat] || '');
+const natureTache = (t) => { const tg = tacheTag(t); if (tg) return natureTag(tg); const pr = tacheProj(t); return pr ? natureProj(pr) : ''; };
+const CIBLE_PLAISIR = 1 / 3;
+const jourAPlaisir = (d) => dayEvents(d).some(e => natureBloc(e) === 'plaisir');
+const fmtH = (m) => { const h = Math.floor(m / 60), r = Math.round(m % 60); return h ? `${h} h${r ? String(r).padStart(2, '0') : ''}` : `${r} min`; };
+// la tâche obligation la plus courte (estimation, puis nombre d'étapes)
+function petiteObligation(){
+  if (!tasks) return null;
+  const c = tasks.items.filter(t => !t.blocked && t.status !== 'done' && natureTache(t) === 'oblig');
+  c.sort((a, b) => ((+a.estimate || 999) - (+b.estimate || 999)) || ((a.boxes || 0) - (b.boxes || 0)) || (a.title.length - b.title.length));
+  return c[0] || null;
+}
+function renderEquilibre(){
+  const box = $('#equilibre'); if (!box) return;
+  let P = 0, O = 0; state.events.forEach(e => { const n = natureBloc(e), m = e.end - e.start; if (n === 'plaisir') P += m; else if (n === 'oblig') O += m; });
+  if (!P && !O){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const part = P / (P + O), sansPlaisir = [0, 1, 2, 3, 4, 5, 6].filter(d => dayEvents(d).length && !jourAPlaisir(d));
+  let etat = 'ok', msg = `Bel équilibre cette semaine.`;
+  if (part < CIBLE_PLAISIR){ etat = 'peu'; msg = `Encore environ ${fmtH(Math.max(15, O / 2 - P))} de plaisir à caser pour l'équilibre.`; }
+  else if (part > 1 - CIBLE_PLAISIR){ etat = 'trop'; msg = `Beaucoup de plaisir prévu : une petite obligation remettrait tout d'aplomb.`; }
+  const po = etat === 'trop' ? petiteObligation() : null;
+  box.className = 'equilibre ' + etat;
+  box.innerHTML = `<div class="eq-l"><b>Équilibre</b><span class="eq-n">Plaisir ${fmtH(P)} · Obligation ${fmtH(O)}</span></div>
+    <div class="eq-bar" title="Cible : au moins ${Math.round(CIBLE_PLAISIR * 100)} % de plaisir"><span class="eq-p" style="width:${(part * 100).toFixed(1)}%"></span><i style="left:${CIBLE_PLAISIR * 100}%"></i><i style="left:${(1 - CIBLE_PLAISIR) * 100}%"></i><em>${Math.round(part * 100)} %</em></div>
+    <div class="eq-msg">${esc(msg)}${po ? ` <button type="button" class="eq-po">→ ${esc(po.title)}</button>` : ''}${sansPlaisir.length ? ` <span class="eq-j">Jours sans plaisir : ${sansPlaisir.map(d => `<button type="button" data-d="${d}">${DAYS[d].slice(0, 3)}</button>`).join('')}</span>` : ''}</div>`;
+  if (po) box.querySelector('.eq-po').onclick = () => ouvrirTache(po);
+  box.querySelectorAll('.eq-j button').forEach(b => b.onclick = () => ajouterPlaisir(+b.dataset.d));
+}
+// Ajoute un créneau plaisir d'une heure dans le premier trou libre (12h–21h) du jour, avec le plaisir le moins présent de la semaine
+function ajouterPlaisir(d){
+  let m = null;
+  for (let x = 12 * 60; x <= 21 * 60; x += SNAP) if (!dayEvents(d).some(e => e.start < x + 60 && e.end > x)){ m = x; break; }
+  if (m == null){ toast(`Pas de créneau libre d'une heure ${DAYS[d].toLowerCase()} après-midi : agrandis ou déplace un bloc.`); return; }
+  const choix = projDefs().filter(p => natureProj(p.name) === 'plaisir').map(p => ({project: p.name, tag: '', cat: p.cat, title: p.name}))
+    .concat(tagDefs().filter(t => natureTag(t.name) === 'plaisir').map(t => ({project: '', tag: t.name, cat: t.cat, title: sansEmoji(t.label || t.name)})));
+  const present = (c) => state.events.filter(e => c.project ? e.project === c.project : e.tag === c.tag).length;
+  choix.sort((a, b) => present(a) - present(b));
+  const c = choix[0] || {project: '', tag: '', cat: 'loisir', title: 'Moment plaisir'};
+  const e = ouvrirCreneau(d, m, c.title, false); if (!e) return;
+  Object.assign(e, {tag: c.tag, project: c.project, cat: c.cat || 'loisir'}); dernierNeuf = e.id; save(); renderCal();
+  toast(`✨ « ${c.title} » ajouté ${DAYS[d].toLowerCase()} à ${fmtMin(e.start)}.`); openDlg([e]);
+}
 const catOf = (v) => v && v.startsWith('p:') ? ((projDefs().find(p => p.name === v.slice(2)) || {}).cat || 'routine') : (tagDefs().find(t => t.name === v) || {}).cat;
 const H = (h, m = 0) => h * 60 + m;
 const E = (d, start, end, title, cat, sub = '', tag = '', project = '') => ({d, start, end, title, cat, sub, tag, project});
@@ -902,6 +981,8 @@ function renderCal(){
         h.appendChild(w);
       }
     }
+    if (dayEvents(i).length && !jourAPlaisir(i)){ const c = document.createElement('button'); c.type = 'button'; c.className = 'dplaisir'; c.textContent = '＋ plaisir';
+      c.title = 'Aucun moment plaisir prévu ce jour : clic pour en ajouter un'; c.onclick = (ev) => { ev.stopPropagation(); ajouterPlaisir(i); }; h.appendChild(c); }
     const hors = dated['day:' + i] || [];
     if (hors.length){ const c = document.createElement('span'); c.className = 'dchip'; c.textContent = '📅 ' + hors.length; c.title = 'Tâches datées ce jour, hors créneau';
       c.onclick = () => { filter = '@plan:day:' + i; renderTasks(); }; h.appendChild(c); }
@@ -935,6 +1016,7 @@ function renderCal(){
   ajusterCases(evs);
   dessinerAgendas(evs);
   planifierSyncBlocs();
+  renderEquilibre();
   const lg = $('#legend'); lg.innerHTML = '';
   Object.entries(CATS).filter(([k]) => k !== 'pause').forEach(([k,v]) => {
     const s = document.createElement('span'); s.innerHTML = `<i style="--bg:var(--${k}-bg);--fg:var(--${k}-fg)"></i>${v}`; lg.appendChild(s);
@@ -1724,6 +1806,7 @@ function renderTasks(){
   projNames().filter(p => projPresent.includes(p)).concat(projPresent.filter(p => !projNames().includes(p)))
     .forEach(p => mk('p:' + p, '📁 ' + p));
   [...new Set(tasks.items.flatMap(t => t.contexts || []))].sort((a, b) => a.localeCompare(b, 'fr')).forEach(c => mk('c:' + c, '📍 ' + c));
+  renderEntourage();
   const list = $('#taskList'); list.innerHTML = '';
   const today = new Date(); const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   let items = tasks.items;
@@ -1782,6 +1865,7 @@ function renderGroup(g, items, container, rerender){
       if (t.status === 'in-progress') meta.push('en cours');
       if ((t.notes || []).length) meta.push(`📝 ${t.notes.length}`);
       if (t.blocked) meta.push(`⛔ attend : ${t.waitingOn.join(', ')}`);
+      const nRep = nbReports(t); if (nRep >= 2) meta.push(`↻ repoussée ${nRep} fois`);
       const wkMan = whereIs(t.file), wkDate = BUREAU && !t.recurring ? Object.keys(dated).find(k => dated[k].includes(t.file)) : null;
       const wk = wkMan || wkDate; if (wkMan && !isPlan) meta.push(`📌 ${keyLabel(wkMan)}`);
       a.draggable = true; a.title = 'Glisser sur un jour du calendrier pour la prévoir';
@@ -1793,6 +1877,7 @@ function renderGroup(g, items, container, rerender){
         + `<a class="ob" href="${url}" title="Ouvrir dans Obsidian">${OBS}</a></div>`
         + (meta.length ? `<div class="tm">${meta.map(m=>`<span>${esc(m)}</span>`).join('')}</div>` : '');
       if (BUREAU){ const tr = document.createElement('button'); tr.className = 'ttrash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = 'Supprimer la tâche'; a.appendChild(tr); }
+      if (BUREAU && nRep >= 2){ a.classList.add('repoussee'); const cu = document.createElement('button'); cu.className = 'tcut'; cu.type = 'button'; cu.textContent = '✂ Juste démarrer'; cu.title = 'Créer une première étape de 15 minutes pour aujourd\'hui'; a.appendChild(cu); }
       if (t.boxes && open){
         const ul = document.createElement('div'); ul.className = 'subs';
         if (!t.subs) ul.innerHTML = '<div class="sub muted">Recharge le dossier pour voir le détail.</div>';
@@ -1812,6 +1897,7 @@ function renderGroup(g, items, container, rerender){
       a.addEventListener('click', (ev) => {
         if (ev.target.closest('a.ob') || ev.target.closest('.rename')) return;
         if (ev.target.closest('.ttrash')){ ev.stopPropagation(); supprimerTache(t); return; }
+        if (ev.target.closest('.tcut')){ ev.stopPropagation(); decouper(t); return; }
         if (ev.target.closest('.done-btn')){ ev.stopPropagation(); valider(t); return; }
         if (ev.target.closest('.unplan')){ ev.stopPropagation(); if (wkMan) planTask(t.file, null); else if (BUREAU) ecrire(() => cadence.planifier(t.file, null, t.mtime)); return; }
         if (!t.boxes) return;
@@ -1949,9 +2035,69 @@ async function chargerTaches(){
   const files = await cadence.lireTaches(), items = [];
   for (const f of files){ try { const t = parseTask(f.name, f.text); if (t){ t.mtime = f.mtime; items.push(t); } } catch(e){} }
   tasks = {loadedAt: new Date().toISOString(), items: resolveBlocked(items)};
+  suivreReports();
   render();
   syncGoogle();
   setTimeout(verifierBlocsVides, 500);
+}
+
+/* ---------- entourage : un petit message, chacun son tour ---------- */
+const ENT_MAX = 21;
+const joursDepuis = (iso) => iso ? Math.floor((new Date(isoOf(new Date()) + 'T00:00:00') - new Date(iso + 'T00:00:00')) / 864e5) : null;
+function entourageTrie(){
+  const l = (state.entourage || []).slice();
+  return l.sort((a, b) => (a.dernier || '0000') < (b.dernier || '0000') ? -1 : (a.dernier || '0000') > (b.dernier || '0000') ? 1 : a.nom.localeCompare(b.nom, 'fr'));
+}
+function renderEntourage(){
+  const box = $('#entourage'); if (!box) return;
+  const l = entourageTrie(), auj = isoOf(new Date());
+  if (!BUREAU){ box.innerHTML = ''; return; }
+  if (!l.length){ box.innerHTML = `<div class="ent vide"><span>💬 Ajoute les personnes à qui tu aimes donner des nouvelles : Cadence te proposera un petit message, chacun son tour.</span><button type="button" class="btn">Entourage</button></div>`;
+    box.querySelector('button').onclick = () => { ouvrirCategories(); catTab = 'people'; dessinerCategories(); }; return; }
+  const sautes = (state.entourageSaut && state.entourageSaut.jour === auj) ? state.entourageSaut.noms : [];
+  const dispo = l.filter(p => p.dernier !== auj);
+  const choix = dispo.find(p => !sautes.includes(p.nom)) || null;
+  const retard = l.filter(p => p !== choix && p.dernier !== auj && (joursDepuis(p.dernier) == null || joursDepuis(p.dernier) >= ENT_MAX));
+  const depuis = (p) => { const j = joursDepuis(p.dernier); return j == null ? 'pas encore noté' : j === 0 ? 'aujourd\'hui' : j === 1 ? 'hier' : `il y a ${j} j`; };
+  if (!choix){ box.innerHTML = `<div class="ent ok"><span>💬 Tout le monde a eu de tes nouvelles. 👍</span></div>`; return; }
+  const tard = joursDepuis(choix.dernier) == null || joursDepuis(choix.dernier) >= ENT_MAX;
+  box.innerHTML = `<div class="ent${tard ? ' tard' : ''}"><span>💬 Un petit message à <b>${esc(choix.nom)}</b> ? <small>(${depuis(choix)})</small></span>
+    <span class="ent-b"><button type="button" class="btn on" data-a="fait">✓ C'est fait</button><button type="button" class="btn" data-a="autre" title="Proposer quelqu'un d'autre aujourd'hui">Un autre</button></span>
+    ${retard.length ? `<div class="ent-r">Plus de 3 semaines : ${retard.map(p => `<button type="button" data-n="${esc(p.nom)}" title="Noter un message envoyé aujourd'hui">${esc(p.nom)}</button>`).join(' ')}</div>` : ''}</div>`;
+  const fait = (nom) => { const p = (state.entourage || []).find(x => x.nom === nom); if (p){ p.dernier = auj; save(); renderEntourage(); toast(`💬 Noté pour ${nom}.`); } };
+  box.querySelector('[data-a="fait"]').onclick = () => fait(choix.nom);
+  box.querySelector('[data-a="autre"]').onclick = () => { state.entourageSaut = {jour: auj, noms: sautes.concat(choix.nom)}; save(); renderEntourage(); };
+  box.querySelectorAll('.ent-r button').forEach(b => b.onclick = () => fait(b.dataset.n));
+  if (state.entourageAlerte !== auj && retard.concat(tard ? [choix] : []).length){
+    state.entourageAlerte = auj; save();
+    setTimeout(() => toast(`💬 Ça fait un moment pour ${retard.concat(tard ? [choix] : []).map(p => p.nom).slice(0, 3).join(', ')} : un petit message ?`), 1500);
+  }
+}
+
+/* ---------- tâches repoussées : on compte les reports de date ---------- */
+function suivreReports(){
+  const r = state.reports = state.reports || {}, vus = new Set(); let change = false;
+  tasks.items.forEach(t => {
+    if (t.status === 'done' || t.recurring || !t.scheduled) return;
+    const d = t.scheduled.slice(0, 10); vus.add(t.file);
+    const x = r[t.file];
+    if (!x){ r[t.file] = {d, n: 0}; change = true; }
+    else if (d !== x.d){ if (d > x.d) x.n++; x.d = d; change = true; }
+  });
+  Object.keys(r).forEach(f => { if (!vus.has(f)){ delete r[f]; change = true; } });
+  if (change) save();
+}
+const nbReports = (t) => { const x = (state.reports || {})[t.file]; let n = x ? x.n : 0; if (t.scheduled && t.status !== 'done' && !t.recurring && t.scheduled.slice(0, 10) < isoOf(new Date())) n++; return n; };
+// Découper : une première étape de 15 minutes, aujourd'hui
+function decouper(t){
+  ouvrirTache(null);
+  $('#nTitle').value = `Première étape (15 min) : ${t.title}`.slice(0, 110);
+  const tg = tacheTag(t), pr = tacheProj(t);
+  if (tg && [...$('#nTag').options].some(o => o.value === tg)) $('#nTag').value = tg;
+  if (pr && [...$('#nProj').options].some(o => o.value === pr)) $('#nProj').value = pr;
+  const auj = isoOf(new Date()); if (![...$('#nDay').options].some(o => o.value === auj)) $('#nDay').add(new Option(fmt(auj), auj), 1); $('#nDay').value = auj;
+  $('#nNote').value = `Juste pour démarrer [[${t.file}]] : le plus petit pas possible.`;
+  $('#nTitle').focus(); $('#nTitle').setSelectionRange(0, 26);
 }
 
 /* ---------- tâches : supprimer, renommer ---------- */
@@ -1994,6 +2140,7 @@ function ouvrirCategories(){
     projects: projDefs().map(p => ({...p})).concat(vus.projects.filter(n => !projDefs().some(p => p.name === n)).map(n => ({name: n, cat: 'routine', neuf: true}))),
     contexts: (state.contexts || []).map(n => ({name: n})).concat(vus.contexts.filter(n => !(state.contexts || []).includes(n)).map(n => ({name: n, neuf: true}))),
     cats: Object.keys(CATS).map(c => ({name: c, cat: c, icon: ((state.catIcons || {})[c]) || ''})),
+    people: (state.entourage || []).map(p => ({name: p.nom, dernier: p.dernier || ''})),
   };
   catTab = 'tags'; dessinerCategories();
   $('#dlgCat').showModal();
@@ -2005,17 +2152,27 @@ function dessinerCategories(){
     tags: 'Le libellé (avec une icône si tu veux) et la couleur s\'affichent dans Cadence. Le nom est celui écrit dans les tâches. En orange : trouvé dans tes tâches, pas encore déclaré.',
     projects: 'Le nom du projet est le nom de sa note (lien [[…]] dans les tâches). La couleur sert aux blocs et aux pastilles 📁.',
     contexts: 'Les lieux proposés à la création d\'une tâche (contexte TaskNotes, ex. Würth, Carrefour).',
+    people: 'Les personnes à qui donner des nouvelles. Cadence propose chaque jour celle à qui tu n\'as pas écrit depuis le plus longtemps, et signale au-delà de 3 semaines.',
     cats: 'L\'icône de chaque catégorie : elle sert aux cases sans tag ni projet, et aux tags sans icône. Clique sur une icône pour la changer.',
   }[k];
   $('#catAdd').classList.toggle('hidden', k === 'cats');
-  const cls = k === 'tags' ? '' : k === 'projects' ? ' p' : k === 'cats' ? ' k' : ' c';
+  $('#dlgCat h3').textContent = k === 'people' ? 'Entourage' : 'Tags, projets et lieux';
+  const cls = k === 'tags' ? '' : k === 'projects' ? ' p' : k === 'cats' ? ' k' : k === 'people' ? ' e' : ' c';
   const h = document.createElement('div'); h.className = 'cat-row hdr' + cls;
-  h.innerHTML = k === 'tags' ? '<span></span><span>Nom</span><span>Libellé</span><span>Couleur</span><span>Tâches</span><span></span>'
-    : k === 'projects' ? '<span></span><span>Nom</span><span>Couleur</span><span>Tâches</span><span></span>' : k === 'cats' ? '<span></span><span>Catégorie</span>' : '<span></span><span>Nom</span><span>Tâches</span><span></span>';
+  h.innerHTML = k === 'tags' ? '<span></span><span>Nom</span><span>Libellé</span><span>Couleur</span><span>Nature</span><span>Tâches</span><span></span>'
+    : k === 'projects' ? '<span></span><span>Nom</span><span>Couleur</span><span>Nature</span><span>Tâches</span><span></span>' : k === 'people' ? '<span></span><span>Nom</span><span>Dernier message</span><span></span><span></span>' : k === 'cats' ? '<span></span><span>Catégorie</span>' : '<span></span><span>Nom</span><span>Tâches</span><span></span>';
   rows.appendChild(h);
   catEdit[k].forEach((it, i) => {
     const r = document.createElement('div'); r.className = 'cat-row' + cls;
     const cat = it.cat || (k === 'contexts' ? 'courses' : 'routine');
+    if (k === 'people'){
+      const j = joursDepuis(it.dernier);
+      r.innerHTML = `<span class="ic-btn" style="--bg:var(--loisir-bg);--fg:var(--loisir-fg)">${svgIcone('user', 15)}</span><input data-f="name" value="${esc(it.name)}" placeholder="Prénom">`
+        + `<input type="date" data-f="dernier" value="${esc(it.dernier || '')}"><span class="n${j != null && j >= ENT_MAX ? ' neuf' : ''}">${j == null ? '' : j + ' j'}</span><button type="button" title="Retirer">🗑</button>`;
+      r.querySelectorAll('[data-f]').forEach(inp => inp.addEventListener('input', () => { it[inp.dataset.f] = inp.value; }));
+      r.querySelector('button').onclick = () => { catEdit.people.splice(i, 1); dessinerCategories(); };
+      rows.appendChild(r); return;
+    }
     if (k === 'cats'){
       r.innerHTML = `<button type="button" class="ic-btn" style="--bg:var(--${cat}-bg);--fg:var(--${cat}-fg)" title="Changer l'icône">${svgIcone(it.icon || CAT_ICONES[cat], 15)}</button><span>${esc(CATS[cat])}</span>`;
       r.querySelector('.ic-btn').onclick = () => choisirIcone(it.icon || CAT_ICONES[cat], (v) => { it.icon = v; dessinerCategories(); });
@@ -2027,6 +2184,7 @@ function dessinerCategories(){
     r.innerHTML = `<button type="button" class="ic-btn sw" style="--bg:var(--${cat}-bg);--fg:var(--${cat}-fg)" title="${k === 'contexts' ? '' : 'Changer l\'icône'}"${k === 'contexts' ? ' disabled' : ''}>${svgIcone(icA, 15)}</button><input data-f="name" value="${esc(it.name)}" placeholder="nom">`
       + (k === 'tags' ? `<input data-f="label" value="${esc(sansEmoji(it.label || ''))}" placeholder="Achats">` : '')
       + (k !== 'contexts' ? sel : '')
+      + (k !== 'contexts' ? `<select data-f="nature">${[['', `Auto · ${NATURES[NATURE_CAT[cat]] || 'Neutre'}`], ['plaisir', 'Plaisir'], ['oblig', 'Obligation'], ['neutre', 'Neutre']].map(([v, l]) => `<option value="${v}"${(it.nature || '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>` : '')
       + `<span class="n${it.neuf ? ' neuf' : ''}" title="${it.neuf ? 'Trouvé dans les tâches, pas encore déclaré' : ''}">${n}</span><button type="button" title="Retirer de la liste">🗑</button>`;
     r.querySelectorAll('[data-f]').forEach(inp => inp.addEventListener('input', () => {
       it[inp.dataset.f] = inp.value; delete it.neuf;
@@ -2041,17 +2199,18 @@ function dessinerCategories(){
   });
 }
 document.querySelectorAll('#dlgCat .tab').forEach(b => b.onclick = () => { catTab = b.dataset.k; dessinerCategories(); });
-$('#catAdd').onclick = () => { catEdit[catTab].push(catTab === 'tags' ? {name: '', label: '', cat: 'routine'} : catTab === 'projects' ? {name: '', cat: 'routine'} : {name: ''}); dessinerCategories(); const ins = $('#catRows').querySelectorAll('input[data-f="name"]'); if (ins.length) ins[ins.length - 1].focus(); };
+$('#catAdd').onclick = () => { catEdit[catTab].push(catTab === 'people' ? {name: '', dernier: ''} : catTab === 'tags' ? {name: '', label: '', cat: 'routine'} : catTab === 'projects' ? {name: '', cat: 'routine'} : {name: ''}); dessinerCategories(); const ins = $('#catRows').querySelectorAll('input[data-f="name"]'); if (ins.length) ins[ins.length - 1].focus(); };
 $('#catCancel').onclick = () => $('#dlgCat').close();
 $('#catForm').onsubmit = (e) => {
   e.preventDefault();
   const propre = (l) => { const vu = new Set(); return l.map(x => ({...x, name: String(x.name || '').trim()})).filter(x => x.name && !vu.has(x.name) && vu.add(x.name)); };
-  state.tags = propre(catEdit.tags).map(t => ({name: t.name, label: sansEmoji((t.label || '').trim()) || t.name, cat: CATS[t.cat] ? t.cat : 'routine', icon: t.icon || emojiVersIcone(t.label) || ''}));
-  state.projects = propre(catEdit.projects).map(p => ({name: p.name, cat: CATS[p.cat] ? p.cat : 'routine', icon: p.icon || ''}));
+  state.tags = propre(catEdit.tags).map(t => ({name: t.name, label: sansEmoji((t.label || '').trim()) || t.name, cat: CATS[t.cat] ? t.cat : 'routine', icon: t.icon || emojiVersIcone(t.label) || '', nature: t.nature || ''}));
+  state.projects = propre(catEdit.projects).map(p => ({name: p.name, cat: CATS[p.cat] ? p.cat : 'routine', icon: p.icon || '', nature: p.nature || ''}));
+  state.entourage = propre(catEdit.people).map(p => ({nom: p.name, dernier: p.dernier || ''}));
   state.catIcons = Object.fromEntries(catEdit.cats.filter(c => c.icon).map(c => [c.cat, c.icon]));
   state.contexts = propre(catEdit.contexts).map(c => c.name);
   save(); $('#dlgCat').close(); render();
-  toast('🏷 Tags, projets et lieux enregistrés.');
+  toast('🏷 Réglages enregistrés.');
 };
 $('#sCatBtn').onclick = () => { ouvrirCategories(); };
 // Sélecteur d'icônes Lucide
