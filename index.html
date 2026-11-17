@@ -177,9 +177,19 @@ dialog input[type=time]{width:100%;border:1px solid var(--line);border-radius:8p
 .evs{position:relative}
 .ev{position:absolute;box-sizing:border-box;padding:1px 0;touch-action:none}
 .ev .block{height:100%;cursor:grab;user-select:none;justify-content:flex-start}
-.ev.short .block{flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:1px 8px 1px 12px}
-.ev.short .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ev.short .s,.ev.short .dayplan{display:none}
+/* case trop petite : tout sur une ligne (titre · heures · détail), badges à droite */
+.ev.serre .block{display:block;padding:3px 8px 2px 12px;line-height:1.25}
+.ev.serre .t{display:inline;font-size:12px}
+.ev.serre .s{display:inline;font-size:10.5px;white-space:normal}
+.ev.serre .s::before{content:" · "}
+.ev.serre .badges{float:right;margin:0 -3px 0 6px}
+.ev.serre .dayplan{margin-top:2px}
+/* ça ne tient toujours pas : la case se déplie au survol, rien n'est coupé */
+.ev.deborde .block::after{content:"▾";position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);font-size:10px;color:var(--fg);opacity:.75;pointer-events:none}
+.ev.deborde:hover{z-index:20}
+.ev.deborde:hover .block{height:auto;min-height:100%;overflow:visible;box-shadow:0 8px 22px rgba(0,0,0,.35)}
+.ev.deborde:hover .block::after{display:none}
+.ev.deborde:hover .dp .pi{white-space:normal}
 .ev.short .block::before{top:3px;bottom:3px}
 .ev .rz2{position:absolute;left:0;right:0;bottom:-3px;height:9px;cursor:ns-resize;z-index:4}
 .ev .rz2::after{content:"";position:absolute;left:40%;right:40%;top:3px;height:3px;border-radius:3px;background:var(--fg);opacity:0;transition:opacity .15s}
@@ -860,6 +870,7 @@ function renderCal(){
     evs.appendChild(evElement(grp));
   });
   installerAgenda(evs);
+  ajusterCases(evs);
   dessinerAgendas(evs);
   planifierSyncBlocs();
   const lg = $('#legend'); lg.innerHTML = '';
@@ -872,6 +883,15 @@ function renderCal(){
 const colX = (d) => `calc((100% - 24px) / 7 * ${d} + ${4 * d}px)`;
 const colW = (n) => `calc((100% - 24px) / 7 * ${n} + ${4 * (n - 1)}px)`;
 
+// Cases trop petites pour leur contenu : disposition sur une ligne, puis dépliage au survol si besoin
+function ajusterCases(evs){
+  evs.querySelectorAll('.ev').forEach(el => {
+    const b = el.querySelector('.block'); if (!b) return;
+    const deborde = () => b.scrollHeight > b.clientHeight + 1 || [...b.querySelectorAll('.pi')].some(x => x.scrollWidth > x.clientWidth + 1);
+    if (el.classList.contains('short') || deborde()){ el.classList.add('serre'); const bw = b.querySelector(':scope > .badges'); if (bw) b.prepend(bw); }
+    if (deborde()) el.classList.add('deborde');
+  });
+}
 function evElement(grp){
   const e = grp[0], nd = grp.length, dur = e.end - e.start, h = dur / 60 * PXH;
   const el = document.createElement('div'); el.className = 'ev' + (h < 40 ? ' short' : '');
