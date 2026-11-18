@@ -50,7 +50,22 @@ h1{margin:0;font-size:28px;letter-spacing:-.02em}
 .dayhead{background:var(--head);color:#fff;border-radius:6px;text-align:center;font-weight:700;font-size:12px;letter-spacing:.06em;padding:6px 4px}
 .dayhead.we{background:var(--headwe)}
 .dayhead small{display:block;font-weight:500;letter-spacing:0;opacity:.8;font-size:10.5px}
-.dayhead.today{outline:2px solid var(--accent);outline-offset:2px}
+.dayhead.today{outline:2px solid var(--accent);outline-offset:2px;background:color-mix(in srgb, var(--head) 78%, var(--accent))}
+.dayhead{cursor:pointer;transition:filter .15s}
+.dayhead:hover{filter:brightness(1.15)}
+.dayhead.sel{box-shadow:0 0 0 2px var(--card), 0 0 0 4px color-mix(in srgb, var(--accent) 70%, #fff)}
+.col.sel, .col.today.sel{box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent)}
+.col .hline{position:absolute;left:0;right:0;height:0;border-top:1px solid color-mix(in srgb, var(--line) 80%, transparent);pointer-events:none}
+body.ecart-anim .ev, body.ecart-anim .ext, body.ecart-anim .hl, body.ecart-anim .hline, body.ecart-anim .nowline, body.ecart-anim .col, body.ecart-anim .hours, body.ecart-anim #evs{transition:top .18s ease, height .18s ease}
+.ev.ecarte{z-index:20}
+.ev.ecarte .block{box-shadow:0 6px 18px rgba(0,0,0,.28)}
+.ev.ecarte .dp .pi, .ev.mesure .dp .pi{white-space:normal}
+.ev.mesure .block{height:auto !important;overflow:visible}
+.vuectl{display:inline-flex;align-items:center;gap:4px;margin-left:10px}
+.vuectl #zVal{font-size:12px;color:var(--muted);min-width:42px;text-align:center}
+#btnWE{opacity:.55}
+#btnWE.on{opacity:1}
+.group.jour h3 .btn.mini{padding:1px 7px;font-size:11px}
 .time{min-height:var(--h,46px);color:var(--muted);font-weight:700;font-size:12px;text-align:right;padding:8px 6px 0 0;position:relative}
 .time input{width:52px;text-align:right;border:1px solid var(--line);border-radius:6px;background:var(--card);padding:2px 4px;font-weight:700;font-size:12px}
 .rowtools{display:flex;gap:2px;justify-content:flex-end;margin-top:4px}
@@ -174,9 +189,9 @@ dialog textarea{width:100%;border:1px solid var(--line);border-radius:8px;paddin
 dialog input[type=time]{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--paper);color:inherit;font:inherit}
 .hours{position:relative}
 .hours .hl{position:absolute;right:6px;transform:translateY(-7px);font-size:11.5px;font-weight:700;color:var(--muted)}
-.col{position:relative;border-radius:7px;background-image:linear-gradient(to bottom, color-mix(in srgb, var(--line) 80%, transparent) 1px, transparent 1px);background-size:100% var(--hh)}
+.col{position:relative;border-radius:7px}
 .col.we{background-color:var(--weekend)}
-.col.today{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent)}
+.col.today{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);background-color:color-mix(in srgb, var(--accent) 7%, var(--col-bg, transparent))}
 .evs{position:relative}
 .ev{position:absolute;box-sizing:border-box;padding:1px 0;touch-action:none}
 .ev .block{height:100%;cursor:grab;user-select:none;justify-content:flex-start}
@@ -416,7 +431,7 @@ svg.lu{flex:none;display:block}
       <h1 id="title">Cadence</h1>
       <div class="subtitle" id="subtitle">Ta semaine type, reliée à tes tâches Obsidian</div>
     </div>
-    <div class="weeknav"><button class="btn" id="wPrev" title="Semaine précédente">◀</button><span id="wLabel"></span><button class="btn" id="wNext" title="Semaine suivante">▶</button><button class="btn" id="wNow" title="Revenir à la semaine en cours">Auj.</button></div>
+    <div class="weeknav"><button class="btn" id="wPrev" title="Semaine précédente">◀</button><span id="wLabel"></span><button class="btn" id="wNext" title="Semaine suivante">▶</button><button class="btn" id="wNow" title="Revenir à la semaine en cours">Auj.</button><span class="vuectl"><button class="btn" id="zMoins" title="Dézoomer (Ctrl + molette)">－</button><span id="zVal">100 %</span><button class="btn" id="zPlus" title="Zoomer (Ctrl + molette)">＋</button><button class="btn" id="btnWE" title="Masquer le week-end">Sa·Di</button></span></div>
     <div class="toolbar">
       <button class="btn" id="btnTasks" title="Choisir le dossier des tâches TaskNotes du coffre">📂 Charger mes tâches</button>
       <button class="btn hidden" id="btnSettings" title="Coffre Obsidian, fichier de la semaine, tags et projets">⚙️ Réglages</button>
@@ -877,7 +892,8 @@ const AIDE = [
   <li><b>Modifier</b> : double-clic sur le bloc (titre, horaires, catégorie, tag ou projet, jours).</li>
   <li><b>Déplacer</b> : glisse le bloc. <b>Étirer</b> : tire son bord du bas (par pas de 15 min).</li>
   <li><b>Supprimer</b> : survole-le puis 🗑 ; une notification permet d'<b>annuler</b>.</li></ol>
-  <p>Les blocs identiques sur des jours qui se suivent sont fusionnés visuellement. Un bloc trop petit pour son contenu s'écrit sur une ligne ; un <b>▾</b> indique qu'il se déplie au survol.</p>
+  <p>Les blocs identiques sur des jours qui se suivent sont fusionnés visuellement. Un bloc trop petit pour son contenu s'écrit sur une ligne ; un <b>▾</b> l'indique : au survol, les heures s'<b>écartent</b> pour tout afficher, puis se resserrent.</p>
+  <p><b>Clique sur le nom d'un jour</b> pour voir à droite toutes les tâches de la journée (par bloc) ; la journée en cours est légèrement teintée.</p>
   <p class="aide-tip">Un bloc qui porte un <b>tag</b> ou un <b>projet</b> n'accepte que les tâches correspondantes (voir l'étape 4).</p>`},
  {t: '3. Les tâches', h: `<p>Le panneau de droite <b>Mes tâches</b> liste tes tâches ouvertes, groupées par tag. Les filtres en haut (tags, projets, lieux, Aujourd'hui, À trier) réduisent la liste.</p>
   <ol><li><b>Créer</b> : bouton <b>＋ Tâche</b>.</li>
@@ -923,6 +939,7 @@ const AIDE = [
   <li><b>Alt</b> en déposant une tâche : forcer un bloc d'une autre catégorie.</li>
   <li><b>Ctrl+S</b> dans une note : enregistrer tout de suite.</li>
   <li>◀ ▶ et <b>Auj.</b> : changer de semaine.</li>
+  <li><b>－ ＋</b> (ou <b>Ctrl + molette</b> sur le calendrier) : zoomer. <b>Sa·Di</b> : afficher ou masquer le week-end.</li>
   <li><b>🖨️ Imprimer</b>, <b>💾 Exporter</b> / <b>📥 Importer</b> : garder une copie de ta semaine.</li>
   <li><b>🌓</b> : thème clair ou sombre.</li></ul>`},
 ];
@@ -1058,11 +1075,23 @@ $('#dirInput').onchange = async (e) => {
 };
 
 /* ---------- rendu calendrier : agenda à l'heure réelle ---------- */
-const PXH = 54;                                    // pixels par heure
+const PXH0 = 54;                                   // pixels par heure (zoom 1)
+let PXH = PXH0;
+let ECART = null;                                  // plage d'heures écartée au survol : {a, b, extra}
 const SNAP = 15;                                   // pas de 15 minutes
 let RS = 7 * 60, RE = 22 * 60;                     // plage affichée (recalculée)
 const snap = (m) => Math.round(m / SNAP) * SNAP;
-const yOf = (m) => (m - RS) / 60 * PXH;
+const yOf = (m) => (m - RS) / 60 * PXH + (ECART ? ECART.extra * Math.max(0, Math.min(1, (m - ECART.a) / (ECART.b - ECART.a))) : 0);
+const hOf = (a, b) => yOf(b) - yOf(a);
+const mOf = (y) => {                               // inverse de yOf
+  if (!ECART) return RS + y / PXH * 60;
+  const ya = yOf(ECART.a), yb = yOf(ECART.b);
+  if (y <= ya) return RS + y / PXH * 60;
+  if (y >= yb) return ECART.b + (y - yb) / PXH * 60;
+  return ECART.a + (y - ya) / (yb - ya) * (ECART.b - ECART.a);
+};
+const NC = () => state.sansWE ? 5 : 7;             // jours affichés
+const ZOOMS = [0.6, 0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.5];
 const dayEvents = (d) => state.events.filter(e => e.d === d).sort((a, b) => a.start - b.start);
 const chevauche = (d, start, end, ignore = []) => state.events.some(e => e.d === d && !ignore.includes(e.id) && e.start < end && start < e.end);
 
@@ -1075,10 +1104,16 @@ function renderCal(){
   $('#wLabel').textContent = `Semaine du ${weekDays[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}`;
   RS = Math.min(7 * 60, ...state.events.map(e => Math.floor(e.start / 60) * 60));
   RE = Math.max(22 * 60, ...state.events.map(e => Math.ceil(e.end / 60) * 60));
-  const HT = (RE - RS) / 60 * PXH;
+  PXH = PXH0 * (state.zoom || 1); ECART = null;
+  const HT = yOf(RE);
+  cal.style.gridTemplateColumns = `58px repeat(${NC()}, minmax(${state.sansWE ? 140 : 118}px, 1fr))`;
+  majVue();
   cal.appendChild(document.createElement('div'));
   DAYS.forEach((d, i) => {
-    const dd = weekDays[i], h = document.createElement('div'); h.className = 'dayhead' + (i >= 5 ? ' we' : '') + (isoOf(dd) === todayIso ? ' today' : '');
+    if (i >= NC()) return;
+    const dd = weekDays[i], h = document.createElement('div'); h.className = 'dayhead' + (i >= 5 ? ' we' : '') + (isoOf(dd) === todayIso ? ' today' : '') + (filter === '@jour:' + i ? ' sel' : '');
+    h.title = 'Clic : toutes les tâches de la journée';
+    h.addEventListener('click', (ev) => { if (ev.target.closest('button,.agchip,.dchip')) return; filter = filter === '@jour:' + i ? '' : '@jour:' + i; renderCal(); renderTasks(); });
     h.innerHTML = `${d.toUpperCase()} <span class="dnum">${dd.getDate()}/${String(dd.getMonth() + 1).padStart(2, '0')}</span>` + (i >= 5 && state.weekendNote ? `<small>${esc(state.weekendNote)}</small>` : '');
     if (wx){
       const m = bilanMeteo(isoOf(dd), 8, 12), a = bilanMeteo(isoOf(dd), 13, 18);
@@ -1093,31 +1128,31 @@ function renderCal(){
       c.title = 'Aucun moment plaisir prévu ce jour : clic pour en ajouter un'; c.onclick = (ev) => { ev.stopPropagation(); ajouterPlaisir(i); }; h.appendChild(c); }
     const hors = dated['day:' + i] || [];
     if (hors.length){ const c = document.createElement('span'); c.className = 'dchip'; c.textContent = '📅 ' + hors.length; c.title = 'Tâches datées ce jour, hors créneau';
-      c.onclick = () => { filter = '@plan:day:' + i; renderTasks(); }; h.appendChild(c); }
+      c.onclick = (ev) => { ev.stopPropagation(); filter = '@plan:day:' + i; renderTasks(); }; h.appendChild(c); }
     cal.appendChild(h);
   });
   // graduation des heures
   const hours = document.createElement('div'); hours.className = 'hours'; hours.style.height = HT + 'px'; hours.style.gridRow = '2'; hours.style.gridColumn = '1';
-  for (let m = RS; m <= RE; m += 60){ const l = document.createElement('div'); l.className = 'hl'; l.style.top = yOf(m) + 'px'; l.textContent = fmtMin(m); hours.appendChild(l); }
+  for (let m = RS; m <= RE; m += 60){ const l = document.createElement('div'); l.className = 'hl'; l.dataset.m0 = m; l.style.top = yOf(m) + 'px'; l.textContent = fmtMin(m); hours.appendChild(l); }
   cal.appendChild(hours);
   // colonnes des jours
-  for (let i = 0; i < 7; i++){
-    const c = document.createElement('div'); c.className = 'col' + (i >= 5 ? ' we' : '') + (isoOf(weekDays[i]) === todayIso ? ' today' : '');
-    c.style.gridRow = '2'; c.style.gridColumn = String(i + 2); c.style.height = HT + 'px'; c.style.setProperty('--hh', PXH + 'px');
-    c.style.backgroundPosition = `0 ${yOf(Math.ceil(RS / 60) * 60)}px`;
+  for (let i = 0; i < NC(); i++){
+    const c = document.createElement('div'); c.className = 'col' + (i >= 5 ? ' we' : '') + (isoOf(weekDays[i]) === todayIso ? ' today' : '') + (filter === '@jour:' + i ? ' sel' : '');
+    c.style.gridRow = '2'; c.style.gridColumn = String(i + 2); c.style.height = HT + 'px';
+    for (let m = Math.ceil(RS / 60) * 60; m < RE; m += 60){ const l = document.createElement('div'); l.className = 'hline'; l.dataset.m0 = m; l.style.top = yOf(m) + 'px'; c.appendChild(l); }
     cal.appendChild(c);
   }
   // calque des blocs (au-dessus des 7 colonnes)
   const evs = document.createElement('div'); evs.className = 'evs'; evs.id = 'evs';
-  evs.style.gridRow = '2'; evs.style.gridColumn = '2 / 9'; evs.style.height = HT + 'px';
+  evs.style.gridRow = '2'; evs.style.gridColumn = `2 / ${NC() + 2}`; evs.style.height = HT + 'px';
   cal.appendChild(evs);
   repartirRdv();
   // regroupement des jours consécutifs identiques (effet fusion)
   const vus = new Set();
-  for (let d = 0; d < 7; d++) dayEvents(d).forEach(e => {
+  for (let d = 0; d < NC(); d++) dayEvents(d).forEach(e => {
     if (vus.has(e.id)) return;
     const grp = [e]; vus.add(e.id);
-    for (let k = d + 1; k < 7; k++){ const n = dayEvents(k).find(x => !vus.has(x.id) && sameEv(x, e)); if (!n) break; grp.push(n); vus.add(n.id); }
+    for (let k = d + 1; k < NC(); k++){ const n = dayEvents(k).find(x => !vus.has(x.id) && sameEv(x, e)); if (!n) break; grp.push(n); vus.add(n.id); }
     evs.appendChild(evElement(grp));
   });
   installerAgenda(evs);
@@ -1132,8 +1167,54 @@ function renderCal(){
   drawNow();
 }
 
-const colX = (d) => `calc((100% - 24px) / 7 * ${d} + ${4 * d}px)`;
-const colW = (n) => `calc((100% - 24px) / 7 * ${n} + ${4 * (n - 1)}px)`;
+const colX = (d) => `calc((100% - ${4 * (NC() - 1)}px) / ${NC()} * ${d} + ${4 * d}px)`;
+const colW = (n) => `calc((100% - ${4 * (NC() - 1)}px) / ${NC()} * ${n} + ${4 * (n - 1)}px)`;
+
+// Repositionne tout le calendrier selon l'échelle courante (zoom, plage écartée), sans tout redessiner
+function replacer(){
+  const cal = $('#cal'); if (!cal) return;
+  const HT = yOf(RE) + 'px';
+  cal.querySelectorAll('.hours, .col, #evs').forEach(x => x.style.height = HT);
+  cal.querySelectorAll('[data-m0]').forEach(x => {
+    const m0 = +x.dataset.m0; x.style.top = yOf(m0) + 'px';
+    if (x.dataset.m1) x.style.height = Math.max(x.classList.contains('ext') ? 18 : 0, hOf(m0, +x.dataset.m1)) + 'px';
+  });
+}
+// Survol d'une case trop pleine : la plage d'heures s'écarte pour tout afficher
+let caseOuverte = null;
+function ouvrirCase(el){
+  if (caseOuverte === el || document.body.classList.contains('dragging-task') || el.classList.contains('moving')) return;
+  if (caseOuverte) fermerCase(true);
+  const b = el.querySelector('.block'), m0 = +el.dataset.m0, m1 = +el.dataset.m1;
+  el.classList.remove('serre', 'deborde'); el.classList.add('mesure');
+  const bw = b.querySelector(':scope > .badges'); if (bw && el.dataset.serre) b.appendChild(bw);
+  const besoin = b.scrollHeight + 4, actuel = el.getBoundingClientRect().height;
+  el.classList.remove('mesure');
+  if (besoin <= actuel + 1){ restaurerCase(el); return; }
+  ECART = {a: m0, b: m1, extra: besoin - actuel};
+  el.classList.add('ecarte'); caseOuverte = el;
+  document.body.classList.add('ecart-anim'); replacer();
+}
+function restaurerCase(el){
+  el.classList.remove('ecarte');
+  if (el.dataset.serre){ el.classList.add('serre'); const b = el.querySelector('.block'), bw = b.querySelector(':scope > .badges'); if (bw) b.prepend(bw); }
+  if (el.dataset.deborde) el.classList.add('deborde');
+}
+function fermerCase(vite){
+  const el = caseOuverte; if (!el) return;
+  caseOuverte = null; ECART = null; restaurerCase(el);
+  if (!vite) replacer();
+}
+function zoomer(sens){
+  const z = state.zoom || 1, i = ZOOMS.findIndex(x => x >= z - 0.001);
+  const n = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, (i < 0 ? ZOOMS.length - 1 : i) + sens))];
+  if (n === z) return;
+  state.zoom = n; save(); renderCal();
+}
+function majVue(){
+  const z = $('#zVal'); if (z) z.textContent = Math.round((state.zoom || 1) * 100) + ' %';
+  const w = $('#btnWE'); if (w){ w.classList.toggle('on', !state.sansWE); w.title = state.sansWE ? 'Afficher le week-end' : 'Masquer le week-end'; }
+}
 
 // Cases trop petites pour leur contenu : disposition sur une ligne, puis dépliage au survol si besoin
 // Ligne d'un rendez-vous absorbé dans une case
@@ -1155,14 +1236,19 @@ function ajusterCases(evs){
   evs.querySelectorAll('.ev').forEach(el => {
     const b = el.querySelector('.block'); if (!b) return;
     const deborde = () => b.scrollHeight > b.clientHeight + 1 || [...b.querySelectorAll('.pi')].some(x => x.scrollWidth > x.clientWidth + 1);
-    if (el.classList.contains('short') || deborde()){ el.classList.add('serre'); const bw = b.querySelector(':scope > .badges'); if (bw) b.prepend(bw); }
-    if (deborde()) el.classList.add('deborde');
+    if (el.classList.contains('short') || deborde()){ el.classList.add('serre'); el.dataset.serre = '1'; const bw = b.querySelector(':scope > .badges'); if (bw) b.prepend(bw); }
+    if (deborde()){ el.classList.add('deborde'); el.dataset.deborde = '1'; }
+    if (el.dataset.serre || el.dataset.deborde){
+      el.addEventListener('mouseenter', () => { clearTimeout(el._tf); el._to = setTimeout(() => ouvrirCase(el), 120); });
+      el.addEventListener('mouseleave', () => { clearTimeout(el._to); if (caseOuverte === el) el._tf = setTimeout(() => { if (caseOuverte === el) fermerCase(); }, 80); });
+    }
   });
 }
 function evElement(grp){
-  const e = grp[0], nd = grp.length, dur = e.end - e.start, h = dur / 60 * PXH;
+  const e = grp[0], nd = grp.length, h = hOf(e.start, e.end);
   const el = document.createElement('div'); el.className = 'ev' + (h < 40 ? ' short' : '');
   el.style.top = yOf(e.start) + 'px'; el.style.height = h + 'px'; el.style.left = colX(e.d); el.style.width = colW(nd);
+  el.dataset.m0 = e.start; el.dataset.m1 = e.end;
   el.dataset.ids = grp.map(x => x.id).join(',');
   const b = document.createElement('div'); b.className = 'block ' + e.cat;
   b.style.setProperty('--bg', `var(--${e.cat}-bg)`); b.style.setProperty('--fg', `var(--${e.cat}-fg)`); b.style.background = 'var(--bg)';
@@ -1236,9 +1322,9 @@ function evElement(grp){
 /* ---------- interactions : étirer, déplacer (appui 3 s), « + » au survol, créneau ouvert en glissant une tâche ---------- */
 function posAgenda(evs, x, y){
   const r = evs.getBoundingClientRect();
-  const cw = (r.width - 24) / 7, px = x - r.left, py = y - r.top;
-  const d = Math.max(0, Math.min(6, Math.floor(px / (cw + 4))));
-  const m = RS + py / PXH * 60;
+  const cw = (r.width - 4 * (NC() - 1)) / NC(), px = x - r.left, py = y - r.top;
+  const d = Math.max(0, Math.min(NC() - 1, Math.floor(px / (cw + 4))));
+  const m = mOf(py);
   return {d, m, px, py, r, cw, inside: px >= 0 && py >= 0 && px <= r.width && py <= r.height};
 }
 const groupOf = (el) => (el.dataset.ids || '').split(',').map(evById).filter(Boolean);
@@ -1247,7 +1333,7 @@ const mins2y = (m) => yOf(m) + 'px';
 function ghost(evs, d, start, end, n, bad, label){
   let g = evs.querySelector('.ghost'); if (!g){ g = document.createElement('div'); g.className = 'ghost'; evs.appendChild(g); }
   g.classList.toggle('bad', !!bad);
-  g.style.left = colX(d); g.style.width = colW(n || 1); g.style.top = mins2y(start); g.style.height = ((end - start) / 60 * PXH) + 'px';
+  g.style.left = colX(d); g.style.width = colW(n || 1); g.style.top = mins2y(start); g.style.height = hOf(start, end) + 'px';
   g.textContent = (label ? label + ' · ' : '') + `${fmtMin(start)} – ${fmtMin(end)}` + (bad && !label ? ' · chevauchement' : '');
 }
 const clearGhost = (evs) => evs.querySelectorAll('.ghost').forEach(g => g.remove());
@@ -1447,7 +1533,7 @@ function installerAgenda(evs){
       const move = (mv) => {
         const p = posAgenda(evs, mv.clientX, mv.clientY);
         fin = Math.max(e0.start + SNAP, Math.min(limite, snap(p.m)));
-        el.style.height = ((fin - e0.start) / 60 * PXH) + 'px';
+        el.style.height = hOf(e0.start, fin) + 'px';
         tip.style.left = (p.px) + 'px'; tip.style.top = mins2y(fin); tip.textContent = `jusqu'à ${fmtMin(fin)}`;
       };
       const up = () => {
@@ -1625,7 +1711,7 @@ function repartirRdv(){
   rdvPar = {absorbes: {}, seuls: []};
   extEv.filter(x => !x.erreur && !x.allDay).forEach(x => {
     const d0 = new Date(x.debut), d1 = new Date(x.fin);
-    for (let d = 0; d < 7; d++){
+    for (let d = 0; d < NC(); d++){
       const j0 = new Date(weekDays[d]); j0.setHours(0, 0, 0, 0); const j1 = new Date(j0); j1.setDate(j1.getDate() + 1);
       if (d1 <= j0 || d0 >= j1) continue;
       const m0 = d0 < j0 ? 0 : d0.getHours() * 60 + d0.getMinutes(), m1 = d1 >= j1 ? 24 * 60 : d1.getHours() * 60 + d1.getMinutes();
@@ -1655,11 +1741,11 @@ function dessinerAgendas(evs){
     }
   });
   const masques = state.rdvMasques || {};
-  rdvPar.seuls.filter(r => !masques[r.x.cle]).forEach(({x, d, m0, m1}) => {
+  rdvPar.seuls.filter(r => !masques[r.x.cle] && r.d < NC()).forEach(({x, d, m0, m1}) => {
     const coul = AG_COUL[x.couleur] || x.couleur || AG_COUL.gris;
     const a = Math.max(RS, m0), b = Math.min(RE, m1); if (b <= a) return;
     const el = document.createElement('div'); el.className = 'ext rdvbloc' + (x.modifiable ? ' mod' : '');
-    el.style.top = yOf(a) + 'px'; el.style.height = Math.max(18, (b - a) / 60 * PXH) + 'px';
+    el.style.top = yOf(a) + 'px'; el.style.height = Math.max(18, hOf(a, b)) + 'px'; el.dataset.m0 = a; el.dataset.m1 = b;
     el.style.left = colX(d); el.style.width = colW(1);
     el.style.setProperty('--agc', coul);
     const n = nbLiens(x.cle);
@@ -1699,7 +1785,7 @@ function installerRdv(el, x, d, evs){
     try { ev.target.setPointerCapture(ev.pointerId); } catch(_){}
     const tip = document.createElement('div'); tip.className = 'tip'; evs.appendChild(tip);
     const move = (mv) => { const p = posAgenda(evs, mv.clientX, mv.clientY); fin = Math.max(m0 + SNAP, Math.min(24 * 60, snap(p.m)));
-      el.style.height = ((fin - m0) / 60 * PXH) + 'px'; tip.style.left = p.px + 'px'; tip.style.top = mins2y(fin); tip.textContent = `jusqu'à ${fmtMin(fin)}`; };
+      el.style.height = hOf(m0, fin) + 'px'; tip.style.left = p.px + 'px'; tip.style.top = mins2y(fin); tip.textContent = `jusqu'à ${fmtMin(fin)}`; };
     const up = async () => { ev.target.removeEventListener('pointermove', move); ev.target.removeEventListener('pointerup', up); tip.remove();
       if (fin !== m0 + dur){ try { await cadence.googleModifier(x.id, {debut: dtLocal(debut0, m0), fin: dtLocal(debut0, fin), allDay: false}); } catch(e){ alert(messageErreur(e)); } }
       chargerAgendas(true); };
@@ -1909,11 +1995,11 @@ function drawNow(){
   const evs = $('#evs'); if (!evs) return;
   evs.querySelectorAll('.nowline').forEach(n => n.remove());
   const now = new Date(), d = weekDays.findIndex(x => isoOf(x) === isoOf(now));
-  if (d < 0) return;
+  if (d < 0 || d >= NC()) return;
   const mins = now.getHours() * 60 + now.getMinutes();
   if (mins < RS || mins > RE) return;
   const line = document.createElement('div'); line.className = 'nowline';
-  line.style.top = yOf(mins) + 'px'; line.style.left = '0'; line.style.width = '100%';
+  line.style.top = yOf(mins) + 'px'; line.dataset.m0 = mins; line.style.left = '0'; line.style.width = '100%';
   const t = document.createElement('div'); t.className = 'today'; t.style.left = colX(d); t.style.width = colW(1);
   const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.style.left = '-56px';
   lbl.textContent = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -1951,7 +2037,7 @@ function renderTasks(){
   const list = $('#taskList'); list.innerHTML = '';
   const today = new Date(); const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   let items = tasks.items;
-  const isPlanView = filter.startsWith('@plan:');
+  const isPlanView = filter.startsWith('@plan:') || filter.startsWith('@jour:');
   if (!isPlanView){
     if (hide.placed){ const placed = new Set(Object.values(plan).flat().concat(Object.values(dated).flat())); items = items.filter(t => !placed.has(t.file)); }
     if (hide.blocked) items = items.filter(t => !t.blocked);
@@ -1969,6 +2055,20 @@ function renderTasks(){
       a.onclick = () => ouvrirNote(n.nom, n.dossier); a.querySelector('button').onclick = (e) => { e.stopPropagation(); delierDuRdv(x, {note: n.nom}); }; tete.appendChild(a); });
     list.appendChild(tete);
     if (l.taches.length) renderGroup(filter, tasks.items, list, renderTasks);
+    return;
+  }
+  if (filter.startsWith('@jour:')){
+    const d = +filter.slice(6), dd = weekDays[d];
+    const tete = document.createElement('div'); tete.className = 'group jour'; tete.style.setProperty('--fg', 'var(--accent)');
+    tete.innerHTML = `<h3><span>🗓 ${DAYS[d]} ${dd.getDate()}/${String(dd.getMonth() + 1).padStart(2, '0')} · toute la journée</span><button type="button" class="btn mini" title="Revenir à toutes les tâches">✕</button></h3>`;
+    tete.querySelector('button').onclick = () => { filter = ''; renderCal(); renderTasks(); };
+    list.appendChild(tete);
+    const gs = dayEvents(d).map(e => '@plan:' + e.id).concat('@plan:day:' + d);
+    let n = gs.reduce((k, g) => k + (renderGroup(g, tasks.items, list, renderTasks) || 0), 0);
+    const rdvT = [...new Set(extEv.filter(x => !x.erreur && x.debut && isoOf(new Date(x.debut)) === isoOf(dd)).flatMap(x => liensRdv(x.cle).taches || []))];
+    extEv.filter(x => !x.erreur && x.debut && isoOf(new Date(x.debut)) === isoOf(dd) && (liensRdv(x.cle).taches || []).length)
+      .forEach(x => { n += renderGroup('@ev:' + x.cle, tasks.items, list, renderTasks) || 0; });
+    if (!n && !rdvT.length) tete.innerHTML += '<div class="empty-tasks">Aucune tâche prévue ce jour-là. Glisse une tâche sur la journée pour la prévoir.</div>';
     return;
   }
   const groups = filter.startsWith('@plan:') ? [filter] : filter === '@trier' ? [A_TRIER] : filter && filter !== '@today' ? [filter]
@@ -2112,6 +2212,10 @@ $('#hideBlocked').onchange = (e) => { hide.blocked = e.target.checked; saveHide(
 $('#wPrev').onclick = () => { weekOffset--; render(); chargerAgendas(); };
 $('#wNext').onclick = () => { weekOffset++; render(); chargerAgendas(); };
 $('#wNow').onclick = () => { weekOffset = 0; render(); chargerAgendas(); };
+$('#zMoins').onclick = () => zoomer(-1);
+$('#zPlus').onclick = () => zoomer(1);
+$('#btnWE').onclick = () => { state.sansWE = !state.sansWE; if (state.sansWE && /^@jour:[56]$/.test(filter)) filter = ''; save(); renderCal(); };
+$('#cal').addEventListener('wheel', (ev) => { if (!ev.ctrlKey) return; ev.preventDefault(); zoomer(ev.deltaY < 0 ? 1 : -1); }, {passive: false});
 $('#btnClearPlan').onclick = () => { if (confirm('Retirer toutes les tâches prévues dans la semaine ?')){ plan = {}; savePlan(); if (filter.startsWith('@plan:')) filter = ''; render(); } };
 $('#btnImport').onclick = () => $('#jsonInput').click();
 $('#jsonInput').onchange = async (e) => {
