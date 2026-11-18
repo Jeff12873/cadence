@@ -903,6 +903,7 @@ const AIDE = [
  {t: '6. Agendas et Google', h: `<p>Dans <b>⚙️ Réglages → Agendas</b>, ajoute tes agendas (lien iCal) et connecte ton <b>Google Agenda</b>.</p>
   <ol><li>Chaque rendez-vous va dans le <b>bloc</b> qu'il chevauche, sous forme de ligne 📆. S'il ne tombe sur aucun bloc, il forme son <b>propre bloc</b> pour ce jour-là.</li>
   <li>L'<b>icône Google</b> en bas à gauche d'un bloc : grisée = bloc non synchronisé, ses rendez-vous sont masqués (une petite pastille dit combien) ; en couleurs = synchronisé : ses rendez-vous s'affichent et le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu).</li>
+  <li>Si ton compte Google est connecté, <b>désynchroniser</b> un bloc <b>supprime</b> ses rendez-vous Google de l'agenda (Cadence demande d'abord confirmation et en garde une copie) ; le <b>resynchroniser</b> les recrée à l'identique, avec leurs tâches et notes liées. Les agendas iCal sont seulement masqués.</li>
   <li>Sur un bloc de rendez-vous seul, l'icône Google le masque (annulable).</li>
   <li>Rendez-vous Google : glisse pour déplacer, tire le bas pour allonger, double-clic pour le renommer ou le modifier, 🗑 pour le supprimer.</li>
   <li>Glisse une tâche ou une note <b>sur un rendez-vous</b> pour l'y rattacher (📎).</li></ol>
@@ -1218,12 +1219,13 @@ function evElement(grp){
   const tr = document.createElement('button'); tr.className = 'trash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = nd > 1 ? 'Supprimer ce créneau (tous les jours du bloc)' : 'Supprimer ce créneau'; el.appendChild(tr);
   const rz = document.createElement('div'); rz.className = 'rz2'; rz.title = 'Glisser pour changer l\'heure de fin (par 15 min)'; el.appendChild(rz);
   if (agendaActif()){
-    const on = grp.every(g => gBlocs()[cleBloc(g)]), caches = grp.filter(g => !blocVisible(g)).reduce((n, g) => n + rdvDuBloc(g.id).length, 0);
+    const on = grp.every(g => gBlocs()[cleBloc(g)]), caches = grp.filter(g => !blocVisible(g)).reduce((n, g) => n + rdvDuBloc(g.id).length, 0) + nbCopies(grp);
     const gb = document.createElement('button'); gb.type = 'button'; gb.className = 'gsync' + (on ? ' on' : '');
     gb.innerHTML = '<svg viewBox="0 0 48 48" width="15" height="15" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.8-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.4 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>';
     if (caches) gb.innerHTML += `<span class="gn">${caches}</span>`;
     gb.title = on ? 'Synchronisée : ses rendez-vous d\'agenda sont affichés' + (AG.google && AG.google.connecte ? ' et la case est dans Google Agenda' : '') + ' · clic : désynchroniser'
-      : 'Pas synchronisée' + (caches ? ` · ${caches} rendez-vous masqué${caches > 1 ? 's' : ''}` : '') + ' · clic : synchroniser (semaine affichée)';
+      + (AG.google && AG.google.connecte && rdvDuBloc(grp[0].id).some(r => r.x.cle && r.x.cle.startsWith('g:')) ? ' (ses rendez-vous Google seront supprimés, copie gardée)' : '')
+      : 'Pas synchronisée' + (caches ? ` · ${caches} rendez-vous masqué${caches > 1 ? 's' : ''} ou mis de côté` : '') + ' · clic : synchroniser (semaine affichée' + (nbCopies(grp) ? ', les rendez-vous mis de côté sont recréés dans Google' : '') + ')';
     gb.addEventListener('pointerdown', (ev) => ev.stopPropagation());
     gb.addEventListener('click', (ev) => { ev.stopPropagation(); basculerSyncBloc(grp, !on); });
     el.appendChild(gb);
@@ -1826,19 +1828,51 @@ function descriptionBloc(e){
   return '<ul>' + sans.map(li).join('') + Object.keys(lieux).sort().map(c => `<li>@${esc(c)}<ul>${lieux[c].map(li).join('')}</ul></li>`).join('') + '</ul>';
 }
 const evBloc = (e) => ({titre: e.title || 'Case Cadence', debut: dtLocal(weekDays[e.d], e.start), fin: dtLocal(weekDays[e.d], e.end), allDay: false, description: descriptionBloc(e)});
+// Rendez-vous Google effacés à la désynchronisation : copie gardée par case pour les recréer à la resynchronisation
+const rdvSupprimes = () => (state.rdvSupprimes = state.rdvSupprimes || {});
+const nbCopies = (grp) => grp.reduce((n, g) => n + (rdvSupprimes()[cleBloc(g)] || []).length, 0);
 async function basculerSyncBloc(grp, activer){
-  const m = gBlocs();
+  const m = gBlocs(), g = AG.google && AG.google.connecte;
+  let nSuppr = 0, nRecrees = 0;
+  if (!activer && g){
+    const aEffacer = grp.flatMap(e => rdvDuBloc(e.id).filter(r => r.x.cle && r.x.cle.startsWith('g:') && r.x.modifiable).map(r => ({e, x: r.x})));
+    const vus = new Set(), liste = aEffacer.filter(r => !vus.has(r.x.cle) && vus.add(r.x.cle));
+    if (liste.length){
+      const fmt = (x) => x.allDay ? 'journée' : new Date(x.debut).toLocaleString('fr-FR', {weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'});
+      if (!confirm(`Désynchroniser « ${grp[0].title} » va supprimer de ton agenda Google :\n\n${liste.map(r => '• ' + r.x.titre + ' (' + fmt(r.x) + ')' + (r.x.recurrent ? ' — une occurrence d\'un rendez-vous récurrent' : '')).join('\n')}\n\nCadence en garde une copie : ils seront recréés si tu resynchronises la case.`)) return;
+      for (const {e, x} of liste){
+        try {
+          await cadence.googleSupprimer(x.id);
+          const k = cleBloc(e), c = rdvSupprimes();
+          (c[k] = c[k] || []).push({titre: x.titre, lieu: x.lieu || '', description: x.description || '', debut: x.debut, fin: x.fin, allDay: !!x.allDay, liens: (state.liensRdv || {})[x.cle] || null});
+          if (state.liensRdv) delete state.liensRdv[x.cle];
+          nSuppr++;
+        } catch(err){ alert(messageErreur(err)); }
+      }
+    }
+  }
   try {
     for (const e of grp){
       const k = cleBloc(e);
-      const g = AG.google && AG.google.connecte;
+      if (activer && g && (rdvSupprimes()[k] || []).length){
+        const reste = [];
+        for (const c of rdvSupprimes()[k]){
+          try {
+            const r = await cadence.googleCreer({titre: c.titre, lieu: c.lieu, description: c.description, debut: c.debut, fin: c.fin, allDay: c.allDay});
+            if (c.liens){ state.liensRdv = state.liensRdv || {}; state.liensRdv['g:' + r.id] = c.liens; }
+            nRecrees++;
+          } catch(err){ reste.push(c); toast('📆 ' + messageErreur(err)); }
+        }
+        if (reste.length) rdvSupprimes()[k] = reste; else delete rdvSupprimes()[k];
+      }
       if (activer){ if (m[k]) continue; if (g){ const ev = evBloc(e); const id = await cadence.googleBloc(ev); m[k] = {id, emp: JSON.stringify(ev)}; } else m[k] = {id: null, emp: ''}; }
       else if (m[k]){ if (g && m[k].id) await cadence.googleBlocRetirer(m[k].id); delete m[k]; }
     }
-    const nr = grp.reduce((n, g) => n + rdvDuBloc(g.id).length, 0), txtR = nr ? ` · ${nr} rendez-vous ${activer ? 'affiché' : 'masqué'}${nr > 1 ? 's' : ''}` : '';
+    const nr = grp.reduce((n, g) => n + rdvDuBloc(g.id).length, 0) - nSuppr, pl = (n) => n > 1 ? 's' : '';
+    const txtR = (nSuppr ? ` · ${nSuppr} rendez-vous supprimé${pl(nSuppr)} de Google (copie gardée)` : '') + (nRecrees ? ` · ${nRecrees} rendez-vous recréé${pl(nRecrees)} dans Google` : '') + (nr > 0 ? ` · ${nr} rendez-vous ${activer ? 'affiché' : 'masqué'}${pl(nr)}` : '');
     toast(activer ? `📆 « ${grp[0].title} » synchronisée${txtR}.` : `📆 « ${grp[0].title} » désynchronisée${txtR}.`);
   } catch(err){ alert(messageErreur(err)); }
-  save(); renderCal();
+  save(); if (nSuppr || nRecrees) chargerAgendas(true); else renderCal();
 }
 let syncEnCours = false, tSync = null;
 const planifierSyncBlocs = () => { clearTimeout(tSync); tSync = setTimeout(syncBlocs, 1500); };
