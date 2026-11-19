@@ -466,6 +466,19 @@ body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(
 .agm-v{color:var(--muted);font-size:12px;padding:4px 0}
 button.agp{border:none;cursor:pointer;font:inherit;font-size:12px;font-weight:700}
 body.retro .agmenu{border:2px solid var(--px);box-shadow:5px 5px 0 var(--pxs)}
+dialog.large{width:min(640px,calc(100vw - 32px))}
+.rt-tete{padding:18px 18px 4px}
+.rt-tete h3{margin:0 0 6px}
+.rt-liste{max-height:60vh;overflow:auto;padding:4px 18px}
+.rt-l{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+.rt-l.fait{opacity:.6}
+.rt-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rt-t span{font-size:12px;color:var(--muted)}
+.rt-t em{font-style:normal;color:var(--accent);font-weight:600}
+.rt-b{display:flex;gap:6px;flex:none}
+.rt-b .btn{padding:4px 9px;font-size:12.5px}
+.rt-etat{font-size:12.5px;font-weight:700;color:var(--courses-fg)}
+#dlgRetard .actions{padding:12px 18px 18px}
 /* ---------- compteur d'équilibre (panneau de droite) ---------- */
 aside .equilibre{grid-template-columns:118px 1fr;margin:0 0 12px;padding:8px 10px}
 aside .equilibre .eq-cadran{grid-row:1 / span 2;display:flex;flex-direction:column;align-items:center}
@@ -604,6 +617,13 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
     </aside>
   </div>
 </div>
+
+<dialog id="dlgRetard" class="large">
+  <div class="rt-tete"><h3>Tâches des jours précédents</h3>
+  <p class="set-hint" id="rtIntro"></p></div>
+  <div id="rtListe" class="rt-liste"></div>
+  <div class="actions"><button type="button" class="btn" id="rtPlusTard">Plus tard</button><button type="button" class="btn on" id="rtTout">↻ Tout replacer</button></div>
+</dialog>
 
 <dialog id="dlgNew">
   <form method="dialog" id="newForm">
@@ -1045,6 +1065,7 @@ const AIDE = [
   <li>Les sous-tâches s'affichent sous leur parente, en retrait. Les mentions <b>⤴ sous-tâche de</b>, <b>☰ sous-tâches</b>, <b>⛔ attend</b> et <b>⤷ en attente d'elle</b> sont cliquables : la liste défile jusqu'aux tâches concernées, qui clignotent.</li>
   <li>Un clic sur une tâche fait clignoter son bloc dans l'agenda (ou le jour, ou le rendez-vous auquel elle est rattachée). Une tâche créée ou déplacée clignote aussi, pour la retrouver.</li>
   <li><b>Chercher</b> : la barre <b>Rechercher</b> en haut (ou <b>Ctrl+K</b>) trouve tâches, notes du coffre et blocs ; un clic sur un bloc le fait clignoter dans le calendrier. <b>Échap</b> efface.</li>
+  <li><b>Au démarrage</b>, s'il reste des tâches des jours précédents, une fenêtre les liste. Pour chacune : <b>↻ Replacer</b> sur son prochain créneau dédié (bloc du même tag ou projet), <b>Sans date</b> (elle revient dans la liste de droite) ou <b>✓ Fait</b>.</li>
   <li><b>Checklist</b> : clique sur une tâche à étapes pour les voir ; glisse une étape sur le calendrier pour en faire une tâche à part.</li></ol>
   <p class="aide-tip">Le groupe <b>📥 À trier</b> rassemble les tâches sans tag : commence par lui. Un clic sur un bloc affiche ses tâches dans le panneau.</p>`},
  {t: '4. Tags, projets, lieux, icônes', h: `<p>Dans <b>⚙️ Réglages → Tags, projets et lieux</b> :</p>
@@ -2571,7 +2592,61 @@ async function chargerTaches(){
   render();
   syncGoogle();
   setTimeout(verifierBlocsVides, 500);
+  if (!rattrapageVu){ rattrapageVu = true; setTimeout(ouvrirRattrapage, 900); }
 }
+
+/* ---------- au démarrage : tâches des jours précédents à replacer ou valider ---------- */
+let rattrapageVu = false;
+const enRetard = () => { const auj = isoOf(new Date()); return (tasks ? tasks.items : []).filter(t => !t.recurring && t.status !== 'done' && (t.scheduled || t.due) && (t.scheduled || t.due).slice(0, 10) < auj); };
+// Prochain créneau dédié : bloc de la semaine type qui porte le tag ou le projet de la tâche, à partir de maintenant (14 jours)
+function prochainCreneau(t){
+  const dedie = (e) => (e.tag && t.tags.includes(e.tag)) || (e.project && (t.projects || []).includes(e.project));
+  const now = new Date(), mNow = now.getHours() * 60 + now.getMinutes();
+  for (let j = 0; j < 14; j++){
+    const jour = new Date(now); jour.setDate(now.getDate() + j); const d = (jour.getDay() + 6) % 7;
+    const blocs = state.events.filter(e => e.d === d && dedie(e)).sort((a, b) => a.start - b.start);
+    for (const e of blocs){
+      let m = e.start;
+      if (j === 0){ if (e.end - 15 <= mNow) continue; m = Math.max(e.start, Math.ceil((mNow + 1) / 15) * 15); }
+      return {date: jour, m, e};
+    }
+  }
+  return null;
+}
+const libJour = (date) => { const auj = new Date(), dem = new Date(); dem.setDate(auj.getDate() + 1);
+  return isoOf(date) === isoOf(auj) ? "aujourd'hui" : isoOf(date) === isoOf(dem) ? 'demain' : date.toLocaleDateString('fr-FR', {weekday: 'long', day: 'numeric', month: 'numeric'}); };
+function ouvrirRattrapage(){
+  if (!BUREAU || document.querySelector('dialog[open]')) { if (BUREAU && enRetard().length) setTimeout(ouvrirRattrapage, 3000); return; }
+  const liste = enRetard(); if (!liste.length) return;
+  const box = $('#rtListe'); box.innerHTML = '';
+  $('#rtIntro').textContent = liste.length === 1 ? "Une tâche n'a pas encore trouvé son moment. On la replace sur son prochain créneau, on retire sa date, ou elle est déjà faite ?"
+    : `${liste.length} tâches n'ont pas encore trouvé leur moment. Pour chacune : la replacer sur son prochain créneau, retirer sa date (elle revient dans la liste), ou la valider si c'est fait.`;
+  liste.sort((a, b) => (a.scheduled || a.due).localeCompare(b.scheduled || b.due)).forEach(t => {
+    const c = prochainCreneau(t), row = document.createElement('div'); row.className = 'rt-l';
+    const avant = new Date((t.scheduled || t.due).slice(0, 10) + 'T12:00:00').toLocaleDateString('fr-FR', {weekday: 'short', day: 'numeric', month: 'numeric'});
+    const cible = c ? `${libJour(c.date)} ${fmtMin(c.m)} · ${sansEmoji(c.e.title)}` : "aujourd'hui (pas de créneau dédié)";
+    row.innerHTML = `<div class="rt-t"><b>${esc(t.title)}</b><span>prévue ${esc(avant)} → <em>${esc(cible)}</em></span></div>
+      <div class="rt-b"><button type="button" class="btn rt-rep" title="Replacer sur ${esc(cible)}">↻ Replacer</button><button type="button" class="btn rt-sd" title="Retirer la date : elle revient dans la liste de droite">Sans date</button><button type="button" class="btn rt-ok" title="Valider la tâche">✓ Fait</button></div>`;
+    row._t = t; row._c = c;
+    row.querySelector('.rt-rep').onclick = () => replacerRetard(row);
+    row.querySelector('.rt-sd').onclick = async () => { const x = tasks.items.find(y => y.file === t.file) || t;
+      try { if (whereIs(x.file)) planTask(x.file, null); await cadence.planifier(x.file, null, x.mtime); marquer(row, '⌫ sans date'); } catch(e){ alert(messageErreur(e)); } await chargerTaches(); };
+    row.querySelector('.rt-ok').onclick = async () => { marquer(row, '✓ validée'); await valider(tasks.items.find(x => x.file === t.file) || t); };
+    box.appendChild(row);
+  });
+  $('#dlgRetard').showModal();
+}
+function marquer(row, txt){ row.classList.add('fait'); row.querySelector('.rt-b').innerHTML = `<span class="rt-etat">${esc(txt)}</span>`; finRattrapage(); }
+function finRattrapage(){ if (![...document.querySelectorAll('#rtListe .rt-l')].some(r => !r.classList.contains('fait'))) setTimeout(() => $('#dlgRetard').close(), 700); }
+async function replacerRetard(row, groupe){
+  const t = tasks.items.find(x => x.file === row._t.file) || row._t, c = row._c;
+  const valeur = c ? `${isoOf(c.date)}T${hhmm(c.m)}` : isoOf(new Date());
+  try { if (whereIs(t.file)) planTask(t.file, null); await cadence.planifier(t.file, valeur, t.mtime); marquer(row, c ? `↻ ${libJour(c.date)} ${fmtMin(c.m)}` : "↻ aujourd'hui"); }
+  catch(e){ alert(messageErreur(e)); }
+  if (!groupe) await chargerTaches();
+}
+$('#rtTout').onclick = async () => { for (const row of [...document.querySelectorAll('#rtListe .rt-l:not(.fait)')]) await replacerRetard(row, true); await chargerTaches(); };
+$('#rtPlusTard').onclick = () => $('#dlgRetard').close();
 
 /* ---------- entourage : un petit message, chacun son tour ---------- */
 const ENT_MAX = 21;
