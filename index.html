@@ -479,6 +479,8 @@ dialog.large{width:min(640px,calc(100vw - 32px))}
 .rt-b .btn{padding:4px 9px;font-size:12.5px}
 .rt-etat{font-size:12.5px;font-weight:700;color:var(--courses-fg)}
 #dlgRetard .actions{padding:12px 18px 18px}
+.aide-version{font-size:11px;color:var(--muted);margin-top:10px;padding-left:4px}
+.btn.maj{background:#FDE68A;color:#78350F;border-color:#D97706;font-weight:700;animation:agp 2.5s steps(2) 3}
 /* ---------- compteur d'équilibre (panneau de droite) ---------- */
 aside .equilibre{grid-template-columns:118px 1fr;margin:0 0 12px;padding:8px 10px}
 aside .equilibre .eq-cadran{grid-row:1 / span 2;display:flex;flex-direction:column;align-items:center}
@@ -569,6 +571,7 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
       <button class="btn" id="btnExport" title="Sauvegarder la semaine dans un fichier">💾 Exporter</button>
       <button class="btn" id="btnImport">📥 Importer</button>
       <button class="btn" id="btnClearPlan" title="Retirer toutes les tâches prévues (nouvelle semaine)">🧹 Vider la semaine</button>
+      <button class="btn hidden maj" id="btnMaj">⬆ Mise à jour</button>
       <button class="btn" id="btnAide" title="Guide de Cadence (F1)">❓ Aide</button>
       <button class="btn" id="btnTheme" title="Thème clair / sombre">🌓</button>
       <button class="btn" id="btnRetro" title="Style rétro 16 bits">👾</button>
@@ -722,6 +725,7 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
     <nav class="aide-nav">
       <input type="search" id="aideCherche" placeholder="Chercher dans l'aide…" autocomplete="off">
       <ol id="aideSommaire"></ol>
+      <div class="aide-version" id="aideVersion"></div>
     </nav>
     <article class="aide-txt" id="aideTexte"></article>
     <button type="button" class="btn aide-x" id="aideFermer" title="Fermer (Échap)">✕</button>
@@ -1112,10 +1116,11 @@ const AIDE = [
   <li><b>👾</b> : style rétro 16 bits (activé par défaut) ou style classique.</li>
   <li><b>－ ＋</b> (ou <b>Ctrl + molette</b> sur le calendrier) : zoomer. <b>Sa·Di</b> : afficher ou masquer le week-end.</li>
   <li><b>🖨️ Imprimer</b>, <b>💾 Exporter</b> / <b>📥 Importer</b> : garder une copie de ta semaine.</li>
+  <li><b>Mises à jour</b> : Cadence vérifie au démarrage (puis toutes les 6 h) ; un bouton jaune <b>⬆ Mise à jour</b> apparaît s'il y a du nouveau. Un clic copie la commande à coller dans un terminal (ou Warehouse → rafraîchir → Mettre à jour). Le numéro de version est en bas du sommaire de cette aide.</li>
   <li><b>🌓</b> : thème clair ou sombre.</li></ul>`},
 ];
 let aideCourante = 0;
-function ouvrirAide(i = aideCourante){ $('#aideCherche').value = ''; dessinerAide(i); if (!$('#dlgAide').open) $('#dlgAide').showModal(); }
+function ouvrirAide(i = aideCourante){ $('#aideVersion').textContent = versionCadence ? 'Cadence ' + versionCadence : ''; $('#aideCherche').value = ''; dessinerAide(i); if (!$('#dlgAide').open) $('#dlgAide').showModal(); }
 function dessinerAide(i){
   aideCourante = i;
   const q = $('#aideCherche').value.trim().toLowerCase(), plat = (h) => h.replace(/<[^>]+>/g, ' ').toLowerCase();
@@ -2788,6 +2793,23 @@ function gagnerXP(cle, pts, el){
   if (apres > avant){ $('#xp').classList.add('levelup'); setTimeout(() => $('#xp').classList.remove('levelup'), 1600); setTimeout(() => toast(`⭐ Niveau ${apres} atteint !`), 400); }
 }
 function retirerXP(cle){ const x = xpEtat(); if (!x.gains[cle]) return; x.total = Math.max(0, x.total - x.gains[cle]); delete x.gains[cle]; save(); renderXP(); }
+
+/* ---------- mise à jour : vérifiée au démarrage puis toutes les 6 heures ---------- */
+const CMD_MAJ = 'flatpak update --user fr.cadence.Cadence';
+let versionCadence = '';
+async function verifierMaj(){
+  if (!BUREAU || !cadence.verifierMaj) return;
+  let r; try { r = await cadence.verifierMaj(); } catch(e){ return; }
+  versionCadence = r.actuelle || '';
+  const b = $('#btnMaj'); if (!b) return;
+  b.classList.toggle('hidden', !r.nouvelle);
+  if (r.nouvelle){ b.textContent = `⬆ Mise à jour ${r.derniere}`; b.title = `Version installée : ${r.actuelle} · nouvelle version : ${r.derniere}\nClic : copier la commande de mise à jour`; }
+}
+$('#btnMaj').onclick = async () => {
+  try { await cadence.copier(CMD_MAJ); } catch(e){}
+  toast(`Commande copiée : colle-la dans un terminal (${CMD_MAJ}), puis relance Cadence. Ou dans Warehouse : rafraîchir puis Mettre à jour.`);
+};
+setTimeout(verifierMaj, 4000); setInterval(verifierMaj, 6 * 3600 * 1000);
 
 /* ---------- style rétro ---------- */
 function appliquerRetro(){ document.body.classList.toggle('retro', !state || state.retro !== false); const b = $('#btnRetro'); if (b) b.classList.toggle('on', document.body.classList.contains('retro')); }

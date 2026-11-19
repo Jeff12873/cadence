@@ -37,12 +37,16 @@ jobs:
       - name: Dépendances
         run: npm ci
 
+      # Le numéro de version monte à chaque publication : 1.0.<numéro du build>
+      - name: Version
+        run: npm version "1.0.${{ github.run_number }}" --no-git-tag-version --allow-same-version
+
       - name: Cadence.flatpak
         run: PUBLIER=1 sh outils/flatpak.sh
 
       - name: Release
         run: |
-          version="v$(node -p "require('./package.json').version").${{ github.run_number }}"
+          version="v$(node -p "require('./package.json').version")"
           gh release create "$version" Cadence.flatpak --title "Cadence $version" --notes "${{ github.event.head_commit.message }}"
           # On garde les 3 dernières versions
           gh release list --limit 100 --json tagName --jq '.[3:][].tagName' | while read -r ancienne; do

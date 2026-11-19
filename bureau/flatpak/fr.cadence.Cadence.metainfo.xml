@@ -10,7 +10,7 @@
     qui utilise le plugin TaskNotes : les tâches s'affichent en direct, par tag ou par projet.</p>
     <p>Glisser une tâche sur un jour fixe sa date planifiée, cocher une ligne de checklist
     l'écrit dans la note, et une nouvelle tâche se crée en quelques clics.</p>
-    <p>Aucune donnée dans l'application : la semaine type est un fichier du coffre. Aucun accès à Internet.</p>
+    <p>Aucune donnée dans l'application : la semaine type est un fichier du coffre. Internet sert seulement à la météo, aux agendas et à la vérification des mises à jour.</p>
   </description>
   <launchable type="desktop-id">fr.cadence.Cadence.desktop</launchable>
   <categories>

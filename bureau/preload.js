@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('cadence', {
   ajouterParent: (nom, parent, mtime) => ipcRenderer.invoke('ajouter-parent', nom, parent, mtime),
   ajouterBloquant: (nom, bloqueur, mtime) => ipcRenderer.invoke('ajouter-bloquant', nom, bloqueur, mtime),
   chercherNotes: (q) => ipcRenderer.invoke('chercher-notes', q),
+  verifierMaj: () => ipcRenderer.invoke('verifier-maj'),
+  copier: (texte) => ipcRenderer.invoke('copier', texte),
   modifierTache: (nom, champs, mtime) => ipcRenderer.invoke('modifier-tache', nom, champs, mtime),
   terminer: (nom, mtime) => ipcRenderer.invoke('terminer', nom, mtime),
   rouvrir: (nom, ancien) => ipcRenderer.invoke('rouvrir', nom, ancien),

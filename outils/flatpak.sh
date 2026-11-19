@@ -30,13 +30,18 @@ flatpak build-init --base=org.electronjs.Electron2.BaseApp --base-version=$VERSI
   "$CONSTRUCTION" $ID org.freedesktop.Platform org.freedesktop.Platform $VERSION_BASE
 
 FICHIERS="$CONSTRUCTION/files"
+# Fiche AppStream avec la version du package.json (montée à chaque publication) : Warehouse et les logithèques la voient
+VERSION_APP=$(node -p "require('./package.json').version")
+METAINFO=dist/flatpak/$ID.metainfo.xml
+mkdir -p dist/flatpak
+sed "s|<release version=\"[^\"]*\" date=\"[^\"]*\"/>|<release version=\"$VERSION_APP\" date=\"$(date +%F)\"/>|" bureau/flatpak/$ID.metainfo.xml > "$METAINFO"
 mkdir -p "$FICHIERS/bin" "$FICHIERS/share/applications" "$FICHIERS/share/metainfo" \
   "$FICHIERS/share/icons/hicolor/512x512/apps"
 cp -r dist/linux-unpacked "$FICHIERS/cadence"
 rm -f "$FICHIERS/cadence/chrome-sandbox"          # inutile : zypak s'en charge
 install -m 755 bureau/flatpak/lanceur.sh "$FICHIERS/bin/cadence"
 install -m 644 bureau/flatpak/$ID.desktop "$FICHIERS/share/applications/"
-install -m 644 bureau/flatpak/$ID.metainfo.xml "$FICHIERS/share/metainfo/"
+install -m 644 "$METAINFO" "$FICHIERS/share/metainfo/$ID.metainfo.xml"
 install -m 644 bureau/icone.png "$FICHIERS/share/icons/hicolor/512x512/apps/$ID.png"
 
 # Fiche AppStream : ce que lisent Warehouse, Discover ou GNOME Logiciels pour afficher l'application
@@ -50,7 +55,7 @@ done
   echo '<?xml version="1.0" encoding="UTF-8"?>'
   echo '<components version="0.14" origin="flatpak">'
   sed -e '1d' -e "s|</component>|  <icon type=\"cached\" width=\"64\" height=\"64\">$ID.png</icon>\n  <icon type=\"cached\" width=\"128\" height=\"128\">$ID.png</icon>\n  <bundle type=\"flatpak\">app/$ID/x86_64/master</bundle>\n</component>|" \
-    bureau/flatpak/$ID.metainfo.xml
+    "$METAINFO"
   echo '</components>'
 } | gzip > "$FICHIERS/share/app-info/xmls/$ID.xml.gz"
 

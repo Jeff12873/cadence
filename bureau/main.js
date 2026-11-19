@@ -6,7 +6,7 @@
 // Rien de personnel n'est stocké dans l'application : le chemin du coffre vit dans le dossier
 // de configuration de l'utilisateur, la semaine type dans un fichier du coffre.
 
-const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell, clipboard } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
@@ -744,6 +744,22 @@ ipcMain.handle('google-blocs-simules', () => simule() ? fauxBlocs : null);
 ipcMain.handle('google-supprimer', async (evenement, id, cal) => {
   if (simule()) { faux = fauxGoogle().filter(y => y.id !== id); return true; }
   await agendas.supprimerRdv(config.google, id, cal); return true;
+});
+
+ipcMain.handle('copier', (evenement, texte) => { if (typeof texte === 'string' && texte.length < 500) clipboard.writeText(texte); return true; });
+// Mise à jour : compare la version installée à la dernière publiée dans le dépôt FlatKein
+const versionNums = (v) => String(v || '').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+const plusRecente = (a, b) => { const x = versionNums(a), y = versionNums(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; } return false; };
+ipcMain.handle('verifier-maj', async () => {
+  const actuelle = app.getVersion();
+  if (!app.isPackaged && !process.env.CADENCE_FAUSSE_MAJ) return { actuelle, derniere: actuelle, nouvelle: false };
+  try {
+    const r = await net.fetch('https://jeff12873.github.io/FlatKein/versions.txt', { cache: 'no-store' });
+    if (!r.ok) return { actuelle, erreur: `HTTP ${r.status}` };
+    const l = (await r.text()).split('\n').find(x => x.startsWith('Jeff12873/cadence '));
+    const derniere = process.env.CADENCE_FAUSSE_MAJ || (l ? l.split(' ')[1].replace(/^v/, '') : actuelle);
+    return { actuelle, derniere, nouvelle: plusRecente(derniere, actuelle) };
+  } catch (e) { return { actuelle, erreur: e.message }; }
 });
 
 ipcMain.handle('ouvrir-lien', (evenement, url) => {
