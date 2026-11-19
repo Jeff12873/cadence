@@ -1087,7 +1087,7 @@ const AIDE = [
   <li>🔗 relie une note à une tâche existante.</li></ol>`},
  {t: '6. Agendas et Google', h: `<p>Dans <b>⚙️ Réglages → Agendas</b>, ajoute tes agendas (lien iCal) et connecte ton <b>Google Agenda</b>.</p>
   <ol><li>Chaque rendez-vous va dans le <b>bloc</b> qu'il chevauche, sous forme de ligne 📆. S'il ne tombe sur aucun bloc, il forme son <b>propre bloc</b> pour ce jour-là.</li>
-  <li>L'<b>icône calendrier</b> en bas à gauche de chaque jour d'un bloc : grisée = bloc non synchronisé, ses rendez-vous sont masqués (une petite pastille dit combien) ; en couleurs = synchronisé : ses rendez-vous s'affichent et le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu).</li>
+  <li>L'<b>icône calendrier</b> en bas à gauche de chaque jour d'un bloc : grisée = bloc non synchronisé, ses rendez-vous sont masqués (une petite pastille dit combien ; un rendez-vous qui déborde surtout hors du bloc reste toujours affiché) ; en couleurs = synchronisé : ses rendez-vous s'affichent et le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu).</li>
   <li>Si ton compte Google est connecté, <b>désynchroniser</b> un bloc <b>supprime</b> ses rendez-vous Google de l'agenda (Cadence demande d'abord confirmation et en garde une copie) ; le <b>resynchroniser</b> les recrée à l'identique, avec leurs tâches et notes liées. Les agendas iCal sont seulement masqués.</li>
   <li>Un bloc sur plusieurs jours est séparé par des pointillés : chaque jour a sa propre icône et se synchronise à part.</li>
   <li>Sur un bloc de rendez-vous seul, l'icône calendrier le masque (annulable).</li>
@@ -1975,6 +1975,7 @@ function repartirRdv(){
       if (m1 <= m0) continue;
       let best = null, bestO = 0;
       dayEvents(d).forEach(e => { const o = Math.min(e.end, m1) - Math.max(e.start, m0); if (o > bestO){ best = e; bestO = o; } });
+      if (best && bestO * 2 < m1 - m0) best = null;   // rangé dans un bloc seulement s'il y est en majorité
       if (best) (rdvPar.absorbes[best.id] = rdvPar.absorbes[best.id] || []).push({x, d, m0, m1});
       else rdvPar.seuls.push({x, d, m0, m1});
     }
