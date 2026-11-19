@@ -1073,8 +1073,17 @@ $('#btnTheme').onclick = () => {
 
 /* ---------- tâches ---------- */
 const sameEv = (a,b) => a && b && a.start===b.start && a.end===b.end && a.title===b.title && a.sub===b.sub && a.cat===b.cat && (a.tag||'')===(b.tag||'') && (a.project||'')===(b.project||'');
-const readyProject = (p) => tasks ? tasks.items.filter(t => (t.projects||[]).includes(p) && !t.blocked && !isLater(t)).length : 0;
-const readyCount = (tag) => tasks ? tasks.items.filter(t => t.tags.includes(tag) && !t.blocked && !isLater(t)).length : 0;
+// Tâches que le panneau de droite affiche avec les filtres cochés (« Masquer les tâches… »)
+function tachesFiltrees(items){
+  if (hide.placed){ const placed = new Set(Object.values(plan).flat().concat(Object.values(dated).flat())); items = items.filter(t => !placed.has(t.file)); }
+  if (hide.blocked) items = items.filter(t => !t.blocked);
+  if (hide.later) items = items.filter(t => !isLater(t));
+  if (hide.dated) items = items.filter(t => !t.scheduled && !t.due);
+  return items;
+}
+// Pastilles des blocs : tâches prêtes (non bloquées) qui restent visibles avec les filtres
+const readyProject = (p) => tasks ? tachesFiltrees(tasks.items).filter(t => (t.projects||[]).includes(p) && !t.blocked).length : 0;
+const readyCount = (tag) => tasks ? tachesFiltrees(tasks.items).filter(t => t.tags.includes(tag) && !t.blocked).length : 0;
 let weekOffset = 0, dated = {}, weekDays = [];
 const isoOf = (x) => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
 function weekDates(){
@@ -1365,7 +1374,7 @@ function evElement(grp){
     const wrap = document.createElement('div'); wrap.className = 'badges';
     const mkBadge = (n, label, val, proj) => {
       const bd = document.createElement('button'); bd.className = 'badge' + (proj ? ' proj' : '') + (n ? '' : ' zero');
-      bd.innerHTML = svgIcone(proj ? iconeProj(val.slice(2)) : iconeTag(val)) + `<span>${n}</span>`; bd.title = `${n} tâche(s) prête(s) · ${sansEmoji(label)}`;
+      bd.innerHTML = svgIcone(proj ? iconeProj(val.slice(2)) : iconeTag(val)) + `<span>${n}</span>`; const tot = tasks.items.filter(t => !t.blocked && (proj ? (t.projects || []).includes(val.slice(2)) : t.tags.includes(val))).length; bd.title = `${n} tâche(s) prête(s) · ${sansEmoji(label)}` + (tot > n ? `\n${tot - n} autre(s) masquée(s) par les filtres du panneau` : '');
       bd.onclick = (ev) => { ev.stopPropagation(); filter = val; renderTasks(); $('#tasks').scrollIntoView({behavior:'smooth', block:'nearest'}); };
       wrap.appendChild(bd);
     };
@@ -2171,10 +2180,7 @@ function renderTasks(){
   let items = tasks.items;
   const isPlanView = filter.startsWith('@plan:') || filter.startsWith('@jour:') || filter.startsWith('@q:');
   if (!isPlanView){
-    if (hide.placed){ const placed = new Set(Object.values(plan).flat().concat(Object.values(dated).flat())); items = items.filter(t => !placed.has(t.file)); }
-    if (hide.blocked) items = items.filter(t => !t.blocked);
-    if (hide.later) items = items.filter(t => !isLater(t));
-    if (hide.dated) items = items.filter(t => !t.scheduled && !t.due);
+    items = tachesFiltrees(items);
   }
   if (filter === '@today') items = items.filter(t => (t.scheduled||'').slice(0,10) === iso || (t.due||'').slice(0,10) === iso || ((t.due||t.scheduled||'9999').slice(0,10) < iso && !t.recurring));
   if (filter.startsWith('@ev:')){
@@ -2374,10 +2380,10 @@ $('#btnExport').onclick = () => {
 };
 $('#hidePlaced').checked = hide.placed; $('#hideBlocked').checked = hide.blocked; $('#hideLater').checked = hide.later;
 $('#hideDated').checked = !!hide.dated;
-$('#hideDated').onchange = (e) => { hide.dated = e.target.checked; saveHide(); renderTasks(); };
-$('#hideLater').onchange = (e) => { hide.later = e.target.checked; saveHide(); renderTasks(); };
-$('#hidePlaced').onchange = (e) => { hide.placed = e.target.checked; saveHide(); renderTasks(); };
-$('#hideBlocked').onchange = (e) => { hide.blocked = e.target.checked; saveHide(); renderTasks(); };
+$('#hideDated').onchange = (e) => { hide.dated = e.target.checked; saveHide(); render(); };
+$('#hideLater').onchange = (e) => { hide.later = e.target.checked; saveHide(); render(); };
+$('#hidePlaced').onchange = (e) => { hide.placed = e.target.checked; saveHide(); render(); };
+$('#hideBlocked').onchange = (e) => { hide.blocked = e.target.checked; saveHide(); render(); };
 $('#wPrev').onclick = () => { weekOffset--; render(); chargerAgendas(); };
 $('#wNext').onclick = () => { weekOffset++; render(); chargerAgendas(); };
 $('#wNow').onclick = () => { weekOffset = 0; render(); chargerAgendas(); };
