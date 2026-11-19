@@ -163,7 +163,7 @@ dialog label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
 dialog input[type=text],dialog input[type=search],dialog select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--paper)}
 .days{display:flex;flex-wrap:wrap;gap:6px}
 .days label{display:inline-flex;align-items:center;gap:4px;margin:0;color:var(--ink);font-size:13px;border:1px solid var(--line);border-radius:7px;padding:4px 8px;cursor:pointer}
-.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:16px}
 .actions .danger{margin-right:auto;color:#C2410C}
 .aside-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .aside-head .btn{padding:4px 10px;box-shadow:none}
@@ -756,7 +756,7 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
     <div id="rvLiens"></div>
     <div class="actions">
       <button type="button" class="btn danger" id="rvDel">Supprimer</button>
-      <a class="btn" id="rvLink" target="_blank" href="#">Ouvrir dans Google</a>
+      <a class="btn" id="rvLink" target="_blank" href="#" title="Ouvrir dans Google Agenda">Google ↗</a>
       <button type="button" class="btn" id="rvCancel">Fermer</button>
       <button type="submit" class="btn on" id="rvOk">Enregistrer</button>
     </div>
