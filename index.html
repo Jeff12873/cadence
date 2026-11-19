@@ -423,6 +423,13 @@ svg.lu{flex:none;display:block}
   .rz{display:none}
 }
 
+.weeknav .agetat, .weeknav .agp{min-width:0}
+.agetat{display:inline-flex;gap:4px;margin-left:8px;align-items:center}
+.agp{font-size:12px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.agp.ok{background:color-mix(in srgb, var(--courses-bg) 80%, transparent);color:var(--courses-fg)}
+.agp.ko{background:#FADAD7;color:#9B2C22;border:1px solid #E5484D;cursor:pointer;animation:agp 2s steps(2) infinite}
+@keyframes agp{50%{background:#F5B3AC}}
+body.retro .agp{border:2px solid var(--px);box-shadow:2px 2px 0 var(--pxs)}
 /* ---------- compteur d'équilibre (panneau de droite) ---------- */
 aside .equilibre{grid-template-columns:118px 1fr;margin:0 0 12px;padding:8px 10px}
 aside .equilibre .eq-cadran{grid-row:1 / span 2;display:flex;flex-direction:column;align-items:center}
@@ -504,7 +511,7 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
       <div class="xp" id="xp" title="Points gagnés en validant tes tâches"></div>
       <div class="subtitle" id="subtitle">Ta semaine type, reliée à tes tâches Obsidian</div>
     </div>
-    <div class="weeknav"><button class="btn" id="wPrev" title="Semaine précédente">◀</button><span id="wLabel"></span><button class="btn" id="wNext" title="Semaine suivante">▶</button><button class="btn" id="wNow" title="Revenir à la semaine en cours">Auj.</button><span class="vuectl"><button class="btn" id="zMoins" title="Dézoomer (Ctrl + molette)">－</button><span id="zVal">100 %</span><button class="btn" id="zPlus" title="Zoomer (Ctrl + molette)">＋</button><button class="btn" id="btnWE" title="Masquer le week-end">Sa·Di</button></span></div>
+    <div class="weeknav"><button class="btn" id="wPrev" title="Semaine précédente">◀</button><span id="wLabel"></span><button class="btn" id="wNext" title="Semaine suivante">▶</button><button class="btn" id="wNow" title="Revenir à la semaine en cours">Auj.</button><span id="agEtat" class="agetat hidden"></span><span class="vuectl"><button class="btn" id="zMoins" title="Dézoomer (Ctrl + molette)">－</button><span id="zVal">100 %</span><button class="btn" id="zPlus" title="Zoomer (Ctrl + molette)">＋</button><button class="btn" id="btnWE" title="Masquer le week-end">Sa·Di</button></span></div>
     <div class="recherche"><input type="search" id="q" placeholder="Rechercher… (Ctrl+K)" autocomplete="off" title="Tâches, notes et blocs"></div>
     <div class="toolbar">
       <button class="btn" id="btnTasks" title="Choisir le dossier des tâches TaskNotes du coffre">📂 Charger mes tâches</button>
@@ -1016,6 +1023,7 @@ const AIDE = [
   <li>L'<b>icône Google</b> en bas à gauche d'un bloc : grisée = bloc non synchronisé, ses rendez-vous sont masqués (une petite pastille dit combien) ; en couleurs = synchronisé : ses rendez-vous s'affichent et le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu).</li>
   <li>Si ton compte Google est connecté, <b>désynchroniser</b> un bloc <b>supprime</b> ses rendez-vous Google de l'agenda (Cadence demande d'abord confirmation et en garde une copie) ; le <b>resynchroniser</b> les recrée à l'identique, avec leurs tâches et notes liées. Les agendas iCal sont seulement masqués.</li>
   <li>Sur un bloc de rendez-vous seul, l'icône Google le masque (annulable).</li>
+  <li>À côté de la semaine, la pastille <b>📆</b> donne le nombre de rendez-vous chargés (survole-la pour le détail et les rendez-vous masqués). Une pastille rouge <b>⚠ pas d'accès</b> signale un agenda injoignable : clic pour réessayer.</li>
   <li>Rendez-vous Google : glisse pour déplacer, tire le bas pour allonger, double-clic pour le renommer ou le modifier, 🗑 pour le supprimer.</li>
   <li>Glisse une tâche ou une note <b>sur un rendez-vous</b> pour l'y rattacher (📎).</li></ol>
   <p class="aide-tip">Masquer un rendez-vous ne le supprime jamais de ton agenda.</p>`},
@@ -1255,6 +1263,7 @@ function renderCal(){
   installerAgenda(evs);
   ajusterCases(evs);
   dessinerAgendas(evs);
+  renderEtatAgendas();
   planifierSyncBlocs();
   renderEquilibre();
   const lg = $('#legend'); lg.innerHTML = '';
@@ -1794,15 +1803,41 @@ async function chargerAgendas(force){
   const cle = isoOf(de);
   if (!force && cle === extSemaine && extEv.length) return;
   let ics = [], gg = [];
-  try { ics = AG.agendas.length ? await cadence.agendasLire(de.toISOString(), a.toISOString()) : []; } catch(e){ ics = []; }
-  if (googleOn){ try { gg = (await cadence.googleLire(de.toISOString(), a.toISOString())).map(x => ({...x, agenda: 'Google', couleur: 'bleu', cle: 'g:' + x.id})); } catch(e){ toast('📆 ' + messageErreur(e)); } }
+  const etats = [];
+  try { ics = AG.agendas.length ? await cadence.agendasLire(de.toISOString(), a.toISOString()) : []; }
+  catch(e){ ics = AG.agendas.map(g => ({erreur: `${g.nom || 'Agenda'} : ${messageErreur(e)}`})); }
+  AG.agendas.forEach(g => { const nom = g.nom || 'Agenda', er = ics.find(x => x.erreur && x.erreur.startsWith(nom + ' :'));
+    etats.push({nom, ok: !er, msg: er ? er.erreur.slice(nom.length + 3) : '', n: ics.filter(x => !x.erreur && x.agenda === nom).length}); });
+  if (googleOn){ try { gg = (await cadence.googleLire(de.toISOString(), a.toISOString())).map(x => ({...x, agenda: 'Google', couleur: 'bleu', cle: 'g:' + x.id})); etats.push({nom: 'Google', ok: true, n: gg.length}); }
+    catch(e){ etats.push({nom: 'Google', ok: false, msg: messageErreur(e)}); } }
+  else if (AG.google && AG.google.configure) etats.push({nom: 'Google', ok: false, msg: 'compte non connecté (⚙️ Réglages → Agendas)'});
+  etatAgendas = etats; renderEtatAgendas();
+  clearTimeout(tReessai); if (etats.some(x => !x.ok)) tReessai = setTimeout(() => chargerAgendas(true), 120000);
   const uids = new Set(gg.map(x => x.uid).filter(Boolean));
   ics = ics.filter(x => x.erreur || !uids.has(x.uid)).map(x => ({...x, modifiable: false, cle: 'i:' + (x.uid || x.titre) + '@' + x.debut}));
   extEv = gg.concat(ics); extSemaine = cle;
   const err = extEv.filter(x => x.erreur); if (err.length) console.warn('agendas', err.map(x => x.erreur).join(' ; '));
   renderCal();
 }
-let rdvPar = {absorbes: {}, seuls: []};
+let rdvPar = {absorbes: {}, seuls: []}, etatAgendas = [], tReessai = null;
+// Pastille d'état des agendas : rouge si un agenda est injoignable, sinon discrète avec le nombre de rendez-vous
+function renderEtatAgendas(){
+  const box = $('#agEtat'); if (!box) return;
+  box.innerHTML = '';
+  if (!etatAgendas.length){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const ko = etatAgendas.filter(x => !x.ok);
+  const masques = Object.entries(rdvPar.absorbes).reduce((n, [k, v]) => { const e = evById(k); return n + (e && !blocVisible(e) ? v.length : 0); }, 0);
+  if (ko.length){
+    ko.forEach(x => { const b = document.createElement('button'); b.type = 'button'; b.className = 'agp ko';
+      b.textContent = `⚠ ${x.nom} : pas d'accès`; b.title = `${x.nom} : ${x.msg || 'injoignable'}\nClic : réessayer · Cadence réessaie aussi toute seule toutes les 2 minutes.`;
+      b.onclick = () => { b.textContent = '… ' + x.nom; chargerAgendas(true); }; box.appendChild(b); });
+  }
+  const ok = etatAgendas.filter(x => x.ok);
+  if (ok.length){ const n = ok.reduce((k, x) => k + (x.n || 0), 0), b = document.createElement('span'); b.className = 'agp ok';
+    b.textContent = `📆 ${n}`; b.title = ok.map(x => `✓ ${x.nom} : ${x.n || 0} rendez-vous cette semaine`).join('\n') + (masques ? `\n${masques} masqué${masques > 1 ? 's' : ''} : dans des blocs non synchronisés (icône G grisée)` : '');
+    box.appendChild(b); }
+}
 const agendaActif = () => BUREAU && ((AG.google && AG.google.connecte) || (AG.agendas || []).length > 0);
 function repartirRdv(){
   rdvPar = {absorbes: {}, seuls: []};
