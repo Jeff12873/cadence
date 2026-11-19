@@ -430,6 +430,10 @@ svg.lu{flex:none;display:block}
 .agp.ko{background:#FADAD7;color:#9B2C22;border:1px solid #E5484D;cursor:pointer;animation:agp 2s steps(2) infinite}
 @keyframes agp{50%{background:#F5B3AC}}
 body.retro .agp{border:2px solid var(--px);box-shadow:2px 2px 0 var(--pxs)}
+.ev .sepjour{position:absolute;top:4px;bottom:4px;width:0;border-left:1.5px dashed color-mix(in srgb, var(--fg) 45%, transparent);pointer-events:none;z-index:3}
+.ev .gsync, .ext.rdvbloc .gsync{color:#7a7a85;display:inline-flex;align-items:center;justify-content:center}
+.ev .gsync.on, .ext.rdvbloc .gsync{color:var(--fg, #1a73e8);background:var(--card)}
+body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(--px)}
 /* ---------- compteur d'équilibre (panneau de droite) ---------- */
 aside .equilibre{grid-template-columns:118px 1fr;margin:0 0 12px;padding:8px 10px}
 aside .equilibre .eq-cadran{grid-row:1 / span 2;display:flex;flex-direction:column;align-items:center}
@@ -1020,9 +1024,10 @@ const AIDE = [
   <li>🔗 relie une note à une tâche existante.</li></ol>`},
  {t: '6. Agendas et Google', h: `<p>Dans <b>⚙️ Réglages → Agendas</b>, ajoute tes agendas (lien iCal) et connecte ton <b>Google Agenda</b>.</p>
   <ol><li>Chaque rendez-vous va dans le <b>bloc</b> qu'il chevauche, sous forme de ligne 📆. S'il ne tombe sur aucun bloc, il forme son <b>propre bloc</b> pour ce jour-là.</li>
-  <li>L'<b>icône Google</b> en bas à gauche d'un bloc : grisée = bloc non synchronisé, ses rendez-vous sont masqués (une petite pastille dit combien) ; en couleurs = synchronisé : ses rendez-vous s'affichent et le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu).</li>
+  <li>L'<b>icône calendrier</b> en bas à gauche de chaque jour d'un bloc : grisée = bloc non synchronisé, ses rendez-vous sont masqués (une petite pastille dit combien) ; en couleurs = synchronisé : ses rendez-vous s'affichent et le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu).</li>
   <li>Si ton compte Google est connecté, <b>désynchroniser</b> un bloc <b>supprime</b> ses rendez-vous Google de l'agenda (Cadence demande d'abord confirmation et en garde une copie) ; le <b>resynchroniser</b> les recrée à l'identique, avec leurs tâches et notes liées. Les agendas iCal sont seulement masqués.</li>
-  <li>Sur un bloc de rendez-vous seul, l'icône Google le masque (annulable).</li>
+  <li>Un bloc sur plusieurs jours est séparé par des pointillés : chaque jour a sa propre icône et se synchronise à part.</li>
+  <li>Sur un bloc de rendez-vous seul, l'icône calendrier le masque (annulable).</li>
   <li>À côté de la semaine, la pastille <b>📆</b> donne le nombre de rendez-vous chargés (survole-la pour le détail et les rendez-vous masqués). Une pastille rouge <b>⚠ pas d'accès</b> signale un agenda injoignable : clic pour réessayer.</li>
   <li>Rendez-vous Google : glisse pour déplacer, tire le bas pour allonger, double-clic pour le renommer ou le modifier, 🗑 pour le supprimer.</li>
   <li>Glisse une tâche ou une note <b>sur un rendez-vous</b> pour l'y rattacher (📎).</li></ol>
@@ -1419,18 +1424,22 @@ function evElement(grp){
   el.appendChild(b);
   const tr = document.createElement('button'); tr.className = 'trash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = nd > 1 ? 'Supprimer ce créneau (tous les jours du bloc)' : 'Supprimer ce créneau'; el.appendChild(tr);
   const rz = document.createElement('div'); rz.className = 'rz2'; rz.title = 'Glisser pour changer l\'heure de fin (par 15 min)'; el.appendChild(rz);
-  if (agendaActif()){
-    const on = grp.every(g => gBlocs()[cleBloc(g)]), caches = grp.filter(g => !blocVisible(g)).reduce((n, g) => n + rdvDuBloc(g.id).length, 0) + nbCopies(grp);
+  // jours d'un bloc fusionné : séparés par un pointillé, chacun avec son bouton de synchronisation
+  const posJour = (k, dx = 0) => `calc((100% - ${4 * (nd - 1)}px) / ${nd} * ${k} + ${4 * k + dx}px)`;
+  for (let k = 1; k < nd; k++){ const sp = document.createElement('div'); sp.className = 'sepjour'; sp.style.left = posJour(k, -2); el.appendChild(sp); }
+  if (agendaActif()) grp.forEach((g, k) => {
+    const on = !!gBlocs()[cleBloc(g)], caches = on ? 0 : rdvDuBloc(g.id).length + nbCopies([g]);
     const gb = document.createElement('button'); gb.type = 'button'; gb.className = 'gsync' + (on ? ' on' : '');
-    gb.innerHTML = '<svg viewBox="0 0 48 48" width="15" height="15" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.8-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.4 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>';
-    if (caches) gb.innerHTML += `<span class="gn">${caches}</span>`;
-    gb.title = on ? 'Synchronisée : ses rendez-vous d\'agenda sont affichés' + (AG.google && AG.google.connecte ? ' et la case est dans Google Agenda' : '') + ' · clic : désynchroniser'
-      + (AG.google && AG.google.connecte && rdvDuBloc(grp[0].id).some(r => r.x.cle && r.x.cle.startsWith('g:')) ? ' (ses rendez-vous Google seront supprimés, copie gardée)' : '')
-      : 'Pas synchronisée' + (caches ? ` · ${caches} rendez-vous masqué${caches > 1 ? 's' : ''} ou mis de côté` : '') + ' · clic : synchroniser (semaine affichée' + (nbCopies(grp) ? ', les rendez-vous mis de côté sont recréés dans Google' : '') + ')';
+    gb.style.left = posJour(k, 5);
+    gb.innerHTML = svgIcone(on ? 'calendar-check' : 'calendar', 15) + (caches ? `<span class="gn">${caches}</span>` : '');
+    const jour = nd > 1 ? ` (${DAYS[g.d].toLowerCase()})` : '';
+    gb.title = on ? `Synchronisée${jour} : ses rendez-vous d'agenda sont affichés` + (AG.google && AG.google.connecte ? ' et la case est dans Google Agenda' : '') + ' · clic : désynchroniser'
+      + (AG.google && AG.google.connecte && rdvDuBloc(g.id).some(r => r.x.cle && r.x.cle.startsWith('g:')) ? ' (ses rendez-vous Google seront supprimés, copie gardée)' : '')
+      : `Pas synchronisée${jour}` + (caches ? ` · ${caches} rendez-vous masqué${caches > 1 ? 's' : ''} ou mis de côté` : '') + ' · clic : synchroniser' + (nbCopies([g]) ? ' (les rendez-vous mis de côté sont recréés dans Google)' : '');
     gb.addEventListener('pointerdown', (ev) => ev.stopPropagation());
-    gb.addEventListener('click', (ev) => { ev.stopPropagation(); basculerSyncBloc(grp, !on); });
+    gb.addEventListener('click', (ev) => { ev.stopPropagation(); basculerSyncBloc([g], !on); });
     el.appendChild(gb);
-  }
+  });
   return el;
 }
 
@@ -1844,7 +1853,7 @@ function renderEtatAgendas(){
   }
   const ok = etatAgendas.filter(x => x.ok);
   if (ok.length){ const n = ok.reduce((k, x) => k + (x.n || 0), 0), b = document.createElement('span'); b.className = 'agp ok';
-    b.textContent = `📆 ${n}`; b.title = ok.map(x => `✓ ${x.nom} : ${x.n || 0} rendez-vous cette semaine`).join('\n') + (masques ? `\n${masques} masqué${masques > 1 ? 's' : ''} : dans des blocs non synchronisés (icône G grisée)` : '');
+    b.textContent = `📆 ${n}`; b.title = ok.map(x => `✓ ${x.nom} : ${x.n || 0} rendez-vous cette semaine`).join('\n') + (masques ? `\n${masques} masqué${masques > 1 ? 's' : ''} : dans des blocs non synchronisés (icône calendrier grisée)` : '');
     box.appendChild(b); }
 }
 const agendaActif = () => BUREAU && ((AG.google && AG.google.connecte) || (AG.agendas || []).length > 0);
@@ -1892,7 +1901,7 @@ function dessinerAgendas(evs){
     const n = nbLiens(x.cle);
     el.innerHTML = `<div class="eb"><b>${esc(x.titre)}</b><span>${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? ' · ' + esc(x.lieu) : ''}${n ? ` · 📎${n}` : ''}</span></div>`
       + (x.modifiable ? '<div class="rz2"></div><button type="button" class="etrash" title="Supprimer le rendez-vous">🗑</button>' : '')
-      + `<button type="button" class="gsync on" title="Rendez-vous ${esc(x.agenda)} · clic : le masquer dans Cadence (il reste dans l'agenda)"><svg viewBox="0 0 48 48" width="15" height="15" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.8-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.4 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg></button>`;
+      + `<button type="button" class="gsync on" title="Rendez-vous ${esc(x.agenda)} · clic : le masquer dans Cadence (il reste dans l'agenda)">${svgIcone('calendar-check', 15)}</button>`;
     el.title = `📆 ${x.agenda} : ${x.titre}\n${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? '\n📍 ' + x.lieu : ''}\nClic : tâches et notes liées · double-clic : ${x.modifiable ? 'modifier' : 'détails'}${x.modifiable ? ' · glisser : déplacer' : ''}`;
     if (state.choixRdv === x.cle) el.classList.add('choisi');
     const gs = el.querySelector('.gsync');
@@ -2097,7 +2106,8 @@ async function basculerSyncBloc(grp, activer){
     }
     const nr = grp.reduce((n, g) => n + rdvDuBloc(g.id).length, 0) - nSuppr, pl = (n) => n > 1 ? 's' : '';
     const txtR = (nSuppr ? ` · ${nSuppr} rendez-vous supprimé${pl(nSuppr)} de Google (copie gardée)` : '') + (nRecrees ? ` · ${nRecrees} rendez-vous recréé${pl(nRecrees)} dans Google` : '') + (nr > 0 ? ` · ${nr} rendez-vous ${activer ? 'affiché' : 'masqué'}${pl(nr)}` : '');
-    toast(activer ? `📆 « ${grp[0].title} » synchronisée${txtR}.` : `📆 « ${grp[0].title} » désynchronisée${txtR}.`);
+    const jr = grp.length === 1 ? ` ${DAYS[grp[0].d].toLowerCase()}` : '';
+    toast(activer ? `📆 « ${grp[0].title} »${jr} synchronisée${txtR}.` : `📆 « ${grp[0].title} »${jr} désynchronisée${txtR}.`);
   } catch(err){ alert(messageErreur(err)); }
   save(); if (nSuppr || nRecrees) chargerAgendas(true); else renderCal();
 }
