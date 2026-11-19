@@ -422,6 +422,78 @@ svg.lu{flex:none;display:block}
   .slot{min-height:calc(var(--h,46px) * .8)}
   .rz{display:none}
 }
+
+/* ---------- compteur d'équilibre (panneau de droite) ---------- */
+aside .equilibre{grid-template-columns:118px 1fr;margin:0 0 12px;padding:8px 10px}
+aside .equilibre .eq-cadran{grid-row:1 / span 2;display:flex;flex-direction:column;align-items:center}
+aside .equilibre .eq-msg{grid-column:2}
+.cadran{width:118px;height:70px;overflow:visible}
+.cadran path{fill:none;stroke-width:11}
+.cadran .z1{stroke:var(--corvee-bg)} .cadran .z2{stroke:var(--courses-bg)} .cadran .z3{stroke:var(--loisir-bg)}
+.equilibre.peu .cadran .z1{stroke:color-mix(in srgb, var(--corvee-fg) 45%, var(--corvee-bg))}
+.equilibre.ok .cadran .z2{stroke:color-mix(in srgb, var(--courses-fg) 45%, var(--courses-bg))}
+.equilibre.trop .cadran .z3{stroke:color-mix(in srgb, var(--loisir-fg) 45%, var(--loisir-bg))}
+.cadran .crans line{stroke:var(--muted);stroke-width:1.5}
+.cadran .aiguille{stroke:var(--ink);stroke-width:3;transition:all .4s}
+.cadran .moyeu{fill:var(--ink)}
+.cadran .pct{font-size:10px;font-weight:700;fill:var(--ink);text-anchor:middle}
+.eq-z{display:flex;justify-content:space-between;width:118px;font-size:9px;color:var(--muted);margin-top:1px}
+/* ---------- recherche ---------- */
+.recherche{flex:1;min-width:200px;max-width:340px}
+.recherche input{width:100%;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 10px;box-shadow:var(--shadow)}
+.recherche input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.res-bloc{display:flex;flex-direction:column;gap:1px;padding:6px 10px;margin:4px 0;border-radius:8px;background:var(--bg);color:var(--fg);cursor:pointer;border-left:4px solid var(--fg);font-size:12.5px}
+.res-bloc span{opacity:.8;font-size:11.5px}
+.res-bloc:hover{filter:brightness(1.05)}
+.ev.flash .block{animation:flash 1.4s steps(4) 2}
+@keyframes flash{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 0 4px var(--accent)}}
+/* ---------- tâche dépendante / parente ---------- */
+.liens-t{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.liens-t .btn{font-size:12.5px;padding:5px 10px}
+/* ---------- points d'expérience ---------- */
+.xp{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11.5px;font-weight:700;color:var(--muted)}
+.xp:empty{display:none}
+.xp .niv{background:var(--accent);color:var(--card);padding:1px 6px}
+.xp .jauge{display:inline-flex;gap:2px}
+.xp .jauge i{width:9px;height:9px;background:var(--line);display:block}
+.xp .jauge i.on{background:#7DD3A8;box-shadow:inset -2px -2px 0 #4FA67C}
+.xp.levelup .niv{animation:clignote .2s steps(2) 8}
+@keyframes clignote{50%{background:#F7C873;color:#2B2340}}
+.xp-flottant{position:fixed;z-index:9999;pointer-events:none;font:700 18px "VT323",monospace;color:#3E9E6E;text-shadow:2px 2px 0 #fff;animation:monte 1.3s steps(10) forwards}
+@keyframes monte{from{transform:translateY(0);opacity:1}to{transform:translateY(-40px);opacity:0}}
+
+/* ---------- style rétro 16 bits pastel ---------- */
+@font-face{font-family:"VT323";src:url("bureau/police/VT323.ttf") format("truetype");font-display:swap}
+body.retro{--px:#3B3156;--pxs:color-mix(in srgb, #3B3156 30%, transparent);--paper:#F3EEFB;--card:#FFFDF8;--ink:#2B2340;--muted:#7A6E96;--line:#D9CFEE;--head:#7464B4;--headwe:#B4A8D8;--accent:#6E5BD3;--weekend:#EDE7F8;
+  font-family:"VT323","Inter",system-ui,sans-serif;font-size:14.5px;font-size-adjust:.5;
+  background-color:var(--paper);background-image:radial-gradient(color-mix(in srgb, var(--px) 9%, transparent) 1px, transparent 1.2px);background-size:8px 8px}
+:root[data-theme="dark"] body.retro{--px:#0D0A18;--pxs:#0D0A18;--paper:#1C1830;--card:#272142;--ink:#F1EAFF;--muted:#AFA3D1;--line:#3C3460;--head:#5A4C9A;--headwe:#3C3460;--accent:#B9A8FF;--weekend:#211C38}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) body.retro{--px:#0D0A18;--pxs:#0D0A18;--paper:#1C1830;--card:#272142;--ink:#F1EAFF;--muted:#AFA3D1;--line:#3C3460;--head:#5A4C9A;--headwe:#3C3460;--accent:#B9A8FF;--weekend:#211C38}}
+body.retro *:not(.prio):not(.done-btn):not(.ic-btn):not(.badge.ico):not(.gn):not(.nowline *):not(svg):not(svg *){border-radius:0 !important}
+body.retro h1{font-weight:400;font-size:40px;font-size-adjust:none;letter-spacing:.04em;line-height:1;text-shadow:3px 3px 0 #F4B6CF;color:var(--ink)}
+body.retro b, body.retro strong, body.retro .t, body.retro h3{font-weight:400}
+body.retro .btn, body.retro .recherche input, body.retro .chip{border:2px solid var(--px);box-shadow:3px 3px 0 var(--pxs);transition:transform .05s}
+body.retro .btn:active, body.retro .chip:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--pxs)}
+body.retro .btn.on, body.retro .chip.on{background:var(--accent);color:var(--card)}
+body.retro aside, body.retro .equilibre, body.retro dialog, body.retro .toast{border:2px solid var(--px);box-shadow:5px 5px 0 var(--pxs)}
+body.retro .group{border-width:2px}
+body.retro .task{border:2px solid color-mix(in srgb, var(--px) 55%, transparent);box-shadow:2px 2px 0 var(--pxs)}
+body.retro .dayhead{background:var(--head);box-shadow:3px 3px 0 var(--pxs);border:2px solid var(--px);letter-spacing:.08em}
+body.retro .dayhead.we{background:var(--headwe)}
+body.retro .dayhead.today{outline:none;background:color-mix(in srgb, var(--head) 70%, #F4B6CF);box-shadow:3px 3px 0 var(--pxs), 0 0 0 3px #F4B6CF}
+body.retro .col.today{background-color:color-mix(in srgb, #F4B6CF 16%, transparent)}
+body.retro .ev .block{border:2px solid color-mix(in srgb, var(--fg) 70%, var(--px));box-shadow:3px 3px 0 color-mix(in srgb, var(--fg) 30%, transparent)}
+body.retro .ev .block::before{display:none}
+body.retro .ext.rdvbloc .eb{border:2px dashed var(--agc)}
+body.retro input, body.retro select, body.retro textarea{border:2px solid var(--px) !important}
+body.retro .ne-text, body.retro .md, body.retro #neText, body.retro .nr-body{font-family:"Inter","Noto Sans",system-ui,sans-serif}
+body.retro .badge{box-shadow:1px 1px 0 var(--pxs)}
+body.retro .equilibre .eq-msg button{border:2px solid var(--px)}
+body.retro .xp .niv{box-shadow:2px 2px 0 var(--pxs)}
+body.retro .cadran .aiguille{transition:all .4s steps(6)}
+body.retro ::-webkit-scrollbar{width:12px;height:12px}
+body.retro ::-webkit-scrollbar-thumb{background:var(--headwe);border:2px solid var(--px)}
+body.retro ::-webkit-scrollbar-track{background:var(--paper)}
 </style>
 </head>
 <body>
@@ -429,9 +501,11 @@ svg.lu{flex:none;display:block}
   <header>
     <div>
       <h1 id="title">Cadence</h1>
+      <div class="xp" id="xp" title="Points gagnés en validant tes tâches"></div>
       <div class="subtitle" id="subtitle">Ta semaine type, reliée à tes tâches Obsidian</div>
     </div>
     <div class="weeknav"><button class="btn" id="wPrev" title="Semaine précédente">◀</button><span id="wLabel"></span><button class="btn" id="wNext" title="Semaine suivante">▶</button><button class="btn" id="wNow" title="Revenir à la semaine en cours">Auj.</button><span class="vuectl"><button class="btn" id="zMoins" title="Dézoomer (Ctrl + molette)">－</button><span id="zVal">100 %</span><button class="btn" id="zPlus" title="Zoomer (Ctrl + molette)">＋</button><button class="btn" id="btnWE" title="Masquer le week-end">Sa·Di</button></span></div>
+    <div class="recherche"><input type="search" id="q" placeholder="Rechercher… (Ctrl+K)" autocomplete="off" title="Tâches, notes et blocs"></div>
     <div class="toolbar">
       <button class="btn" id="btnTasks" title="Choisir le dossier des tâches TaskNotes du coffre">📂 Charger mes tâches</button>
       <button class="btn hidden" id="btnSettings" title="Coffre Obsidian, fichier de la semaine, tags et projets">⚙️ Réglages</button>
@@ -441,6 +515,7 @@ svg.lu{flex:none;display:block}
       <button class="btn" id="btnClearPlan" title="Retirer toutes les tâches prévues (nouvelle semaine)">🧹 Vider la semaine</button>
       <button class="btn" id="btnAide" title="Guide de Cadence (F1)">❓ Aide</button>
       <button class="btn" id="btnTheme" title="Thème clair / sombre">🌓</button>
+      <button class="btn" id="btnRetro" title="Style rétro 16 bits">👾</button>
       <input type="file" id="dirInput" webkitdirectory directory multiple class="hidden">
       <input type="file" id="jsonInput" accept="application/json" class="hidden">
     </div>
@@ -448,12 +523,12 @@ svg.lu{flex:none;display:block}
 
   <div class="layout" id="layout">
     <main>
-      <div class="equilibre hidden" id="equilibre"></div>
       <div class="cal-scroll"><div class="cal" id="cal"></div></div>
       <div class="legend" id="legend"></div>
       <div class="note" id="note">Modifications enregistrées automatiquement dans ce navigateur. « Exporter » en garde une copie dans un fichier.</div>
     </main>
     <aside id="tasks" class="hidden">
+      <div class="equilibre hidden" id="equilibre"></div>
       <div class="aside-head">
         <div class="tabs" role="tablist">
           <button class="tab on" id="tabTasks" role="tab">Mes tâches</button>
@@ -508,6 +583,11 @@ svg.lu{flex:none;display:block}
     <div class="set-hint hidden" id="nRec">Tâche récurrente : sa date se change dans TaskForge ou Obsidian.</div>
     <label for="nNote" id="nNoteL">Note (facultatif)</label>
     <input type="text" id="nNote" autocomplete="off">
+    <div class="set-hint hidden" id="nRel"></div>
+    <div class="liens-t hidden" id="nLiens">
+      <button type="button" class="btn" id="nDep" title="Nouvelle tâche qui attendra que celle-ci soit faite">⤷ Tâche qui en dépend</button>
+      <button type="button" class="btn" id="nPar" title="Nouvelle tâche dont celle-ci devient une sous-tâche">⤴ Tâche parente</button>
+    </div>
     <div class="actions">
       <button type="button" class="btn" id="nCancel">Annuler</button>
       <button type="submit" class="btn on" id="nOk">Créer</button>
@@ -768,11 +848,24 @@ function renderEquilibre(){
   else if (part > 1 - CIBLE_PLAISIR){ etat = 'trop'; msg = `Beaucoup de plaisir prévu : une petite obligation remettrait tout d'aplomb.`; }
   const po = etat === 'trop' ? petiteObligation() : null;
   box.className = 'equilibre ' + etat;
-  box.innerHTML = `<div class="eq-l"><b>Équilibre</b><span class="eq-n">Plaisir ${fmtH(P)} · Obligation ${fmtH(O)}</span></div>
-    <div class="eq-bar" title="Cible : au moins ${Math.round(CIBLE_PLAISIR * 100)} % de plaisir"><span class="eq-p" style="width:${(part * 100).toFixed(1)}%"></span><i style="left:${CIBLE_PLAISIR * 100}%"></i><i style="left:${(1 - CIBLE_PLAISIR) * 100}%"></i><em>${Math.round(part * 100)} %</em></div>
+  box.innerHTML = `<div class="eq-cadran" title="Part de plaisir dans le temps prévu · zone du milieu : entre ${Math.round(CIBLE_PLAISIR * 100)} et ${Math.round((1 - CIBLE_PLAISIR) * 100)} %">${compteur(part)}</div>
+    <div class="eq-l"><b>Équilibre · ${Math.round(part * 100)} % plaisir</b><span class="eq-n">Plaisir ${fmtH(P)} · Obligation ${fmtH(O)}</span></div>
     <div class="eq-msg">${esc(msg)}${po ? ` <button type="button" class="eq-po">→ ${esc(po.title)}</button>` : ''}${sansPlaisir.length ? ` <span class="eq-j">Jours sans plaisir : ${sansPlaisir.map(d => `<button type="button" data-d="${d}">${DAYS[d].slice(0, 3)}</button>`).join('')}</span>` : ''}</div>`;
   if (po) box.querySelector('.eq-po').onclick = () => ouvrirTache(po);
   box.querySelectorAll('.eq-j button').forEach(b => b.onclick = () => ajouterPlaisir(+b.dataset.d));
+}
+// Compteur de vitesse en 3 zones : obligations / équilibre / plaisir ; l'aiguille montre la part de plaisir
+function compteur(part){
+  const cx = 60, cy = 58, r = 46, pt = (f, rr = r) => { const a = Math.PI * (1 - f); return [cx + rr * Math.cos(a), cy - rr * Math.sin(a)]; };
+  const arc = (f0, f1) => { const [x0, y0] = pt(f0), [x1, y1] = pt(f1); return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
+  const c = CIBLE_PLAISIR, f = Math.max(0, Math.min(1, part)), [nx, ny] = pt(f, r - 10);
+  const crans = [...Array(13)].map((_, i) => { const [a, b] = pt(i / 12, r + 7), [x, y] = pt(i / 12, r + 3); return `<line x1="${a.toFixed(1)}" y1="${b.toFixed(1)}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`; }).join('');
+  return `<svg viewBox="0 0 120 70" class="cadran" aria-hidden="true" shape-rendering="crispEdges">
+    <path d="${arc(0, c)}" class="z1"/><path d="${arc(c, 1 - c)}" class="z2"/><path d="${arc(1 - c, 1)}" class="z3"/>
+    <g class="crans">${crans}</g>
+    <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" class="aiguille"/>
+    <rect x="${cx - 4}" y="${cy - 4}" width="8" height="8" class="moyeu"/>
+  </svg><div class="eq-z"><span>Oblig.</span><span>Équil.</span><span>Plaisir</span></div>`;
 }
 // Ajoute un créneau plaisir d'une heure dans le premier trou libre (12h–21h) du jour, avec le plaisir le moins présent de la semaine
 function ajouterPlaisir(d){
@@ -901,6 +994,8 @@ const AIDE = [
   <li>Pas de bloc libre ? Garde la tâche 3 secondes au-dessus d'un espace vide : un créneau s'ouvre.</li>
   <li><b>Terminer</b> : clic sur le rond ○ (avec annulation possible).</li>
   <li><b>Modifier</b> : double-clic sur la tâche. <b>Ouvrir dans Obsidian</b> : l'icône violette.</li>
+  <li><b>Tâche liée</b> : dans la fenêtre de modification, <b>⤷ Tâche qui en dépend</b> crée une tâche qui attendra celle-ci ; <b>⤴ Tâche parente</b> crée une tâche dont celle-ci devient une sous-tâche.</li>
+  <li><b>Chercher</b> : la barre <b>Rechercher</b> en haut (ou <b>Ctrl+K</b>) trouve tâches, notes du coffre et blocs ; un clic sur un bloc le fait clignoter dans le calendrier. <b>Échap</b> efface.</li>
   <li><b>Checklist</b> : clique sur une tâche à étapes pour les voir ; glisse une étape sur le calendrier pour en faire une tâche à part.</li></ol>
   <p class="aide-tip">Le groupe <b>📥 À trier</b> rassemble les tâches sans tag : commence par lui. Un clic sur un bloc affiche ses tâches dans le panneau.</p>`},
  {t: '4. Tags, projets, lieux, icônes', h: `<p>Dans <b>⚙️ Réglages → Tags, projets et lieux</b> :</p>
@@ -927,10 +1022,11 @@ const AIDE = [
  {t: '7. Météo', h: `<p>Dans <b>⚙️ Réglages → Météo</b>, cherche ta commune. Chaque jour affiche alors <b>M</b> (matin) et <b>A</b> (après-midi) en vert, orange ou rouge selon la pluie et le vent.</p>
   <p>Les blocs dont le tag est un travail dehors (réglable) sont entourés selon la météo de leur créneau : <b>OK dehors</b>, <b>limite</b> ou <b>pas dehors</b>.</p>`},
  {t: '8. Équilibre de la semaine', h: `<p>Chaque tag et projet a une <b>nature</b> : plaisir, obligation ou neutre (réglable dans le gestionnaire, colonne « Nature »).</p>
-  <ol><li>La <b>jauge</b> au-dessus du calendrier compare le temps prévu des deux ; la cible est d'au moins un tiers de plaisir.</li>
+  <ol><li>Le <b>compteur</b> en haut du panneau de droite compare le temps prévu des deux. Son cadran a 3 zones : trop d'obligations, équilibre (entre un tiers et deux tiers de plaisir), trop de plaisir ; l'aiguille montre où tu en es.</li>
   <li>Un jour sans aucun moment plaisir porte une pastille <b>＋ plaisir</b> : un clic place un créneau d'une heure dans le premier trou libre de l'après-midi.</li>
   <li>Si le plaisir prend beaucoup de place, la jauge propose la plus petite obligation disponible.</li>
-  <li>Une tâche repoussée plusieurs fois affiche <b>↻</b> et le bouton <b>✂ Juste démarrer</b> : il crée une première étape de 15 min pour aujourd'hui.</li></ol>`},
+  <li>Une tâche repoussée plusieurs fois affiche <b>↻</b> et le bouton <b>✂ Juste démarrer</b> : il crée une première étape de 15 min pour aujourd'hui.</li></ol>
+  <p class="aide-tip">Valider une tâche rapporte des <b>points d'expérience</b> (10 XP, plus un bonus selon la priorité et 5 XP pour une tâche longtemps repoussée) ; cocher une étape, 2 XP. Ton niveau s'affiche sous le titre.</p>`},
  {t: '9. Entourage', h: `<ol><li>Ajoute les personnes dans <b>⚙️ Réglages → Tags, projets et lieux → 💬 Entourage</b>, avec la date du dernier message si tu la connais.</li>
   <li>En haut du panneau des tâches, Cadence propose chaque jour <b>un petit message</b> à la personne à qui tu n'as pas écrit depuis le plus longtemps : chacun son tour.</li>
   <li><b>✓ C'est fait</b> note la date ; <b>Un autre</b> propose quelqu'un d'autre pour aujourd'hui.</li>
@@ -938,7 +1034,8 @@ const AIDE = [
  {t: 'Astuces et raccourcis', h: `<ul><li><b>F1</b> : ouvrir ce guide. <b>Échap</b> : fermer une fenêtre.</li>
   <li><b>Alt</b> en déposant une tâche : forcer un bloc d'une autre catégorie.</li>
   <li><b>Ctrl+S</b> dans une note : enregistrer tout de suite.</li>
-  <li>◀ ▶ et <b>Auj.</b> : changer de semaine.</li>
+  <li>◀ ▶ et <b>Auj.</b> : changer de semaine. <b>Ctrl+K</b> : rechercher.</li>
+  <li><b>👾</b> : style rétro 16 bits (activé par défaut) ou style classique.</li>
   <li><b>－ ＋</b> (ou <b>Ctrl + molette</b> sur le calendrier) : zoomer. <b>Sa·Di</b> : afficher ou masquer le week-end.</li>
   <li><b>🖨️ Imprimer</b>, <b>💾 Exporter</b> / <b>📥 Importer</b> : garder une copie de ta semaine.</li>
   <li><b>🌓</b> : thème clair ou sombre.</li></ul>`},
@@ -1095,7 +1192,7 @@ const ZOOMS = [0.6, 0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.5];
 const dayEvents = (d) => state.events.filter(e => e.d === d).sort((a, b) => a.start - b.start);
 const chevauche = (d, start, end, ignore = []) => state.events.some(e => e.d === d && !ignore.includes(e.id) && e.start < end && start < e.end);
 
-function render(){ renderCal(); renderTasks(); }
+function render(){ appliquerRetro(); renderXP(); renderCal(); renderTasks(); }
 
 function renderCal(){
   const cal = $('#cal'); cal.innerHTML = '';
@@ -2029,7 +2126,7 @@ function renderTasks(){
   mk('@today', '📅 Aujourd\'hui');
   order.filter(t => tagsPresent.includes(t)).forEach(t => mk(t, TG[t] || t));
   const taskFiles = new Set(tasks.items.map(t => t.file));
-  const projPresent = [...new Set(tasks.items.flatMap(t => t.projects || []))].filter(p => !taskFiles.has(p));
+  const projPresent = [...new Set(tasks.items.flatMap(t => t.projects || []))].filter(p => !taskFiles.has(p) && !(tasks.tous && tasks.tous.has(p)));
   projNames().filter(p => projPresent.includes(p)).concat(projPresent.filter(p => !projNames().includes(p)))
     .forEach(p => mk('p:' + p, '📁 ' + p));
   [...new Set(tasks.items.flatMap(t => t.contexts || []))].sort((a, b) => a.localeCompare(b, 'fr')).forEach(c => mk('c:' + c, '📍 ' + c));
@@ -2037,7 +2134,7 @@ function renderTasks(){
   const list = $('#taskList'); list.innerHTML = '';
   const today = new Date(); const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   let items = tasks.items;
-  const isPlanView = filter.startsWith('@plan:') || filter.startsWith('@jour:');
+  const isPlanView = filter.startsWith('@plan:') || filter.startsWith('@jour:') || filter.startsWith('@q:');
   if (!isPlanView){
     if (hide.placed){ const placed = new Set(Object.values(plan).flat().concat(Object.values(dated).flat())); items = items.filter(t => !placed.has(t.file)); }
     if (hide.blocked) items = items.filter(t => !t.blocked);
@@ -2055,6 +2152,39 @@ function renderTasks(){
       a.onclick = () => ouvrirNote(n.nom, n.dossier); a.querySelector('button').onclick = (e) => { e.stopPropagation(); delierDuRdv(x, {note: n.nom}); }; tete.appendChild(a); });
     list.appendChild(tete);
     if (l.taches.length) renderGroup(filter, tasks.items, list, renderTasks);
+    return;
+  }
+  if (filter.startsWith('@q:')){
+    const q = filter.slice(3), mots = motsRecherche(q);
+    const tete = document.createElement('div'); tete.className = 'group recherche-res'; tete.style.setProperty('--fg', 'var(--accent)');
+    tete.innerHTML = `<h3><span>🔍 « ${esc(q)} »</span><button type="button" class="btn mini" title="Effacer la recherche">✕</button></h3>`;
+    tete.querySelector('button').onclick = () => effacerRecherche();
+    list.appendChild(tete);
+    // blocs de la semaine type
+    const blocs = []; const vus = new Set();
+    state.events.forEach(e => { const k = e.title; if (vus.has(k) || !correspond(mots, [e.title, e.sub, e.tag, e.project])) return; vus.add(k); blocs.push(e); });
+    if (blocs.length){
+      const bx = document.createElement('div'); bx.className = 'group'; bx.style.setProperty('--fg', 'var(--routine-fg)');
+      bx.innerHTML = `<h3><span>▦ Blocs</span><span>${blocs.length}</span></h3>`;
+      blocs.forEach(e => { const n = state.events.filter(x => x.title === e.title).map(x => DAYS[x.d].slice(0, 3)).join(' ');
+        const a = document.createElement('div'); a.className = 'res-bloc'; a.style.setProperty('--bg', `var(--${e.cat}-bg)`); a.style.setProperty('--fg', `var(--${e.cat}-fg)`);
+        a.innerHTML = `<b>${esc(sansEmoji(e.title))}</b><span>${fmtMin(e.start)} – ${fmtMin(e.end)} · ${esc(n)}</span>`;
+        a.onclick = () => montrerBloc(e.title); bx.appendChild(a); });
+      list.appendChild(bx);
+    }
+    const nT = renderGroup(filter, tasks.items, list, renderTasks) || 0;
+    // notes du coffre (recherche asynchrone)
+    const nb = document.createElement('div'); nb.className = 'group'; nb.style.setProperty('--fg', 'var(--loisir-fg)');
+    nb.innerHTML = `<h3><span>📝 Notes</span><span class="nq">…</span></h3>`; list.appendChild(nb);
+    chercherNotesPour(q).then(res => {
+      if (filter !== '@q:' + q || !nb.isConnected) return;
+      nb.querySelector('.nq').textContent = res.length;
+      if (!res.length){ nb.innerHTML += '<div class="empty-tasks">Aucune note.</div>'; }
+      res.forEach(n => { const a = document.createElement('div'); a.className = 'note gen';
+        a.innerHTML = `<div class="nt"><div class="nn">📝 ${esc(n.nom)}</div><div class="nd">${esc(n.dossier || 'racine')}${n.extrait ? ' · …' + esc(n.extrait) + '…' : ''}</div></div>`;
+        a.onclick = () => ouvrirNote(n.nom, n.dossier); nb.appendChild(a); });
+      if (!blocs.length && !nT && !res.length) tete.innerHTML += '<div class="empty-tasks">Rien trouvé.</div>';
+    });
     return;
   }
   if (filter.startsWith('@jour:')){
@@ -2085,14 +2215,15 @@ function prioN(p){
 }
 const prioColor = (p) => { const x = TN && (TN.priorites || []).find(q => q.valeur === sansGuillemets(p)); return x && x.couleur; };
 function renderGroup(g, items, container, rerender){
-    const isP = g.startsWith('p:'), isC = g.startsWith('c:'), isPlan = g.startsWith('@plan:'), pk = isPlan ? g.slice(6) : '', isEv = g.startsWith('@ev:');
-    const gi = items.filter(t => isEv ? liensRdv(g.slice(4)).taches.includes(t.file) : isPlan ? dayFiles(pk).includes(t.file) : isC ? (t.contexts||[]).includes(g.slice(2)) : isP ? (t.projects||[]).includes(g.slice(2)) : t.tags.includes(g)).sort((a,b) => (a.blocked-b.blocked) || ((prioN(a.priority)||9)-(prioN(b.priority)||9)) || a.title.localeCompare(b.title,'fr'));
+    const isP = g.startsWith('p:'), isC = g.startsWith('c:'), isPlan = g.startsWith('@plan:'), pk = isPlan ? g.slice(6) : '', isEv = g.startsWith('@ev:'), isQ = g.startsWith('@q:');
+    const mq = isQ ? motsRecherche(g.slice(3)) : null;
+    const gi = items.filter(t => isQ ? correspond(mq, [t.title, ...(t.tags || []), ...(t.projects || []), ...(t.contexts || [])]) : isEv ? liensRdv(g.slice(4)).taches.includes(t.file) : isPlan ? dayFiles(pk).includes(t.file) : isC ? (t.contexts||[]).includes(g.slice(2)) : isP ? (t.projects||[]).includes(g.slice(2)) : t.tags.includes(g)).sort((a,b) => (a.blocked-b.blocked) || ((prioN(a.priority)||9)-(prioN(b.priority)||9)) || a.title.localeCompare(b.title,'fr'));
     if (!gi.length) return 0;
-    const cat = isPlan || isEv || g === A_TRIER ? 'routine' : isC ? 'courses' : (catOf(g) || 'routine');
+    const cat = isPlan || isEv || isQ || g === A_TRIER ? 'routine' : isC ? 'courses' : (catOf(g) || 'routine');
     const box = document.createElement('div'); box.className = 'group';
     box.style.setProperty('--fg', `var(--${cat}-fg)`); box.style.setProperty('--bg', `var(--${cat}-bg)`);
-    const icG = isEv || isPlan ? '' : g === A_TRIER ? 'inbox' : isC ? 'map-pin' : isP ? iconeProj(g.slice(2)) : iconeTag(g);
-    box.innerHTML = `<h3><span class="gh">${icG ? svgIcone(icG, 14) : ''}${esc(isEv ? '☐ Tâches rattachées' : g === A_TRIER ? 'À trier' : isPlan ? '📌 Prévu ' + keyLabel(pk) : isC ? g.slice(2) : isP ? g.slice(2) : sansEmoji(tagsObj()[g] || g))}</span><span>${gi.filter(t=>!t.blocked).length} prêtes</span></h3>`;
+    const icG = isEv || isPlan || isQ ? '' : g === A_TRIER ? 'inbox' : isC ? 'map-pin' : isP ? iconeProj(g.slice(2)) : iconeTag(g);
+    box.innerHTML = `<h3><span class="gh">${icG ? svgIcone(icG, 14) : ''}${esc(isQ ? '☐ Tâches' : isEv ? '☐ Tâches rattachées' : g === A_TRIER ? 'À trier' : isPlan ? '📌 Prévu ' + keyLabel(pk) : isC ? g.slice(2) : isP ? g.slice(2) : sansEmoji(tagsObj()[g] || g))}</span><span>${gi.filter(t=>!t.blocked).length} prêtes</span></h3>`;
     gi.forEach(t => {
       const a = document.createElement('div'); a.className = 'task' + (t.blocked ? ' blocked' : '') + (t.boxes ? ' has-subs' : '');
       const url = `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent(TASK_DIR + t.file)}`;
@@ -2106,6 +2237,9 @@ function renderGroup(g, items, container, rerender){
       if (t.status === 'in-progress') meta.push('en cours');
       if ((t.notes || []).length) meta.push(`📝 ${t.notes.length}`);
       if (t.blocked) meta.push(`⛔ attend : ${t.waitingOn.join(', ')}`);
+      const parents = (t.projects || []).filter(p => tasks.items.some(x => x.file === p)); if (parents.length) meta.push(`⤴ sous-tâche de ${parents.join(', ')}`);
+      const nEnf = tasks.items.filter(x => (x.projects || []).includes(t.file)).length; if (nEnf) meta.push(`☰ ${nEnf} sous-tâche${nEnf > 1 ? 's' : ''}`);
+      const nSuit = tasks.items.filter(x => (x.blockedBy || []).includes(t.file)).length; if (nSuit) meta.push(`⤷ ${nSuit} en attente d'elle`);
       const nRep = nbReports(t); if (nRep >= 2) meta.push(`↻ repoussée ${nRep} fois`);
       const wkMan = whereIs(t.file), wkDate = BUREAU && !t.recurring ? Object.keys(dated).find(k => dated[k].includes(t.file)) : null;
       const wk = wkMan || wkDate; if (wkMan && !isPlan) meta.push(`📌 ${keyLabel(wkMan)}`);
@@ -2127,7 +2261,7 @@ function renderGroup(g, items, container, rerender){
             if (s.h && s.h !== last){ const h = document.createElement('div'); h.className = 'subh'; h.textContent = s.h; ul.appendChild(h); last = s.h; }
             const d = document.createElement('div'); d.className = 'sub' + (s.done ? ' done' : '') + (BUREAU ? ' clic' : '');
             d.innerHTML = `<span class="box">${s.done ? '☑' : '☐'}</span><span>${esc(s.text)}</span>`;
-            if (BUREAU){ d.title = s.done ? 'Décocher' : 'Cocher · glisser sur le calendrier pour en faire une tâche'; d.addEventListener('click', (ev) => { ev.stopPropagation(); ecrire(() => cadence.cocher(t.file, s.i, !s.done, t.mtime)); });
+            if (BUREAU){ d.title = s.done ? 'Décocher' : 'Cocher · glisser sur le calendrier pour en faire une tâche'; d.addEventListener('click', (ev) => { ev.stopPropagation(); if (!s.done) gagnerXP(t.file + '#' + s.i, 2, d); ecrire(() => cadence.cocher(t.file, s.i, !s.done, t.mtime)); });
               if (!s.done){ d.draggable = true;
                 d.addEventListener('dragstart', (ev) => { ev.stopPropagation(); dragFile = null; dragSub = {parent: t, i: s.i, text: s.text, h: s.h}; ev.dataTransfer.setData('text/plain', '@ligne'); ev.dataTransfer.effectAllowed = 'copyMove'; document.body.classList.add('dragging-task'); });
                 d.addEventListener('dragend', () => { dragSub = null; document.body.classList.remove('dragging-task'); }); } }
@@ -2241,8 +2375,11 @@ async function valider(t){
   try { res = await cadence.terminer(t.file, t.mtime);
  }
   catch(e){ alert(messageErreur(e)); await chargerTaches(); return; }
+  const cle = t.file + '@' + isoOf(new Date()), pts = 10 + ([0, 10, 6, 3, 0][prioN(t.priority)] || 0) + (nbReports(t) >= 2 ? 5 : 0);
+  const el = [...document.querySelectorAll('#taskList .task')].find(a => a.querySelector('.tl') && a.querySelector('.tl').textContent === t.title);
+  gagnerXP(cle, pts, el);
   await chargerTaches();
-  toast(`✓ « ${t.title} » validée`, 'Annuler', () => ecrire(() => cadence.rouvrir(t.file, res.ancien)));
+  toast(`✓ « ${t.title} » validée · +${pts} XP`, 'Annuler', () => { retirerXP(cle); ecrire(() => cadence.rouvrir(t.file, res.ancien)); });
 }
 async function deposer(file, d, m, evId){
   if (!BUREAU){ if (evId) planTask(file, evId); return; }
@@ -2279,7 +2416,7 @@ async function chargerTaches(){
   if (!CFG || !CFG.coffre) return;
   const files = await cadence.lireTaches(), items = [];
   for (const f of files){ try { const t = parseTask(f.name, f.text); if (t){ t.mtime = f.mtime; items.push(t); } } catch(e){} }
-  tasks = {loadedAt: new Date().toISOString(), items: resolveBlocked(items)};
+  tasks = {loadedAt: new Date().toISOString(), items: resolveBlocked(items), tous: new Set(files.map(f => String(f.name).replace(/\.md$/, '')))};
   suivreReports();
   render();
   syncGoogle();
@@ -2344,6 +2481,79 @@ function decouper(t){
   $('#nNote').value = `Juste pour démarrer [[${t.file}]] : le plus petit pas possible.`;
   $('#nTitle').focus(); $('#nTitle').setSelectionRange(0, 26);
 }
+
+/* ---------- recherche ---------- */
+const sansAccent = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const motsRecherche = (q) => sansAccent(q).split(/\s+/).filter(Boolean);
+const correspond = (mots, champs) => { const h = sansAccent(champs.filter(Boolean).join(' ')); return mots.length > 0 && mots.every(m => h.includes(m)); };
+let filtreAvantRecherche = '', cacheNotes = {q: null, p: null}, tRech = null;
+function chercherNotesPour(q){
+  if (!BUREAU || !cadence.chercherNotes) return Promise.resolve([]);
+  if (cacheNotes.q !== q) cacheNotes = {q, p: cadence.chercherNotes(q).catch(() => [])};
+  return cacheNotes.p;
+}
+function lancerRecherche(q){
+  q = q.trim();
+  if (!q){ if (filter.startsWith('@q:')){ filter = filtreAvantRecherche; renderTasks(); } return; }
+  if (!filter.startsWith('@q:')) filtreAvantRecherche = filter;
+  filter = '@q:' + q; if (ongletNotes) basculer(false); renderTasks();
+}
+function effacerRecherche(){ $('#q').value = ''; lancerRecherche(''); }
+function montrerBloc(titre){
+  const els = [...document.querySelectorAll('#evs .ev')].filter(el => { const g = groupOf(el); return g.some(e => e.title === titre); });
+  if (!els.length) return;
+  els[0].scrollIntoView({behavior: 'smooth', block: 'center'});
+  els.forEach(el => { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); });
+}
+$('#q').addEventListener('input', () => { clearTimeout(tRech); tRech = setTimeout(() => lancerRecherche($('#q').value), 180); });
+$('#q').addEventListener('keydown', (e) => { if (e.key === 'Escape'){ e.preventDefault(); effacerRecherche(); $('#q').blur(); } });
+document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K') && !document.querySelector('dialog[open]')){ e.preventDefault(); $('#q').focus(); $('#q').select(); } });
+
+/* ---------- points d'expérience ---------- */
+const seuilNiv = (n) => 25 * n * (n - 1) * 2;                    // XP pour atteindre le niveau n (1 → 0, 2 → 50, 3 → 150, 4 → 300…)
+const niveauDe = (x) => { let n = 1; while (x >= seuilNiv(n + 1)) n++; return n; };
+const xpEtat = () => (state.xp = state.xp || {total: 0, gains: {}});
+function renderXP(){
+  const box = $('#xp'); if (!box || !state) return;
+  const x = xpEtat(), n = niveauDe(x.total), a = seuilNiv(n), b = seuilNiv(n + 1), f = (x.total - a) / (b - a);
+  const cases = 10, pleines = Math.floor(f * cases);
+  box.innerHTML = `<span class="niv">NIV ${n}</span><span class="jauge">${[...Array(cases)].map((_, i) => `<i class="${i < pleines ? 'on' : ''}"></i>`).join('')}</span><span class="pts">${x.total} XP</span>`;
+  box.title = `Niveau ${n} · encore ${b - x.total} XP pour le niveau ${n + 1}. Valider une tâche : 10 XP (+ bonus selon sa priorité, + 5 pour une tâche longtemps repoussée) · cocher une étape : 2 XP.`;
+}
+function gagnerXP(cle, pts, el){
+  const x = xpEtat(); if (x.gains[cle]) return;
+  const avant = niveauDe(x.total);
+  x.gains[cle] = pts; x.total += pts;
+  const ks = Object.keys(x.gains); if (ks.length > 400) ks.slice(0, ks.length - 400).forEach(k => delete x.gains[k]);
+  save(); renderXP();
+  const r = (el && el.isConnected ? el : $('#xp')).getBoundingClientRect();
+  const f = document.createElement('div'); f.className = 'xp-flottant'; f.textContent = `+${pts} XP`;
+  f.style.left = (r.left + Math.min(r.width / 2, 120)) + 'px'; f.style.top = (r.top + 4) + 'px'; document.body.appendChild(f);
+  setTimeout(() => f.remove(), 1300);
+  const apres = niveauDe(x.total);
+  if (apres > avant){ $('#xp').classList.add('levelup'); setTimeout(() => $('#xp').classList.remove('levelup'), 1600); setTimeout(() => toast(`⭐ Niveau ${apres} atteint !`), 400); }
+}
+function retirerXP(cle){ const x = xpEtat(); if (!x.gains[cle]) return; x.total = Math.max(0, x.total - x.gains[cle]); delete x.gains[cle]; save(); renderXP(); }
+
+/* ---------- style rétro ---------- */
+function appliquerRetro(){ document.body.classList.toggle('retro', !state || state.retro !== false); const b = $('#btnRetro'); if (b) b.classList.toggle('on', document.body.classList.contains('retro')); }
+$('#btnRetro').onclick = () => { state.retro = state.retro === false; save(); appliquerRetro(); renderCal(); };
+
+/* ---------- tâche dépendante / parente ---------- */
+let relation = null;
+function creerRelation(type){
+  const t = tacheEditee; if (!t) return;
+  ouvrirTache(null);
+  relation = {type, t};
+  const tg = tacheTag(t), pr = tacheProj(t);
+  if (tg && [...$('#nTag').options].some(o => o.value === tg)) $('#nTag').value = tg;
+  if (pr && [...$('#nProj').options].some(o => o.value === pr)) $('#nProj').value = pr;
+  $('#nHead').textContent = type === 'dep' ? 'Tâche qui en dépend' : 'Tâche parente';
+  $('#nRel').textContent = type === 'dep' ? `Elle attendra que « ${t.title} » soit faite.` : `« ${t.title} » deviendra une de ses sous-tâches.`;
+  $('#nRel').classList.remove('hidden');
+}
+$('#nDep').onclick = () => creerRelation('dep');
+$('#nPar').onclick = () => creerRelation('par');
 
 /* ---------- tâches : supprimer, renommer ---------- */
 async function supprimerTache(t){
@@ -2760,12 +2970,13 @@ $('#btnDaily').onclick = majDaily;
 let tacheEditee = null;
 $('#btnNewTask').onclick = () => ouvrirTache(null);
 function ouvrirTache(te){
-  tacheEditee = te;
+  tacheEditee = te; relation = null;
+  $('#nRel').classList.add('hidden'); $('#nLiens').classList.toggle('hidden', !(te && BUREAU));
   const nTag = $('#nTag'), nProj = $('#nProj'), nPrio = $('#nPrio'), nDay = $('#nDay');
   nTag.innerHTML = ''; Object.entries(tagsObj()).forEach(([k, v]) => nTag.add(new Option(v, k)));
   if (filter && !filter.startsWith('@') && !filter.startsWith('p:')) nTag.value = filter;
   nProj.innerHTML = ''; nProj.add(new Option('Aucun', ''));
-  const pn = new Set(projNames()); if (tasks){ const files = new Set(tasks.items.map(t => t.file)); tasks.items.forEach(t => (t.projects || []).forEach(p => { if (!files.has(p)) pn.add(p); })); }
+  const pn = new Set(projNames()); if (tasks){ const files = new Set(tasks.items.map(t => t.file)); tasks.items.forEach(t => (t.projects || []).forEach(p => { if (!files.has(p) && !(tasks.tous && tasks.tous.has(p))) pn.add(p); })); }
   [...pn].forEach(p => nProj.add(new Option('📁 ' + p, p)));
   if (filter.startsWith('p:')) nProj.value = filter.slice(2);
   nPrio.innerHTML = '';
@@ -2804,7 +3015,13 @@ $('#newForm').onsubmit = async (e) => {
       if (tacheEditee.recurring) delete t.planifie;
       const r = await cadence.modifierTache(tacheEditee.file, t, tacheEditee.mtime);
       toast(`✏️ « ${r.nom} » mise à jour${r.liens ? ` · liens mis à jour dans ${r.liens} note${r.liens > 1 ? 's' : ''}` : ''}.`);
-    } else { const nom = await cadence.creerTache(t); if (tacheDepuisNote) await lierSelectionNote(nom); }
+    } else {
+      const rel = relation; if (rel && rel.type === 'dep') t.bloquePar = [rel.t.file];
+      const nom = await cadence.creerTache(t); if (tacheDepuisNote) await lierSelectionNote(nom);
+      if (rel && rel.type === 'par'){ const x = tasks.items.find(y => y.file === rel.t.file) || rel.t; await cadence.ajouterParent(rel.t.file, nom, x.mtime); }
+      if (rel) toast(rel.type === 'dep' ? `⤷ « ${nom} » attendra « ${rel.t.title} ».` : `⤴ « ${rel.t.title} » est maintenant une sous-tâche de « ${nom} ».`);
+    }
+    relation = null;
     $('#dlgNew').close();
   } catch(err){ alert(messageErreur(err)); }
   tacheEditee = null;

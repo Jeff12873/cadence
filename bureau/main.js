@@ -315,6 +315,55 @@ ipcMain.handle('modifier-tache', async (evenement, nom, c, mtime) => {
   return { nom: ancien, liens: 0 };
 });
 
+// Rattacher une tâche à une tâche parente (lien dans ses projets, comme les sous-tâches TaskNotes)
+ipcMain.handle('ajouter-parent', async (evenement, nom, parent, mtime) => {
+  if (typeof parent !== 'string' || !parent || /[\]\[\n\r"|]/.test(parent)) throw new Error('Tâche parente invalide.');
+  const tn = reglagesTaskNotes(), cleP = champ(tn, 'projects');
+  const { chemin, texte } = await lireVerifie(nom, mtime);
+  const liste = lireListe(texte, cleP);
+  if (liste.some(x => x.replace(/^["']|["']$/g, '').replace(/^\[\[|\]\]$/g, '').split('|')[0] === parent)) return true;
+  let t = changerListe(texte, cleP, [...liste, `"[[${parent}]]"`]);
+  t = changerCle(t, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, t);
+  return true;
+});
+
+// Recherche dans les notes du coffre (titre puis contenu), hors dossiers cachés et dossier des tâches
+ipcMain.handle('chercher-notes', async (evenement, q) => {
+  if (!config.coffre || typeof q !== 'string') return [];
+  const mots = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/\s+/).filter(Boolean);
+  if (!mots.length) return [];
+  const sans = (x) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const racine = path.normalize(config.coffre), taches = path.normalize(dossierTaches());
+  const out = []; let vus = 0;
+  async function parcourir(d) {
+    if (out.length >= 40 || vus > 6000) return;
+    let ents = []; try { ents = await fsp.readdir(d, { withFileTypes: true }); } catch { return; }
+    for (const e of ents) {
+      if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) { if (path.normalize(f) !== taches) await parcourir(f); continue; }
+      if (!e.name.endsWith('.md') || e.name.includes('sync-conflict')) continue;
+      vus++;
+      const nom = e.name.slice(0, -3), rel = path.relative(racine, d).split(path.sep).join('/');
+      const titreOk = mots.every(m => sans(nom).includes(m));
+      let extrait = '', score = titreOk ? 2 : 0;
+      if (!titreOk) {
+        try {
+          const st = await fsp.stat(f); if (st.size > 300000) continue;
+          const txt = await fsp.readFile(f, 'utf8'), bas = sans(txt);
+          if (!mots.every(m => bas.includes(m))) continue;
+          const i = bas.indexOf(mots[0]); extrait = txt.slice(Math.max(0, i - 40), i + 80).replace(/\s+/g, ' ').trim(); score = 1;
+        } catch { continue; }
+      }
+      if (score) out.push({ nom, dossier: rel, extrait, score });
+      if (out.length >= 40) return;
+    }
+  }
+  await parcourir(racine);
+  return out.sort((a, b) => b.score - a.score || a.nom.localeCompare(b.nom, 'fr'));
+});
+
 // Valider une tâche (statut « terminé » de TaskNotes + date de fin). Les tâches récurrentes restent
 // à valider dans TaskNotes ou TaskForge, qui gèrent les occurrences et l'archivage.
 ipcMain.handle('terminer', async (evenement, nom, mtime) => {
@@ -366,6 +415,8 @@ ipcMain.handle('creer-tache', async (evenement, t) => {
   if (tn.methode === 'property' && tn.propriete) l.push(`${tn.propriete}: ${JSON.stringify(tn.valeur)}`);
   if (tags.length) l.push('tags:', ...tags.map(x => `  - ${yamlTexte(x)}`));
   if ((t.projets || []).length) l.push(`${champ(tn, 'projects')}:`, ...t.projets.map(p => `  - "[[${p}]]"`));
+  const bloque = (t.bloquePar || []).filter(x => typeof x === 'string' && x && !/[\]\[\n\r"]/.test(x));
+  if (bloque.length) l.push(`${champ(tn, 'blockedBy')}:`, ...bloque.flatMap(b => [`  - uid: "[[${b}]]"`, '    reltype: FINISHTOSTART']));
   const ctx = (t.contextes || []).map(c => String(c).replace(/^@/, '').trim()).filter(Boolean);
   if (ctx.length) l.push(`${champ(tn, 'contexts')}:`, ...ctx.map(c => `  - ${yamlTexte(c)}`));
   if (t.google) l.push('cadenceGoogle: oui');
