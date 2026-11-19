@@ -456,6 +456,16 @@ body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(
 .ext.rdvbloc.court .gsync{bottom:auto;top:50%;transform:translateY(-50%)}
 .ext.rdvbloc.court .etrash{bottom:auto;top:50%;transform:translateY(-50%)}
 .ev.short.multi.avec-sync .block{padding-right:calc((100% - (var(--nd) - 1) * 4px) / var(--nd) * (var(--nd) - 1) + (var(--nd) - 1) * 4px + 8px)}
+.agmenu{position:fixed;z-index:60;width:290px;max-height:60vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:8px 10px;font-size:13px}
+.agm-t{font-weight:700;margin-bottom:4px}
+.agm-s{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:8px 0 2px}
+.agm-i{display:flex;align-items:center;gap:7px;padding:4px 2px;cursor:pointer}
+.agm-i i{width:11px;height:11px;border-radius:3px;flex:none}
+.agm-i span{flex:1;min-width:0;overflow-wrap:anywhere}
+.agm-i em{font-style:normal;font-size:10.5px;color:var(--muted)}
+.agm-v{color:var(--muted);font-size:12px;padding:4px 0}
+button.agp{border:none;cursor:pointer;font:inherit;font-size:12px;font-weight:700}
+body.retro .agmenu{border:2px solid var(--px);box-shadow:5px 5px 0 var(--pxs)}
 /* ---------- compteur d'équilibre (panneau de droite) ---------- */
 aside .equilibre{grid-template-columns:118px 1fr;margin:0 0 12px;padding:8px 10px}
 aside .equilibre .eq-cadran{grid-row:1 / span 2;display:flex;flex-direction:column;align-items:center}
@@ -780,7 +790,9 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
       <div><input type="text" id="sGId" autocomplete="off" placeholder="ID client OAuth"></div>
       <div><input type="password" id="sGSecret" autocomplete="off" placeholder="Code secret du client"></div>
     </div>
-    <div class="set-row" style="margin-top:6px"><input type="text" id="sGCal" autocomplete="off" placeholder="primary"><button type="button" class="btn" id="sGConnect">Connecter</button><button type="button" class="btn" id="sGOff">Déconnecter</button></div>
+    <div class="set-row" style="margin-top:6px"><input type="hidden" id="sGCal"><button type="button" class="btn" id="sGConnect">Connecter</button><button type="button" class="btn" id="sGOff">Déconnecter</button></div>
+    <div id="sGCibleZ" class="hidden"><label for="sGCible">Agenda des blocs (où Cadence crée les cases synchronisées et les nouveaux rendez-vous)</label><select id="sGCible"></select>
+    <div class="set-hint">Les agendas affichés se choisissent à tout moment avec la pastille 📆 à côté de la semaine.</div></div>
     <label>Tags, projets et lieux</label>
     <button type="button" class="btn" id="sCatBtn">🏷 Gérer les tags, projets et lieux…</button>
     <div class="actions">
@@ -1055,7 +1067,8 @@ const AIDE = [
   <li>Un bloc sur plusieurs jours est séparé par des pointillés : chaque jour a sa propre icône et se synchronise à part.</li>
   <li>Sur un bloc de rendez-vous seul, l'icône calendrier le masque (annulable).</li>
   <li>Le bloc en cours porte un liseré rouge doux ; au démarrage puis chaque heure (si tu ne touches à rien), l'agenda se cale sur l'heure actuelle.</li>
-  <li>À côté de la semaine, la pastille <b>📆</b> donne le nombre de rendez-vous chargés (survole-la pour le détail et les rendez-vous masqués). Une pastille rouge <b>⚠ pas d'accès</b> signale un agenda injoignable : clic pour réessayer.</li>
+  <li>Google connecté : <b>⚙️ Réglages → Agendas → Agenda des blocs</b> choisit l'agenda où Cadence crée les cases synchronisées et les nouveaux rendez-vous.</li>
+  <li>À côté de la semaine, la pastille <b>📆</b> donne le nombre de rendez-vous chargés (survole-la pour le détail et les rendez-vous masqués). <b>Clique dessus</b> pour cocher ou décocher tes agendas (Google et iCal) : ils s'affichent ou se masquent tout de suite. Une pastille rouge <b>⚠ pas d'accès</b> signale un agenda injoignable : clic pour réessayer.</li>
   <li>Rendez-vous Google : glisse pour déplacer, tire le bas pour allonger, double-clic pour le renommer ou le modifier, 🗑 pour le supprimer.</li>
   <li>Glisse une tâche ou une note <b>sur un rendez-vous</b> pour l'y rattacher (📎).</li></ol>
   <p class="aide-tip">Masquer un rendez-vous ne le supprime jamais de ton agenda.</p>`},
@@ -1852,12 +1865,18 @@ async function chargerAgendas(force){
   if (!force && cle === extSemaine && extEv.length) return;
   let ics = [], gg = [];
   const etats = [];
-  try { ics = AG.agendas.length ? await cadence.agendasLire(de.toISOString(), a.toISOString()) : []; }
+  try { ics = AG.agendas.some(g => !g.masque) ? await cadence.agendasLire(de.toISOString(), a.toISOString()) : []; }
   catch(e){ ics = AG.agendas.map(g => ({erreur: `${g.nom || 'Agenda'} : ${messageErreur(e)}`})); }
-  AG.agendas.forEach(g => { const nom = g.nom || 'Agenda', er = ics.find(x => x.erreur && x.erreur.startsWith(nom + ' :'));
+  AG.agendas.filter(g => !g.masque).forEach(g => { const nom = g.nom || 'Agenda', er = ics.find(x => x.erreur && x.erreur.startsWith(nom + ' :'));
     etats.push({nom, ok: !er, msg: er ? er.erreur.slice(nom.length + 3) : '', n: ics.filter(x => !x.erreur && x.agenda === nom).length}); });
-  if (googleOn){ try { gg = (await cadence.googleLire(de.toISOString(), a.toISOString())).map(x => ({...x, agenda: 'Google', couleur: 'bleu', cle: 'g:' + x.id})); etats.push({nom: 'Google', ok: true, n: gg.length}); }
-    catch(e){ etats.push({nom: 'Google', ok: false, msg: messageErreur(e)}); } }
+  if (googleOn){ try {
+      const brut = await cadence.googleLire(de.toISOString(), a.toISOString());
+      gg = brut.filter(x => !x.erreur).map(x => ({...x, agenda: x.agenda || 'Google', couleur: x.couleur || 'bleu', cle: 'g:' + x.id}));
+      const parCal = {}; gg.forEach(x => { parCal[x.cal] = parCal[x.cal] || {nom: x.agenda, n: 0}; parCal[x.cal].n++; });
+      (AG.google.lus || ['primary']).forEach(id => { const er = brut.find(x => x.erreur && x.cal === id);
+        const nom = (parCal[id] && parCal[id].nom) || ((listeGoogle || []).find(c => c.id === id) || {}).nom || (id === 'primary' ? 'Google' : id);
+        etats.push(er ? {nom, ok: false, msg: er.erreur.slice(er.erreur.indexOf(' : ') + 3)} : {nom, ok: true, n: (parCal[id] || {}).n || 0}); });
+    } catch(e){ etats.push({nom: 'Google', ok: false, msg: messageErreur(e)}); } }
   else if (AG.google && AG.google.configure) etats.push({nom: 'Google', ok: false, msg: 'compte non connecté (⚙️ Réglages → Agendas)'});
   etatAgendas = etats; renderEtatAgendas();
   clearTimeout(tReessai); if (etats.some(x => !x.ok)) tReessai = setTimeout(() => chargerAgendas(true), 120000);
@@ -1867,12 +1886,43 @@ async function chargerAgendas(force){
   const err = extEv.filter(x => x.erreur); if (err.length) console.warn('agendas', err.map(x => x.erreur).join(' ; '));
   renderCal();
 }
-let rdvPar = {absorbes: {}, seuls: []}, etatAgendas = [], tReessai = null;
+let rdvPar = {absorbes: {}, seuls: []}, etatAgendas = [], tReessai = null, listeGoogle = null;
+// Menu de la pastille 📆 : cocher / décocher un agenda l'affiche ou le masque tout de suite
+async function ouvrirMenuAgendas(ancre){
+  let m = $('#agMenu'); if (m){ m.remove(); return; }
+  m = document.createElement('div'); m.id = 'agMenu'; m.className = 'agmenu'; m.innerHTML = '<div class="agm-t">Agendas affichés</div><div class="agm-l">Chargement…</div>';
+  document.body.appendChild(m);
+  const r = ancre.getBoundingClientRect(); m.style.left = Math.max(8, Math.min(innerWidth - 300, r.left)) + 'px'; m.style.top = (r.bottom + 6) + 'px';
+  const fermer = (ev) => { if (!m.contains(ev.target) && ev.target !== ancre){ m.remove(); document.removeEventListener('pointerdown', fermer, true); } };
+  setTimeout(() => document.addEventListener('pointerdown', fermer, true), 0);
+  if (AG.google && AG.google.connecte){ try { listeGoogle = await cadence.googleAgendas(); } catch(e){ listeGoogle = listeGoogle || []; } }
+  const l = m.querySelector('.agm-l'); l.innerHTML = '';
+  const ligne = (type, cle, nom, couleur, coche, note) => {
+    const lab = document.createElement('label'); lab.className = 'agm-i';
+    lab.innerHTML = `<input type="checkbox"${coche ? ' checked' : ''}><i style="background:${esc(AG_COUL[couleur] || couleur || '#888')}"></i><span>${esc(nom)}</span>${note ? `<em>${esc(note)}</em>` : ''}`;
+    lab.querySelector('input').onchange = async (ev) => { ev.target.disabled = true;
+      try { await cadence.agendaAfficher(type, cle, ev.target.checked); AG = await cadence.agendasGet(); await chargerAgendas(true); } catch(e){ alert(messageErreur(e)); }
+      ev.target.disabled = false; };
+    l.appendChild(lab);
+  };
+  if (AG.google && AG.google.connecte){
+    const t = document.createElement('div'); t.className = 'agm-s'; t.textContent = 'Google'; l.appendChild(t);
+    const lus = AG.google.lus || ['primary'];
+    (listeGoogle || []).forEach(c => ligne('google', c.id, c.nom, c.couleur, lus.includes(c.id), [c.id === (AG.google.cible || 'primary') ? 'blocs' : '', c.ecriture ? '' : 'lecture'].filter(Boolean).join(' · ')));
+    if (!(listeGoogle || []).length) l.insertAdjacentHTML('beforeend', '<div class="agm-v">Liste indisponible.</div>');
+  }
+  if ((AG.agendas || []).length){
+    const t = document.createElement('div'); t.className = 'agm-s'; t.textContent = 'iCal'; l.appendChild(t);
+    AG.agendas.forEach(g => ligne('ical', g.nom, g.nom || 'Agenda', g.couleur, !g.masque, 'lecture'));
+  }
+  if (!l.children.length) l.innerHTML = '<div class="agm-v">Aucun agenda. Ajoute-en dans ⚙️ Réglages → Agendas.</div>';
+}
 // Pastille d'état des agendas : rouge si un agenda est injoignable, sinon discrète avec le nombre de rendez-vous
 function renderEtatAgendas(){
   const box = $('#agEtat'); if (!box) return;
   box.innerHTML = '';
-  if (!etatAgendas.length){ box.classList.add('hidden'); return; }
+  const configures = (AG.agendas || []).length + (AG.google && AG.google.connecte ? 1 : 0);
+  if (!etatAgendas.length && !configures){ box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
   const ko = etatAgendas.filter(x => !x.ok);
   const masques = Object.entries(rdvPar.absorbes).reduce((n, [k, v]) => { const e = evById(k); return n + (e && !blocVisible(e) ? v.length : 0); }, 0);
@@ -1882,8 +1932,9 @@ function renderEtatAgendas(){
       b.onclick = () => { b.textContent = '… ' + x.nom; chargerAgendas(true); }; box.appendChild(b); });
   }
   const ok = etatAgendas.filter(x => x.ok);
-  if (ok.length){ const n = ok.reduce((k, x) => k + (x.n || 0), 0), b = document.createElement('span'); b.className = 'agp ok';
-    b.textContent = `📆 ${n}`; b.title = ok.map(x => `✓ ${x.nom} : ${x.n || 0} rendez-vous cette semaine`).join('\n') + (masques ? `\n${masques} masqué${masques > 1 ? 's' : ''} : dans des blocs non synchronisés (icône calendrier grisée)` : '');
+  if (ok.length || !ko.length){ const n = ok.reduce((k, x) => k + (x.n || 0), 0), b = document.createElement('button'); b.type = 'button'; b.className = 'agp ok';
+    b.onclick = (ev) => { ev.stopPropagation(); ouvrirMenuAgendas(b); };
+    b.textContent = `📆 ${n} ▾`; b.title = (ok.length ? ok.map(x => `✓ ${x.nom} : ${x.n || 0} rendez-vous cette semaine`).join('\n') : 'Aucun agenda affiché') + '\nClic : choisir les agendas affichés' + (masques ? `\n${masques} masqué${masques > 1 ? 's' : ''} : dans des blocs non synchronisés (icône calendrier grisée)` : '');
     box.appendChild(b); }
 }
 const agendaActif = () => BUREAU && ((AG.google && AG.google.connecte) || (AG.agendas || []).length > 0);
@@ -1955,7 +2006,7 @@ function installerRdv(el, x, d, evs){
   if (!x.modifiable) return;
   el.querySelector('.etrash').addEventListener('click', async (ev) => { ev.stopPropagation();
     if (!confirm(`Supprimer le rendez-vous « ${x.titre} » de ton agenda Google ?`)) return;
-    try { await cadence.googleSupprimer(x.id); if (state.liensRdv) { delete state.liensRdv[x.cle]; save(); } toast(`🗑 « ${x.titre} » supprimé de Google Agenda.`); } catch(e){ alert(messageErreur(e)); }
+    try { await cadence.googleSupprimer(x.id, x.cal); if (state.liensRdv) { delete state.liensRdv[x.cle]; save(); } toast(`🗑 « ${x.titre} » supprimé de Google Agenda.`); } catch(e){ alert(messageErreur(e)); }
     chargerAgendas(true); });
   const debut0 = new Date(x.debut), dur = Math.round((new Date(x.fin) - debut0) / 60000);
   // étirer la fin (par 15 min)
@@ -1967,7 +2018,7 @@ function installerRdv(el, x, d, evs){
     const move = (mv) => { const p = posAgenda(evs, mv.clientX, mv.clientY); fin = Math.max(m0 + SNAP, Math.min(24 * 60, snap(p.m)));
       el.style.height = hOf(m0, fin) + 'px'; tip.style.left = p.px + 'px'; tip.style.top = mins2y(fin); tip.textContent = `jusqu'à ${fmtMin(fin)}`; };
     const up = async () => { ev.target.removeEventListener('pointermove', move); ev.target.removeEventListener('pointerup', up); tip.remove();
-      if (fin !== m0 + dur){ try { await cadence.googleModifier(x.id, {debut: dtLocal(debut0, m0), fin: dtLocal(debut0, fin), allDay: false}); } catch(e){ alert(messageErreur(e)); } }
+      if (fin !== m0 + dur){ try { await cadence.googleModifier(x.id, {debut: dtLocal(debut0, m0), fin: dtLocal(debut0, fin), allDay: false}, x.cal); } catch(e){ alert(messageErreur(e)); } }
       chargerAgendas(true); };
     ev.target.addEventListener('pointermove', move); ev.target.addEventListener('pointerup', up);
   });
@@ -1986,7 +2037,7 @@ function installerRdv(el, x, d, evs){
       el.classList.remove('lifted'); setTimeout(() => document.body.classList.remove('dragging-ev'), 0); clearGhost(evs);
       if (!leve || !cible) return;
       const jour = weekDays[cible.d];
-      try { await cadence.googleModifier(x.id, {debut: dtLocal(jour, cible.start), fin: dtLocal(jour, cible.start + dur), allDay: false}); toast(`📆 « ${x.titre} » déplacé à ${DAYS[cible.d]} ${fmtMin(cible.start)}.`); }
+      try { await cadence.googleModifier(x.id, {debut: dtLocal(jour, cible.start), fin: dtLocal(jour, cible.start + dur), allDay: false}, x.cal); toast(`📆 « ${x.titre} » déplacé à ${DAYS[cible.d]} ${fmtMin(cible.start)}.`); }
       catch(e){ alert(messageErreur(e)); }
       chargerAgendas(true);
     };
@@ -2021,7 +2072,7 @@ async function majDescriptionRdv(x){
   if (l.notes.length) lignes.push('Notes : ' + l.notes.map(n => n.nom).join(' · '));
   const desc = lignes.length ? (base ? base + '\n\n' : '') + `${MARQ}\n${lignes.join('\n')}\n${MARQF}` : base;
   if (desc === (x.description || '')) return;
-  try { const r = await cadence.googleModifier(x.id, {description: desc}); x.description = r.description || desc; } catch(e){ toast('📆 ' + messageErreur(e)); }
+  try { const r = await cadence.googleModifier(x.id, {description: desc}, x.cal); x.description = r.description || desc; } catch(e){ toast('📆 ' + messageErreur(e)); }
 }
 function filtrerRdv(x){
   state.choixRdv = x.cle; rdvChoisi = x;
@@ -2055,7 +2106,7 @@ function dessinerLiensRdv(){
 }
 $('#rvCancel').onclick = () => $('#dlgRdv').close();
 $('#rvDel').onclick = async () => { const x = rdvEdite; if (!confirm(`Supprimer « ${x.titre} » de ton agenda Google ?`)) return;
-  try { await cadence.googleSupprimer(x.id); if (state.liensRdv){ delete state.liensRdv[x.cle]; save(); } $('#dlgRdv').close(); } catch(e){ alert(messageErreur(e)); } chargerAgendas(true); };
+  try { await cadence.googleSupprimer(x.id, x.cal); if (state.liensRdv){ delete state.liensRdv[x.cle]; save(); } $('#dlgRdv').close(); } catch(e){ alert(messageErreur(e)); } chargerAgendas(true); };
 $('#rvForm').onsubmit = async (ev) => {
   ev.preventDefault(); const x = rdvEdite; if (!x.modifiable){ $('#dlgRdv').close(); return; }
   const jour = new Date($('#rvDate').value + 'T00:00:00'), s0 = tmin($('#rvStart').value), s1 = tmin($('#rvEnd').value);
@@ -2067,7 +2118,7 @@ $('#rvForm').onsubmit = async (ev) => {
   const fin = new Date(jour); fin.setDate(fin.getDate() + 1);
   const c = {titre: $('#rvTitle').value.trim() || '(sans titre)', lieu: $('#rvLieu').value.trim(), description: desc, allDay,
     debut: allDay ? isoOf(jour) : dtLocal(jour, s0), fin: allDay ? isoOf(fin) : dtLocal(jour, s1)};
-  try { await cadence.googleModifier(x.id, c); if (state.liensRdv && state.liensRdv[x.cle]){ state.liensRdv[x.cle].titre = c.titre; save(); } $('#dlgRdv').close(); toast(`📆 « ${c.titre} » mis à jour.`); }
+  try { await cadence.googleModifier(x.id, c, x.cal); if (state.liensRdv && state.liensRdv[x.cle]){ state.liensRdv[x.cle].titre = c.titre; save(); } $('#dlgRdv').close(); toast(`📆 « ${c.titre} » mis à jour.`); }
   catch(e){ alert(messageErreur(e)); }
   chargerAgendas(true);
 };
@@ -2108,9 +2159,9 @@ async function basculerSyncBloc(grp, activer){
       if (!confirm(`Désynchroniser « ${grp[0].title} » va supprimer de ton agenda Google :\n\n${liste.map(r => '• ' + r.x.titre + ' (' + fmt(r.x) + ')' + (r.x.recurrent ? ' — une occurrence d\'un rendez-vous récurrent' : '')).join('\n')}\n\nCadence en garde une copie : ils seront recréés si tu resynchronises la case.`)) return;
       for (const {e, x} of liste){
         try {
-          await cadence.googleSupprimer(x.id);
+          await cadence.googleSupprimer(x.id, x.cal);
           const k = cleBloc(e), c = rdvSupprimes();
-          (c[k] = c[k] || []).push({titre: x.titre, lieu: x.lieu || '', description: x.description || '', debut: x.debut, fin: x.fin, allDay: !!x.allDay, liens: (state.liensRdv || {})[x.cle] || null});
+          (c[k] = c[k] || []).push({cal: x.cal || '', titre: x.titre, lieu: x.lieu || '', description: x.description || '', debut: x.debut, fin: x.fin, allDay: !!x.allDay, liens: (state.liensRdv || {})[x.cle] || null});
           if (state.liensRdv) delete state.liensRdv[x.cle];
           nSuppr++;
         } catch(err){ alert(messageErreur(err)); }
@@ -2124,15 +2175,15 @@ async function basculerSyncBloc(grp, activer){
         const reste = [];
         for (const c of rdvSupprimes()[k]){
           try {
-            const r = await cadence.googleCreer({titre: c.titre, lieu: c.lieu, description: c.description, debut: c.debut, fin: c.fin, allDay: c.allDay});
+            const r = await cadence.googleCreer({titre: c.titre, lieu: c.lieu, description: c.description, debut: c.debut, fin: c.fin, allDay: c.allDay}, c.cal || undefined);
             if (c.liens){ state.liensRdv = state.liensRdv || {}; state.liensRdv['g:' + r.id] = c.liens; }
             nRecrees++;
           } catch(err){ reste.push(c); toast('📆 ' + messageErreur(err)); }
         }
         if (reste.length) rdvSupprimes()[k] = reste; else delete rdvSupprimes()[k];
       }
-      if (activer){ if (m[k]) continue; if (g){ const ev = evBloc(e); const id = await cadence.googleBloc(ev); m[k] = {id, emp: JSON.stringify(ev)}; } else m[k] = {id: null, emp: ''}; }
-      else if (m[k]){ if (g && m[k].id) await cadence.googleBlocRetirer(m[k].id); delete m[k]; }
+      if (activer){ if (m[k]) continue; if (g){ const ev = evBloc(e), cal = AG.google.cible || 'primary'; const id = await cadence.googleBloc({...ev, cal}); m[k] = {id, emp: JSON.stringify(ev), cal}; } else m[k] = {id: null, emp: ''}; }
+      else if (m[k]){ if (g && m[k].id) await cadence.googleBlocRetirer(m[k].id, m[k].cal); delete m[k]; }
     }
     const nr = grp.reduce((n, g) => n + rdvDuBloc(g.id).length, 0) - nSuppr, pl = (n) => n > 1 ? 's' : '';
     const txtR = (nSuppr ? ` · ${nSuppr} rendez-vous supprimé${pl(nSuppr)} de Google (copie gardée)` : '') + (nRecrees ? ` · ${nRecrees} rendez-vous recréé${pl(nRecrees)} dans Google` : '') + (nr > 0 ? ` · ${nr} rendez-vous ${activer ? 'affiché' : 'masqué'}${pl(nr)}` : '');
@@ -2151,11 +2202,11 @@ async function syncBlocs(){
   try {
     for (const k of Object.keys(m)){
       const [eid, semK] = k.split('@'), e = evById(eid);
-      if (!e){ try { if (m[k].id) await cadence.googleBlocRetirer(m[k].id); } catch(_){} delete m[k]; change = true; continue; }
+      if (!e){ try { if (m[k].id) await cadence.googleBlocRetirer(m[k].id, m[k].cal); } catch(_){} delete m[k]; change = true; continue; }
       if (semK !== sem) continue;
       const ev = evBloc(e), emp = JSON.stringify(ev);
       if (m[k].emp === emp) continue;
-      m[k] = {id: await cadence.googleBloc({...ev, id: m[k].id || undefined}), emp}; change = true;
+      const cal = m[k].cal || (AG.google && AG.google.cible) || 'primary'; m[k] = {id: await cadence.googleBloc({...ev, id: m[k].id || undefined, cal}), emp, cal}; change = true;
     }
   } catch(err){ toast('📆 ' + messageErreur(err)); }
   finally { syncEnCours = false; }
@@ -3209,7 +3260,8 @@ async function remplirAgendasReglages(){
   (AG.agendas || []).forEach(a => ajouterLigneAgenda(a));
   const g = AG.google || {};
   $('#sGId').value = g.clientId || ''; $('#sGSecret').value = ''; $('#sGSecret').placeholder = g.configure ? '(enregistré, laisser vide pour le garder)' : 'Code secret du client'; $('#sGCal').value = g.calendarId || 'primary';
-  $('#sGState').textContent = g.connecte ? '✓ Connecté : coche « 📆 Envoyer dans Google Agenda » dans une tâche (double-clic).' : g.configure ? 'Identifiants enregistrés : clique sur Connecter.' : 'Crée une application OAuth « ordinateur » dans la console Google Cloud, puis colle son ID et son code secret.';
+  remplirCible(g);
+  $('#sGState').textContent = g.connecte ? '✓ Connecté : tes rendez-vous Google s\'affichent et se modifient dans Cadence ; l\'icône calendrier d\'une case l\'envoie dans Google.' : g.configure ? 'Identifiants enregistrés : clique sur Connecter.' : 'Crée une application OAuth « ordinateur » dans la console Google Cloud, puis colle son ID et son code secret.';
 }
 function ajouterLigneAgenda(a = {}){
   const r = document.createElement('div'); r.className = 'ag-row';
@@ -3232,6 +3284,16 @@ $('#sGConnect').onclick = async () => {
         AG.google = await cadence.googleConnecter(); remplirAgendasReglages(); toast('📆 Google Agenda connecté.'); syncGoogle(); }
   catch(e){ alert(messageErreur(e)); remplirAgendasReglages(); }
 };
+async function remplirCible(g){
+  const z = $('#sGCibleZ'), sel = $('#sGCible');
+  if (!g || !g.connecte){ z.classList.add('hidden'); return; }
+  z.classList.remove('hidden'); sel.innerHTML = '<option>Chargement…</option>';
+  try { listeGoogle = await cadence.googleAgendas(); } catch(e){ listeGoogle = listeGoogle || []; }
+  sel.innerHTML = ''; (listeGoogle || []).filter(c => c.ecriture).forEach(c => sel.add(new Option(c.nom + (c.principal ? ' (principal)' : ''), c.id)));
+  if (!sel.options.length) sel.add(new Option('Agenda principal', 'primary'));
+  sel.value = g.cible || 'primary';
+}
+$('#sGCible').onchange = async () => { AG.google = await cadence.googleCible($('#sGCible').value); toast(`📆 Les cases synchronisées iront maintenant dans « ${$('#sGCible').selectedOptions[0].text} ».`); };
 $('#sGOff').onclick = async () => { AG.google = await cadence.googleDeconnecter(); remplirAgendasReglages(); };
 $('#sWxFind').onclick = async () => {
   const pick = $('#sWxPick');

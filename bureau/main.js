@@ -642,8 +642,29 @@ ipcMain.handle('meteo-lieu', async (evenement, nom) => {
 });
 
 // --- Agendas externes (lecture iCal) et Google Agenda (envoi) ---------------------------------
-const etatGoogle = () => { const g = config.google || {}; const sim = process.env.CADENCE_FAUX_GOOGLE === '1'; return { configure: !!(g.clientId && g.clientSecret) || sim, connecte: !!g.refreshToken || sim, simule: sim, clientId: g.clientId || '', calendarId: g.calendarId || 'primary' }; };
-ipcMain.handle('agendas-get', () => ({ agendas: (config.agendas || []).map(a => ({ nom: a.nom, couleur: a.couleur || '', url: a.url })), google: etatGoogle() }));
+const etatGoogle = () => { const g = config.google || {}; const sim = process.env.CADENCE_FAUX_GOOGLE === '1'; return { configure: !!(g.clientId && g.clientSecret) || sim, connecte: !!g.refreshToken || sim, simule: sim, clientId: g.clientId || '', calendarId: g.calendarId || 'primary', cible: g.cible || g.calendarId || 'primary', lus: g.lus || [g.calendarId || 'primary'] }; };
+ipcMain.handle('agendas-get', () => ({ agendas: (config.agendas || []).map(a => ({ nom: a.nom, couleur: a.couleur || '', url: a.url, masque: !!a.masque })), google: etatGoogle() }));
+// Afficher / masquer à la volée un agenda iCal (par son nom) ou un agenda Google (par son identifiant)
+ipcMain.handle('agenda-afficher', async (evenement, type, cle, afficher) => {
+  if (type === 'ical') { const a = (config.agendas || []).find(x => x.nom === cle); if (a) { if (afficher) delete a.masque; else a.masque = true; } }
+  else if (type === 'google') {
+    config.google = config.google || {};
+    const lus = new Set(config.google.lus || [config.google.calendarId || 'primary']);
+    if (afficher) lus.add(String(cle)); else lus.delete(String(cle));
+    config.google.lus = [...lus];
+  }
+  await enregistrerConfig(); return true;
+});
+// Agenda où Cadence crée ses blocs et les nouveaux rendez-vous
+ipcMain.handle('google-cible', async (evenement, id) => { config.google = config.google || {}; config.google.cible = String(id || 'primary'); await enregistrerConfig(); return etatGoogle(); });
+const FAUX_AGENDAS = [{ id: 'primary', nom: 'Perso', couleur: '#4285F4', principal: true, ecriture: true }, { id: 'famille', nom: 'Famille', couleur: '#E67C73', principal: false, ecriture: true }, { id: 'feries', nom: 'Jours fériés', couleur: '#33B679', principal: false, ecriture: false }];
+ipcMain.handle('google-agendas', async () => {
+  if (simule()) return FAUX_AGENDAS;
+  if (!config.google || !config.google.refreshToken) return [];
+  const l = await agendas.listerAgendasGoogle(config.google);
+  config.google.infos = Object.fromEntries(l.map(x => [x.id, { nom: x.nom, couleur: x.couleur, ecriture: x.ecriture }])); await enregistrerConfig();
+  return l;
+});
 ipcMain.handle('agendas-set', async (evenement, liste) => {
   config.agendas = (Array.isArray(liste) ? liste : []).filter(a => a && /^https:\/\//.test(String(a.url || '').trim()))
     .map(a => ({ nom: String(a.nom || 'Agenda').slice(0, 60), url: String(a.url).trim(), couleur: String(a.couleur || '').slice(0, 20) }));
@@ -686,24 +707,28 @@ function fauxGoogle() {
   const j = new Date(); j.setHours(0, 0, 0, 0); const lundi = new Date(j); lundi.setDate(j.getDate() - ((j.getDay() + 6) % 7) + (((j.getDay() + 6) % 7) >= 5 ? 7 : 0));
   const at = (d, h, m = 0) => { const x = new Date(lundi); x.setDate(x.getDate() + d); x.setHours(h, m, 0, 0); return x.toISOString(); };
   faux = [
-    { id: 'f1', uid: 'f1', titre: 'RDV conseillère bilan', lieu: 'Troyes', description: '', debut: at(2, 10), fin: at(2, 11, 30), allDay: false, recurrent: false, modifiable: true },
-    { id: 'f2', uid: 'f2', titre: 'Dentiste', lieu: '', description: '', debut: at(3, 16), fin: at(3, 17), allDay: false, recurrent: false, modifiable: true },
+    { id: 'f1', cal: 'primary', uid: 'f1', titre: 'RDV conseillère bilan', lieu: 'Troyes', description: '', debut: at(2, 10), fin: at(2, 11, 30), allDay: false, recurrent: false, modifiable: true },
+    { id: 'f2', cal: 'famille', uid: 'f2', titre: 'Dentiste', lieu: '', description: '', debut: at(3, 16), fin: at(3, 17), allDay: false, recurrent: false, modifiable: true },
   ];
   return faux;
 }
 const simule = () => process.env.CADENCE_FAUX_GOOGLE === '1';
 ipcMain.handle('google-lire', async (evenement, de, a) => {
-  if (simule()) return fauxGoogle().filter(x => x.fin > de && x.debut < a);
-  if (!config.google || !config.google.refreshToken) return [];
-  return agendas.lireGoogle(config.google, de, a);
+  const g = config.google || {}, lus = g.lus || [g.calendarId || 'primary'];
+  if (simule()) { const inf = Object.fromEntries(FAUX_AGENDAS.map(x => [x.id, x])); return fauxGoogle().filter(x => lus.includes(x.cal) && x.fin > de && x.debut < a).map(x => ({ ...x, agenda: inf[x.cal].nom, couleur: inf[x.cal].couleur, modifiable: inf[x.cal].ecriture })); }
+  if (!g.refreshToken) return [];
+  const infos = g.infos || {};
+  const cals = lus.map(id => ({ id, nom: (infos[id] && infos[id].nom) || (id === 'primary' ? 'Google' : id), couleur: (infos[id] && infos[id].couleur) || '', ecriture: !infos[id] || infos[id].ecriture !== false }));
+  return agendas.lireGoogle(g, de, a, cals);
 });
-ipcMain.handle('google-modifier', async (evenement, id, c) => {
+ipcMain.handle('google-modifier', async (evenement, id, c, cal) => {
   if (simule()) { const x = fauxGoogle().find(y => y.id === id); Object.assign(x, Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined))); return x; }
-  return agendas.modifierRdv(config.google, id, { ...c, fuseau: fuseau() });
+  return agendas.modifierRdv(config.google, id, { ...c, fuseau: fuseau() }, cal);
 });
-ipcMain.handle('google-creer', async (evenement, c) => {
-  if (simule()) { const x = { id: 'f' + Date.now(), uid: '', description: '', lieu: '', recurrent: false, modifiable: true, ...c }; fauxGoogle().push(x); return x; }
-  return agendas.creerRdv(config.google, { ...c, fuseau: fuseau() });
+ipcMain.handle('google-creer', async (evenement, c, cal) => {
+  const g = config.google || {}, dest = cal || g.cible || g.calendarId || 'primary';
+  if (simule()) { const x = { id: 'f' + Date.now(), uid: '', description: '', lieu: '', recurrent: false, modifiable: true, ...c, cal: dest }; fauxGoogle().push(x); return x; }
+  return { ...(await agendas.creerRdv(g, { ...c, fuseau: fuseau() }, dest)), cal: dest };
 });
 // Cases Cadence synchronisées : crée / met à jour (ev.id) l'évènement, renvoie son identifiant
 let fauxBlocs = {};
@@ -711,14 +736,14 @@ ipcMain.handle('google-bloc', async (evenement, ev) => {
   if (simule()) { const id = ev.id && fauxBlocs[ev.id] ? ev.id : 'b' + Date.now() + Math.random().toString(36).slice(2, 5); fauxBlocs[id] = { ...ev, id }; return id; }
   return agendas.envoyerEvenement(config.google, { ...ev, fuseau: fuseau() });
 });
-ipcMain.handle('google-bloc-retirer', async (evenement, id) => {
+ipcMain.handle('google-bloc-retirer', async (evenement, id, cal) => {
   if (simule()) { delete fauxBlocs[id]; return true; }
-  await agendas.supprimerEvenement(config.google, id); return true;
+  await agendas.supprimerEvenement(config.google, id, cal); return true;
 });
 ipcMain.handle('google-blocs-simules', () => simule() ? fauxBlocs : null);
-ipcMain.handle('google-supprimer', async (evenement, id) => {
+ipcMain.handle('google-supprimer', async (evenement, id, cal) => {
   if (simule()) { faux = fauxGoogle().filter(y => y.id !== id); return true; }
-  await agendas.supprimerRdv(config.google, id); return true;
+  await agendas.supprimerRdv(config.google, id, cal); return true;
 });
 
 ipcMain.handle('ouvrir-lien', (evenement, url) => {

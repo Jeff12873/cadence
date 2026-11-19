@@ -98,7 +98,7 @@ const cacheIcs = new Map();   // url → {t, texte}
 async function lireAgendas(agendas, deIso, aIso) {
   const de = new Date(deIso), a = new Date(aIso), out = [];
   for (const ag of agendas || []) {
-    if (!ag || !/^https:\/\//.test(ag.url || '')) continue;
+    if (!ag || ag.masque || !/^https:\/\//.test(ag.url || '')) continue;
     try {
       let c = cacheIcs.get(ag.url);
       if (!c || Date.now() - c.t > 10 * 60 * 1000) {
@@ -169,8 +169,9 @@ async function acces(g) {
 }
 
 // Crée ou met à jour l'évènement d'une tâche ; renvoie son identifiant. ev = {id?, titre, debut, fin, allDay, description}
+const calCible = (g) => g.cible || g.calendarId || 'primary';
 async function envoyerEvenement(g, ev) {
-  const cal = encodeURIComponent(g.calendarId || 'primary');
+  const cal = encodeURIComponent(ev.cal || calCible(g));
   const corps = {
     summary: ev.titre, description: ev.description || '',
     start: ev.allDay ? { date: ev.debut.slice(0, 10) } : { dateTime: ev.debut, timeZone: ev.fuseau },
@@ -187,15 +188,25 @@ async function envoyerEvenement(g, ev) {
   if (!r.ok) throw new Error(`Google : ${(d.error && d.error.message) || r.status}`);
   return d.id;
 }
-async function supprimerEvenement(g, id) {
+async function supprimerEvenement(g, id, cal) {
   if (!id) return;
   const tok = await acces(g);
-  const r = await net.fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(g.calendarId || 'primary')}/events/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok}` } });
+  const r = await net.fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal || calCible(g))}/events/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok}` } });
   if (!r.ok && r.status !== 404 && r.status !== 410) throw new Error(`Google : suppression impossible (${r.status}).`);
 }
 
 // --- Rendez-vous Google (agenda connecté) : lecture et modification -------------------------
-const calUrl = (g) => `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(g.calendarId || 'primary')}`;
+const calUrl = (g, cal) => `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal || calCible(g))}`;
+// Agendas du compte Google : {id, nom, couleur, principal, ecriture}
+async function listerAgendasGoogle(g) {
+  const out = []; let page = '';
+  do {
+    const d = await appelGoogle(g, 'https://www.googleapis.com/calendar/v3/users/me/calendarList?' + new URLSearchParams({ maxResults: '250', ...(page ? { pageToken: page } : {}) }));
+    (d.items || []).filter(x => !x.deleted).forEach(x => out.push({ id: x.primary ? 'primary' : x.id, nom: x.summaryOverride || x.summary || x.id, couleur: x.backgroundColor || '', principal: !!x.primary, ecriture: x.accessRole === 'owner' || x.accessRole === 'writer' }));
+    page = d.nextPageToken || '';
+  } while (page);
+  return out.sort((a, b) => (b.principal - a.principal) || a.nom.localeCompare(b.nom, 'fr'));
+}
 async function appelGoogle(g, url, options = {}) {
   const tok = await acces(g);
   const r = await net.fetch(url, { ...options, headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json', ...(options.headers || {}) } });
@@ -209,13 +220,20 @@ const versCadence = (x) => ({
   debut: x.start.dateTime || x.start.date, fin: x.end.dateTime || x.end.date, allDay: !x.start.dateTime,
   recurrent: !!x.recurringEventId, lien: x.htmlLink || '', modifiable: true,
 });
-async function lireGoogle(g, de, a) {
-  const out = []; let page = '';
-  do {
-    const d = await appelGoogle(g, `${calUrl(g)}/events?` + new URLSearchParams({ timeMin: de, timeMax: a, singleEvents: 'true', orderBy: 'startTime', maxResults: '250', ...(page ? { pageToken: page } : {}) }));
-    (d.items || []).filter(x => x.status !== 'cancelled' && !(x.extendedProperties && x.extendedProperties.private && x.extendedProperties.private.cadence)).forEach(x => out.push(versCadence(x)));
-    page = d.nextPageToken || '';
-  } while (page);
+// Lit les agendas choisis (cals = [{id, nom, couleur, ecriture}]) ; un agenda injoignable renvoie {erreur}
+async function lireGoogle(g, de, a, cals) {
+  const out = [], vus = new Set();
+  for (const c of (cals && cals.length ? cals : [{ id: calCible(g), nom: 'Google', couleur: '', ecriture: true }])) {
+    try {
+      let page = '';
+      do {
+        const d = await appelGoogle(g, `${calUrl(g, c.id)}/events?` + new URLSearchParams({ timeMin: de, timeMax: a, singleEvents: 'true', orderBy: 'startTime', maxResults: '250', ...(page ? { pageToken: page } : {}) }));
+        (d.items || []).filter(x => x.status !== 'cancelled' && !(x.extendedProperties && x.extendedProperties.private && x.extendedProperties.private.cadence))
+          .forEach(x => { if (vus.has(x.id)) return; vus.add(x.id); out.push({ ...versCadence(x), cal: c.id, agenda: c.nom, couleur: c.couleur, modifiable: c.ecriture !== false }); });
+        page = d.nextPageToken || '';
+      } while (page);
+    } catch (err) { out.push({ erreur: `${c.nom} : ${err.message}`, cal: c.id }); }
+  }
   return out;
 }
 const corpsRdv = (c) => {
@@ -227,8 +245,8 @@ const corpsRdv = (c) => {
   if (c.fin) o.end = c.allDay ? { date: c.fin.slice(0, 10) } : { dateTime: c.fin, timeZone: c.fuseau };
   return o;
 };
-const modifierRdv = async (g, id, c) => versCadence(await appelGoogle(g, `${calUrl(g)}/events/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(corpsRdv(c)) }));
-const creerRdv = async (g, c) => versCadence(await appelGoogle(g, `${calUrl(g)}/events`, { method: 'POST', body: JSON.stringify(corpsRdv(c)) }));
-const supprimerRdv = (g, id) => supprimerEvenement(g, id);
+const modifierRdv = async (g, id, c, cal) => versCadence(await appelGoogle(g, `${calUrl(g, cal)}/events/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(corpsRdv(c)) }));
+const creerRdv = async (g, c, cal) => versCadence(await appelGoogle(g, `${calUrl(g, cal)}/events`, { method: 'POST', body: JSON.stringify(corpsRdv(c)) }));
+const supprimerRdv = (g, id, cal) => supprimerEvenement(g, id, cal);
 
-module.exports = { lireGoogle, modifierRdv, creerRdv, supprimerRdv, lireAgendas, analyserIcs, connecterGoogle, envoyerEvenement, supprimerEvenement };
+module.exports = { listerAgendasGoogle, lireGoogle, modifierRdv, creerRdv, supprimerRdv, lireAgendas, analyserIcs, connecterGoogle, envoyerEvenement, supprimerEvenement };
