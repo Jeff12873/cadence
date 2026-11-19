@@ -444,6 +444,18 @@ body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(
 .ev.encours .block{outline:2px solid color-mix(in srgb, #E5484D 60%, transparent);outline-offset:1px;animation:encours 3s ease-in-out infinite}
 @keyframes encours{50%{outline-color:color-mix(in srgb, #E5484D 20%, transparent)}}
 #newForm.associer > :not(h3):not(#nLienL):not(#nLien):not(#nRel):not(.actions){display:none !important}
+/* espace réservé aux icônes des coins (synchro en bas à gauche, corbeille en bas à droite) : le texte ne passe jamais dessous */
+.ev .block{overflow:clip;overflow-clip-margin:content-box}
+.ev.ecarte .block{overflow:visible}
+.ev:not(.short) .block{padding-bottom:28px}
+.ev.serre:not(.short) .block{padding-bottom:26px}
+.ev.short.avec-sync .block{padding-left:32px}
+.ev.short .block{padding-right:30px}
+.ext.rdvbloc .eb{padding-bottom:26px}
+.ext.rdvbloc.court .eb{padding:2px 30px 2px 32px;flex-direction:row;flex-wrap:wrap;align-items:center;align-content:center;column-gap:8px;row-gap:0}
+.ext.rdvbloc.court .gsync{bottom:auto;top:50%;transform:translateY(-50%)}
+.ext.rdvbloc.court .etrash{bottom:auto;top:50%;transform:translateY(-50%)}
+.ev.short.multi.avec-sync .block{padding-right:calc((100% - (var(--nd) - 1) * 4px) / var(--nd) * (var(--nd) - 1) + (var(--nd) - 1) * 4px + 8px)}
 /* ---------- compteur d'équilibre (panneau de droite) ---------- */
 aside .equilibre{grid-template-columns:118px 1fr;margin:0 0 12px;padding:8px 10px}
 aside .equilibre .eq-cadran{grid-row:1 / span 2;display:flex;flex-direction:column;align-items:center}
@@ -1321,7 +1333,7 @@ function ouvrirCase(el){
   if (caseOuverte === el || document.body.classList.contains('dragging-task') || el.classList.contains('moving')) return;
   if (caseOuverte) fermerCase(true);
   const b = el.querySelector('.block'), m0 = +el.dataset.m0, m1 = +el.dataset.m1;
-  el.classList.remove('serre', 'deborde'); el.classList.add('mesure');
+  el.classList.remove('serre', 'deborde', 'short'); el.classList.add('mesure');
   const bw = b.querySelector(':scope > .badges'); if (bw && el.dataset.serre) b.appendChild(bw);
   const besoin = b.scrollHeight + 4, actuel = el.getBoundingClientRect().height;
   el.classList.remove('mesure');
@@ -1331,7 +1343,7 @@ function ouvrirCase(el){
   document.body.classList.add('ecart-anim'); replacer();
 }
 function restaurerCase(el){
-  el.classList.remove('ecarte');
+  el.classList.remove('ecarte'); if (el.dataset.short) el.classList.add('short');
   if (el.dataset.serre){ el.classList.add('serre'); const b = el.querySelector('.block'), bw = b.querySelector(':scope > .badges'); if (bw) b.prepend(bw); }
   if (el.dataset.deborde) el.classList.add('deborde');
 }
@@ -1370,9 +1382,11 @@ function ligneRdv(x, m0){
 function ajusterCases(evs){
   evs.querySelectorAll('.ev').forEach(el => {
     const b = el.querySelector('.block'); if (!b) return;
+    b.style.overflow = 'hidden';                     // mesure (la découpe visuelle « clip » ne permet pas de mesurer)
     const deborde = () => b.scrollHeight > b.clientHeight + 1 || [...b.querySelectorAll('.pi')].some(x => x.scrollWidth > x.clientWidth + 1);
     if (el.classList.contains('short') || deborde()){ el.classList.add('serre'); el.dataset.serre = '1'; const bw = b.querySelector(':scope > .badges'); if (bw) b.prepend(bw); }
     if (deborde()){ el.classList.add('deborde'); el.dataset.deborde = '1'; }
+    b.style.overflow = '';
     if (el.dataset.serre || el.dataset.deborde){
       el.addEventListener('mouseenter', () => { clearTimeout(el._tf); el._to = setTimeout(() => ouvrirCase(el), 120); });
       el.addEventListener('mouseleave', () => { clearTimeout(el._to); if (caseOuverte === el) el._tf = setTimeout(() => { if (caseOuverte === el) fermerCase(); }, 80); });
@@ -1381,7 +1395,7 @@ function ajusterCases(evs){
 }
 function evElement(grp){
   const e = grp[0], nd = grp.length, h = hOf(e.start, e.end);
-  const el = document.createElement('div'); el.className = 'ev' + (h < 40 ? ' short' : '');
+  const el = document.createElement('div'); el.className = 'ev' + (h < 40 ? ' short' : '') + (nd > 1 ? ' multi' : ''); if (h < 40) el.dataset.short = '1'; el.style.setProperty('--nd', nd);
   el.style.top = yOf(e.start) + 'px'; el.style.height = h + 'px'; el.style.left = colX(e.d); el.style.width = colW(nd);
   el.dataset.m0 = e.start; el.dataset.m1 = e.end;
   el.dataset.ids = grp.map(x => x.id).join(',');
@@ -1442,6 +1456,7 @@ function evElement(grp){
   // jours d'un bloc fusionné : séparés par un pointillé, chacun avec son bouton de synchronisation
   const posJour = (k, dx = 0) => `calc((100% - ${4 * (nd - 1)}px) / ${nd} * ${k} + ${4 * k + dx}px)`;
   for (let k = 1; k < nd; k++){ const sp = document.createElement('div'); sp.className = 'sepjour'; sp.style.left = posJour(k, -2); el.appendChild(sp); }
+  if (agendaActif()) el.classList.add('avec-sync');
   if (agendaActif()) grp.forEach((g, k) => {
     const on = !!gBlocs()[cleBloc(g)], caches = on ? 0 : rdvDuBloc(g.id).length + nbCopies([g]);
     const gb = document.createElement('button'); gb.type = 'button'; gb.className = 'gsync' + (on ? ' on' : '');
@@ -1910,7 +1925,7 @@ function dessinerAgendas(evs){
     const coul = AG_COUL[x.couleur] || x.couleur || AG_COUL.gris;
     const a = Math.max(RS, m0), b = Math.min(RE, m1); if (b <= a) return;
     const el = document.createElement('div'); el.className = 'ext rdvbloc' + (x.modifiable ? ' mod' : ''); el.dataset.cle = x.cle;
-    el.style.top = yOf(a) + 'px'; el.style.height = Math.max(18, hOf(a, b)) + 'px'; el.dataset.m0 = a; el.dataset.m1 = b;
+    el.style.top = yOf(a) + 'px'; el.style.height = Math.max(18, hOf(a, b)) + 'px'; el.dataset.m0 = a; el.dataset.m1 = b; if (hOf(a, b) < 44) el.classList.add('court');
     el.style.left = colX(d); el.style.width = colW(1);
     el.style.setProperty('--agc', coul);
     const n = nbLiens(x.cle);
