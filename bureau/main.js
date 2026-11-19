@@ -315,6 +315,25 @@ ipcMain.handle('modifier-tache', async (evenement, nom, c, mtime) => {
   return { nom: ancien, liens: 0 };
 });
 
+// Faire attendre une tâche : ajoute une tâche dans son blockedBy (format TaskNotes)
+ipcMain.handle('ajouter-bloquant', async (evenement, nom, bloqueur, mtime) => {
+  if (typeof bloqueur !== 'string' || !bloqueur || /[\]\[\n\r"|]/.test(bloqueur)) throw new Error('Tâche invalide.');
+  const tn = reglagesTaskNotes(), cle = champ(tn, 'blockedBy');
+  const { chemin, texte } = await lireVerifie(nom, mtime);
+  const m = texte.match(RE_FM); if (!m) throw new Error('Tâche sans frontmatter.');
+  const lignes = m[1].split(/\r?\n/), i = lignes.findIndex(l => l.startsWith(cle + ':'));
+  const bloc = [`  - uid: "[[${bloqueur}]]"`, '    reltype: FINISHTOSTART'];
+  if (i >= 0) {
+    let j = i + 1; while (j < lignes.length && /^\s+\S/.test(lignes[j])) j++;
+    if (lignes.slice(i + 1, j).some(l => l.includes(`[[${bloqueur}]]`))) return true;
+    lignes.splice(j, 0, ...bloc);
+  } else lignes.push(`${cle}:`, ...bloc);
+  let t = texte.replace(m[0], '---\n' + lignes.join('\n') + '\n---');
+  t = changerCle(t, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, t);
+  return true;
+});
+
 // Rattacher une tâche à une tâche parente (lien dans ses projets, comme les sous-tâches TaskNotes)
 ipcMain.handle('ajouter-parent', async (evenement, nom, parent, mtime) => {
   if (typeof parent !== 'string' || !parent || /[\]\[\n\r"|]/.test(parent)) throw new Error('Tâche parente invalide.');

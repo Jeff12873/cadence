@@ -434,6 +434,16 @@ body.retro .agp{border:2px solid var(--px);box-shadow:2px 2px 0 var(--pxs)}
 .ev .gsync, .ext.rdvbloc .gsync{color:#7a7a85;display:inline-flex;align-items:center;justify-content:center}
 .ev .gsync.on, .ext.rdvbloc .gsync{color:var(--fg, #1a73e8);background:var(--card)}
 body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(--px)}
+.task.focus{animation:liserai .8s ease-in-out 4;outline-offset:2px}
+@keyframes liserai{0%,100%{outline:2px solid transparent}50%{outline:2px solid var(--accent)}}
+.dayhead.flash, .ext.flash, .pi.rdv.flash{animation:flash 1.4s steps(4) 2}
+.task.enfant{margin-left:calc(var(--prof) * 18px);width:calc(100% - var(--prof) * 18px);position:relative}
+.task.enfant::before{content:"";position:absolute;left:-12px;top:-8px;bottom:50%;width:9px;border-left:2px solid color-mix(in srgb, var(--accent) 55%, transparent);border-bottom:2px solid color-mix(in srgb, var(--accent) 55%, transparent)}
+.tm .go{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
+.tm .go:hover{color:var(--accent)}
+.ev.encours .block{outline:2px solid color-mix(in srgb, #E5484D 60%, transparent);outline-offset:1px;animation:encours 3s ease-in-out infinite}
+@keyframes encours{50%{outline-color:color-mix(in srgb, #E5484D 20%, transparent)}}
+#newForm.associer > :not(h3):not(#nLienL):not(#nLien):not(#nRel):not(.actions){display:none !important}
 /* ---------- compteur d'équilibre (panneau de droite) ---------- */
 aside .equilibre{grid-template-columns:118px 1fr;margin:0 0 12px;padding:8px 10px}
 aside .equilibre .eq-cadran{grid-row:1 / span 2;display:flex;flex-direction:column;align-items:center}
@@ -576,7 +586,9 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
 <dialog id="dlgNew">
   <form method="dialog" id="newForm">
     <h3 id="nHead">Nouvelle tâche</h3>
-    <label for="nTitle">Titre</label>
+    <label for="nLien" id="nLienL" class="hidden">Tâche</label>
+    <select id="nLien" class="hidden"></select>
+    <label for="nTitle" id="nTitleL">Titre</label>
     <input type="text" id="nTitle" autocomplete="off" required>
     <label for="nTag">Tag</label>
     <select id="nTag"></select>
@@ -1005,7 +1017,9 @@ const AIDE = [
   <li>Pas de bloc libre ? Garde la tâche 3 secondes au-dessus d'un espace vide : un créneau s'ouvre.</li>
   <li><b>Terminer</b> : clic sur le rond ○ (avec annulation possible).</li>
   <li><b>Modifier</b> : double-clic sur la tâche. <b>Ouvrir dans Obsidian</b> : l'icône violette.</li>
-  <li><b>Tâche liée</b> : dans la fenêtre de modification, <b>⤷ Tâche qui en dépend</b> crée une tâche qui attendra celle-ci ; <b>⤴ Tâche parente</b> crée une tâche dont celle-ci devient une sous-tâche.</li>
+  <li><b>Tâche liée</b> : dans la fenêtre de modification, <b>⤷ Tâche qui en dépend</b> (elle attendra celle-ci) ou <b>⤴ Tâche parente</b> (celle-ci devient sa sous-tâche). Choisis <b>＋ Nouvelle tâche</b> pour la créer, ou une tâche existante pour simplement l'<b>associer</b>.</li>
+  <li>Les sous-tâches s'affichent sous leur parente, en retrait. Les mentions <b>⤴ sous-tâche de</b>, <b>☰ sous-tâches</b>, <b>⛔ attend</b> et <b>⤷ en attente d'elle</b> sont cliquables : la liste défile jusqu'aux tâches concernées, qui clignotent.</li>
+  <li>Un clic sur une tâche fait clignoter son bloc dans l'agenda (ou le jour, ou le rendez-vous auquel elle est rattachée). Une tâche créée ou déplacée clignote aussi, pour la retrouver.</li>
   <li><b>Chercher</b> : la barre <b>Rechercher</b> en haut (ou <b>Ctrl+K</b>) trouve tâches, notes du coffre et blocs ; un clic sur un bloc le fait clignoter dans le calendrier. <b>Échap</b> efface.</li>
   <li><b>Checklist</b> : clique sur une tâche à étapes pour les voir ; glisse une étape sur le calendrier pour en faire une tâche à part.</li></ol>
   <p class="aide-tip">Le groupe <b>📥 À trier</b> rassemble les tâches sans tag : commence par lui. Un clic sur un bloc affiche ses tâches dans le panneau.</p>`},
@@ -1028,6 +1042,7 @@ const AIDE = [
   <li>Si ton compte Google est connecté, <b>désynchroniser</b> un bloc <b>supprime</b> ses rendez-vous Google de l'agenda (Cadence demande d'abord confirmation et en garde une copie) ; le <b>resynchroniser</b> les recrée à l'identique, avec leurs tâches et notes liées. Les agendas iCal sont seulement masqués.</li>
   <li>Un bloc sur plusieurs jours est séparé par des pointillés : chaque jour a sa propre icône et se synchronise à part.</li>
   <li>Sur un bloc de rendez-vous seul, l'icône calendrier le masque (annulable).</li>
+  <li>Le bloc en cours porte un liseré rouge doux ; au démarrage puis chaque heure (si tu ne touches à rien), l'agenda se cale sur l'heure actuelle.</li>
   <li>À côté de la semaine, la pastille <b>📆</b> donne le nombre de rendez-vous chargés (survole-la pour le détail et les rendez-vous masqués). Une pastille rouge <b>⚠ pas d'accès</b> signale un agenda injoignable : clic pour réessayer.</li>
   <li>Rendez-vous Google : glisse pour déplacer, tire le bas pour allonger, double-clic pour le renommer ou le modifier, 🗑 pour le supprimer.</li>
   <li>Glisse une tâche ou une note <b>sur un rendez-vous</b> pour l'y rattacher (📎).</li></ol>
@@ -1339,7 +1354,7 @@ function majVue(){
 // Cases trop petites pour leur contenu : disposition sur une ligne, puis dépliage au survol si besoin
 // Ligne d'un rendez-vous absorbé dans une case
 function ligneRdv(x, m0){
-  const li = document.createElement('div'); li.className = 'pi rdv' + (state.choixRdv === x.cle ? ' choisi' : '');
+  const li = document.createElement('div'); li.className = 'pi rdv' + (state.choixRdv === x.cle ? ' choisi' : ''); li.dataset.cle = x.cle;
   const n = nbLiens(x.cle);
   li.innerHTML = `<span class="rdh">📆 ${fmtMin(m0)}</span> ${esc(x.titre)}${n ? ` · 📎${n}` : ''}`;
   li.title = `${x.agenda} : ${x.titre}${x.lieu ? '\n📍 ' + x.lieu : ''}\nClic : tâches et notes liées · double-clic : ${x.modifiable ? 'modifier' : 'détails'} · glisser une tâche ou une note dessus : la rattacher`;
@@ -1894,7 +1909,7 @@ function dessinerAgendas(evs){
   rdvPar.seuls.filter(r => !masques[r.x.cle] && r.d < NC()).forEach(({x, d, m0, m1}) => {
     const coul = AG_COUL[x.couleur] || x.couleur || AG_COUL.gris;
     const a = Math.max(RS, m0), b = Math.min(RE, m1); if (b <= a) return;
-    const el = document.createElement('div'); el.className = 'ext rdvbloc' + (x.modifiable ? ' mod' : '');
+    const el = document.createElement('div'); el.className = 'ext rdvbloc' + (x.modifiable ? ' mod' : ''); el.dataset.cle = x.cle;
     el.style.top = yOf(a) + 'px'; el.style.height = Math.max(18, hOf(a, b)) + 'px'; el.dataset.m0 = a; el.dataset.m1 = b;
     el.style.left = colX(d); el.style.width = colW(1);
     el.style.setProperty('--agc', coul);
@@ -2155,7 +2170,16 @@ function drawNow(){
   const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.style.left = '-56px';
   lbl.textContent = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
   line.append(t, lbl); evs.appendChild(line);
+  // bloc en cours : liseré doux
+  const enCours = dayEvents(d).find(e => e.start <= mins && mins < e.end);
+  evs.querySelectorAll('.ev.encours').forEach(el => el.classList.remove('encours'));
+  if (enCours){ const el = [...evs.querySelectorAll('.ev')].find(x => (x.dataset.ids || '').split(',').includes(enCours.id)); if (el) el.classList.add('encours'); }
+  // au démarrage puis chaque heure (si tu n'utilises pas Cadence à ce moment-là), l'agenda se cale sur l'heure actuelle
+  const h = now.getHours();
+  if (dernierCalage !== h && Date.now() - derniereAction > 5 * 60000 && !document.querySelector('dialog[open]')){ const premier = dernierCalage === null; dernierCalage = h; line.scrollIntoView({behavior: premier ? 'auto' : 'smooth', block: 'center'}); }
 }
+let dernierCalage = null, derniereAction = 0;
+['pointerdown', 'keydown', 'wheel'].forEach(t => document.addEventListener(t, () => { derniereAction = Date.now(); }, {passive: true}));
 setInterval(drawNow, 60000);
 const OBS = '<svg class="obs" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 2.2 16 3.8l3.4 6.5-2.2 9.6-7.3 2-4.6-6.1 1-8.6z" fill="#7C5CE0"/><path d="M8.6 2.2 16 3.8l-1.8 7.4-7.9-.6z" fill="#A88BFF"/><path d="m6.3 10.6 7.9.6-4.3 10.7-4.6-6.1z" fill="#5B3FC4"/><path d="m14.2 11.2 5.2-.9-2.2 9.6-7.3 2z" fill="#6C4FD6"/></svg>';
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -2275,7 +2299,12 @@ function renderGroup(g, items, container, rerender){
     box.style.setProperty('--fg', `var(--${cat}-fg)`); box.style.setProperty('--bg', `var(--${cat}-bg)`);
     const icG = isEv || isPlan || isQ ? '' : g === A_TRIER ? 'inbox' : isC ? 'map-pin' : isP ? iconeProj(g.slice(2)) : iconeTag(g);
     box.innerHTML = `<h3><span class="gh">${icG ? svgIcone(icG, 14) : ''}${esc(isQ ? '☐ Tâches' : isEv ? '☐ Tâches rattachées' : g === A_TRIER ? 'À trier' : isPlan ? '📌 Prévu ' + keyLabel(pk) : isC ? g.slice(2) : isP ? g.slice(2) : sansEmoji(tagsObj()[g] || g))}</span><span>${gi.filter(t=>!t.blocked).length} prêtes</span></h3>`;
-    gi.forEach(t => {
+    // sous-tâches rangées sous leur parente quand elle est dans le même groupe
+    const parentDans = (t) => (t.projects || []).find(p => p !== t.file && gi.some(x => x.file === p));
+    const ordre = [], vusO = new Set();
+    const ajouter = (t, prof) => { if (vusO.has(t.file)) return; vusO.add(t.file); ordre.push([t, prof]); gi.filter(x => parentDans(x) === t.file).forEach(x => ajouter(x, prof + 1)); };
+    gi.filter(t => !parentDans(t)).forEach(t => ajouter(t, 0)); gi.forEach(t => ajouter(t, 0));
+    ordre.forEach(([t, prof]) => {
       const a = document.createElement('div'); a.className = 'task' + (t.blocked ? ' blocked' : '') + (t.boxes ? ' has-subs' : '');
       const url = `obsidian://open?vault=${encodeURIComponent(VAULT)}&file=${encodeURIComponent(TASK_DIR + t.file)}`;
       const meta = [];
@@ -2287,10 +2316,10 @@ function renderGroup(g, items, container, rerender){
       if (t.recurring) meta.push('↻');
       if (t.status === 'in-progress') meta.push('en cours');
       if ((t.notes || []).length) meta.push(`📝 ${t.notes.length}`);
-      if (t.blocked) meta.push(`⛔ attend : ${t.waitingOn.join(', ')}`);
-      const parents = (t.projects || []).filter(p => tasks.items.some(x => x.file === p)); if (parents.length) meta.push(`⤴ sous-tâche de ${parents.join(', ')}`);
-      const nEnf = tasks.items.filter(x => (x.projects || []).includes(t.file)).length; if (nEnf) meta.push(`☰ ${nEnf} sous-tâche${nEnf > 1 ? 's' : ''}`);
-      const nSuit = tasks.items.filter(x => (x.blockedBy || []).includes(t.file)).length; if (nSuit) meta.push(`⤷ ${nSuit} en attente d'elle`);
+      if (t.blocked) meta.push({txt: `⛔ attend : ${t.waitingOn.join(', ')}`, go: t.waitingOn});
+      const parents = (t.projects || []).filter(p => tasks.items.some(x => x.file === p)); if (parents.length && !prof) meta.push({txt: `⤴ sous-tâche de ${parents.join(', ')}`, go: parents});
+      const enf = tasks.items.filter(x => (x.projects || []).includes(t.file)).map(x => x.file); if (enf.length) meta.push({txt: `☰ ${enf.length} sous-tâche${enf.length > 1 ? 's' : ''}`, go: enf});
+      const suit = tasks.items.filter(x => (x.blockedBy || []).includes(t.file)).map(x => x.file); if (suit.length) meta.push({txt: `⤷ ${suit.length} en attente d'elle`, go: suit});
       const nRep = nbReports(t); if (nRep >= 2) meta.push(`↻ repoussée ${nRep} fois`);
       const wkMan = whereIs(t.file), wkDate = BUREAU && !t.recurring ? Object.keys(dated).find(k => dated[k].includes(t.file)) : null;
       const wk = wkMan || wkDate; if (wkMan && !isPlan) meta.push(`📌 ${keyLabel(wkMan)}`);
@@ -2301,7 +2330,8 @@ function renderGroup(g, items, container, rerender){
       a.innerHTML = `<div class="tt">${BUREAU && !t.recurring ? `<button class="done-btn" title="Valider la tâche"></button>` : ''}${t.boxes ? `<span class="chev">${open ? '▾' : '▸'}</span>` : ''}<span class="prio p${prioN(t.priority)}"${prioColor(t.priority) ? ` style="background:${prioColor(t.priority)}"` : ''}></span><span class="tl">${esc(t.title)}</span>`
         + (wk ? `<button class="unplan" title="Retirer du jour prévu">✕</button>` : '')
         + `<a class="ob" href="${url}" title="Ouvrir dans Obsidian">${OBS}</a></div>`
-        + (meta.length ? `<div class="tm">${meta.map(m=>`<span>${esc(m)}</span>`).join('')}</div>` : '');
+        + (meta.length ? `<div class="tm">${meta.map(m => typeof m === 'string' ? `<span>${esc(m)}</span>` : `<span class="go" data-go="${esc(m.go.join('|'))}" title="Clic : aller à la tâche">${esc(m.txt)}</span>`).join('')}</div>` : '');
+      a.dataset.file = t.file; if (prof){ a.classList.add('enfant'); a.style.setProperty('--prof', prof); }
       if (BUREAU){ const tr = document.createElement('button'); tr.className = 'ttrash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = 'Supprimer la tâche'; a.appendChild(tr); }
       if (BUREAU && nRep >= 2){ a.classList.add('repoussee'); const cu = document.createElement('button'); cu.className = 'tcut'; cu.type = 'button'; cu.textContent = '✂ Juste démarrer'; cu.title = 'Créer une première étape de 15 minutes pour aujourd\'hui'; a.appendChild(cu); }
       if (t.boxes && open){
@@ -2322,10 +2352,12 @@ function renderGroup(g, items, container, rerender){
       }
       a.addEventListener('click', (ev) => {
         if (ev.target.closest('a.ob') || ev.target.closest('.rename')) return;
+        const go = ev.target.closest('.go'); if (go){ ev.stopPropagation(); focusTaches(go.dataset.go.split('|')); return; }
         if (ev.target.closest('.ttrash')){ ev.stopPropagation(); supprimerTache(t); return; }
         if (ev.target.closest('.tcut')){ ev.stopPropagation(); decouper(t); return; }
         if (ev.target.closest('.done-btn')){ ev.stopPropagation(); valider(t); return; }
         if (ev.target.closest('.unplan')){ ev.stopPropagation(); if (wkMan) planTask(t.file, null); else if (BUREAU) ecrire(() => cadence.planifier(t.file, null, t.mtime)); return; }
+        if (!ev.target.closest('.sub')) focusBlocTache(t);
         if (!t.boxes) return;
         open ? expanded.delete(t.file) : expanded.add(t.file); rerender();
       });
@@ -2439,6 +2471,7 @@ async function deposer(file, d, m, evId){
   const valeur = `${isoOf(weekDays[d])}T${hhmm(m)}`;
   if (whereIs(file)) planTask(file, null);
   await ecrire(() => cadence.planifier(file, valeur, t.mtime));
+  const t2 = tasks.items.find(y => y.file === file); if (t2) setTimeout(() => focusBlocTache(t2, true), 50);
 }
 async function chargerConfig(){
   CFG = await cadence.config(); TN = CFG.tasknotes;
@@ -2560,6 +2593,35 @@ $('#q').addEventListener('input', () => { clearTimeout(tRech); tRech = setTimeou
 $('#q').addEventListener('keydown', (e) => { if (e.key === 'Escape'){ e.preventDefault(); effacerRecherche(); $('#q').blur(); } });
 document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K') && !document.querySelector('dialog[open]')){ e.preventDefault(); $('#q').focus(); $('#q').select(); } });
 
+/* ---------- focalisations : défiler jusqu'à un élément et le faire clignoter doucement ---------- */
+function clignoter(els, cls = 'focus'){
+  els = els.filter(Boolean); if (!els.length) return;
+  els[0].scrollIntoView({behavior: 'smooth', block: 'center'});
+  els.forEach(el => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); clearTimeout(el._tc); el._tc = setTimeout(() => el.classList.remove(cls), 3200); });
+}
+// Tâches du panneau (parente, sous-tâches, tâche attendue…) ; si un filtre les cache, on revient à « Toutes »
+function focusTaches(files, discret){
+  if (ongletNotes) basculer(false);
+  const trouve = () => [...document.querySelectorAll('#taskList .task')].filter(a => files.includes(a.dataset.file));
+  let els = trouve();
+  if (els.length < files.length && filter && !filter.startsWith('@q:')){ filter = ''; renderTasks(); els = trouve(); }
+  if (!els.length){ if (!discret) toast('Cette tâche est masquée par les filtres du panneau (placées, datées…).'); return; }
+  clignoter(els);
+}
+// Bloc de l'agenda où la tâche est prévue (ou en-tête du jour, ou rendez-vous auquel elle est rattachée)
+function focusBlocTache(t, discret){
+  const k = whereIs(t.file) || Object.keys(dated).find(x => dated[x].includes(t.file));
+  const els = [];
+  if (k && k.startsWith('day:')) els.push(document.querySelectorAll('#cal .dayhead')[+k.slice(4)]);
+  else if (k) els.push([...document.querySelectorAll('#evs .ev')].find(el => (el.dataset.ids || '').split(',').includes(k)));
+  Object.keys(state.liensRdv || {}).filter(c => (liensRdv(c).taches || []).includes(t.file))
+    .forEach(c => document.querySelectorAll('#evs [data-cle]').forEach(el => { if (el.dataset.cle === c) els.push(el); }));
+  const ok = els.filter(Boolean);
+  if (!ok.length){ if (!discret && !t.boxes) toast('Pas encore prévue cette semaine : glisse-la sur un bloc.'); return; }
+  ok[0].scrollIntoView({behavior: 'smooth', block: 'center'});
+  ok.forEach(el => { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); });
+}
+
 /* ---------- points d'expérience ---------- */
 const seuilNiv = (n) => 25 * n * (n - 1) * 2;                    // XP pour atteindre le niveau n (1 → 0, 2 → 50, 3 → 150, 4 → 300…)
 const niveauDe = (x) => { let n = 1; while (x >= seuilNiv(n + 1)) n++; return n; };
@@ -2600,9 +2662,27 @@ function creerRelation(type){
   if (tg && [...$('#nTag').options].some(o => o.value === tg)) $('#nTag').value = tg;
   if (pr && [...$('#nProj').options].some(o => o.value === pr)) $('#nProj').value = pr;
   $('#nHead').textContent = type === 'dep' ? 'Tâche qui en dépend' : 'Tâche parente';
-  $('#nRel').textContent = type === 'dep' ? `Elle attendra que « ${t.title} » soit faite.` : `« ${t.title} » deviendra une de ses sous-tâches.`;
   $('#nRel').classList.remove('hidden');
+  // tâches existantes proposées (sans la tâche elle-même ni ce qui créerait une boucle)
+  const items = tasks.items, enfants = (f) => items.filter(x => (x.projects || []).includes(f)).map(x => x.file);
+  const desc = new Set(), pile = [t.file]; while (pile.length){ const f = pile.pop(); enfants(f).forEach(c => { if (!desc.has(c)){ desc.add(c); pile.push(c); } }); }
+  const attend = new Set(), pile2 = [...(t.blockedBy || [])]; while (pile2.length){ const f = pile2.pop(); if (attend.has(f)) continue; attend.add(f); const x = items.find(y => y.file === f); if (x) pile2.push(...(x.blockedBy || [])); }
+  const exclus = type === 'par' ? new Set([t.file, ...(t.projects || []), ...desc]) : new Set([t.file, ...attend, ...items.filter(x => (x.blockedBy || []).includes(t.file)).map(x => x.file)]);
+  const sel = $('#nLien'); sel.innerHTML = ''; sel.add(new Option('＋ Nouvelle tâche', ''));
+  items.filter(x => !exclus.has(x.file)).sort((a, b) => a.title.localeCompare(b.title, 'fr')).forEach(x => sel.add(new Option(x.title, x.file)));
+  sel.value = ''; sel.classList.remove('hidden'); $('#nLienL').classList.remove('hidden');
+  majLien();
 }
+function majLien(){
+  const r = relation; if (!r) return;
+  const v = $('#nLien').value, x = v && tasks.items.find(y => y.file === v);
+  $('#newForm').classList.toggle('associer', !!v); $('#nTitle').required = !v;
+  $('#nOk').textContent = v ? 'Associer' : 'Créer';
+  const nom = x ? `« ${x.title} »` : 'Elle';
+  $('#nRel').textContent = r.type === 'dep' ? `${nom} attendra que « ${r.t.title} » soit faite.` : (x ? `« ${r.t.title} » deviendra une sous-tâche de ${nom}.` : `« ${r.t.title} » deviendra une de ses sous-tâches.`);
+  if (!v) setTimeout(() => $('#nTitle').focus(), 0);
+}
+$('#nLien').onchange = majLien;
 $('#nDep').onclick = () => creerRelation('dep');
 $('#nPar').onclick = () => creerRelation('par');
 
@@ -3022,6 +3102,7 @@ let tacheEditee = null;
 $('#btnNewTask').onclick = () => ouvrirTache(null);
 function ouvrirTache(te){
   tacheEditee = te; relation = null;
+  $('#nLien').classList.add('hidden'); $('#nLienL').classList.add('hidden'); $('#nLien').value = ''; $('#newForm').classList.remove('associer'); $('#nTitle').required = true;
   $('#nRel').classList.add('hidden'); $('#nLiens').classList.toggle('hidden', !(te && BUREAU));
   const nTag = $('#nTag'), nProj = $('#nProj'), nPrio = $('#nPrio'), nDay = $('#nDay');
   nTag.innerHTML = ''; Object.entries(tagsObj()).forEach(([k, v]) => nTag.add(new Option(v, k)));
@@ -3056,6 +3137,15 @@ function ouvrirTache(te){
 $('#nCancel').onclick = () => $('#dlgNew').close();
 $('#newForm').onsubmit = async (e) => {
   e.preventDefault();
+  if (relation && $('#nLien').value){
+    const r = relation, v = $('#nLien').value, x = tasks.items.find(y => y.file === v);
+    try {
+      if (r.type === 'par'){ const cur = tasks.items.find(y => y.file === r.t.file) || r.t; await cadence.ajouterParent(r.t.file, v, cur.mtime); toast(`⤴ « ${r.t.title} » est maintenant une sous-tâche de « ${x ? x.title : v} ».`); }
+      else { await cadence.ajouterBloquant(v, r.t.file, x && x.mtime); toast(`⤷ « ${x ? x.title : v} » attendra « ${r.t.title} ».`); }
+      $('#dlgNew').close();
+    } catch(err){ alert(messageErreur(err)); }
+    relation = null; tacheEditee = null; await chargerTaches(); focusTaches([r.t.file, v], true); return;
+  }
   const jour = $('#nDay').value, heure = $('#nTime').value.trim().replace('h', ':');
   if (heure && !/^\d{1,2}:\d{2}$/.test(heure)){ alert('Heure au format 14:00'); return; }
   const planifie = jour ? jour + (heure ? 'T' + heure.padStart(5, '0') : '') : null;
@@ -3068,7 +3158,7 @@ $('#newForm').onsubmit = async (e) => {
       toast(`✏️ « ${r.nom} » mise à jour${r.liens ? ` · liens mis à jour dans ${r.liens} note${r.liens > 1 ? 's' : ''}` : ''}.`);
     } else {
       const rel = relation; if (rel && rel.type === 'dep') t.bloquePar = [rel.t.file];
-      const nom = await cadence.creerTache(t); if (tacheDepuisNote) await lierSelectionNote(nom);
+      const nom = await cadence.creerTache(t); aFocaliser = nom; if (tacheDepuisNote) await lierSelectionNote(nom);
       if (rel && rel.type === 'par'){ const x = tasks.items.find(y => y.file === rel.t.file) || rel.t; await cadence.ajouterParent(rel.t.file, nom, x.mtime); }
       if (rel) toast(rel.type === 'dep' ? `⤷ « ${nom} » attendra « ${rel.t.title} ».` : `⤴ « ${rel.t.title} » est maintenant une sous-tâche de « ${nom} ».`);
     }
@@ -3077,7 +3167,9 @@ $('#newForm').onsubmit = async (e) => {
   } catch(err){ alert(messageErreur(err)); }
   tacheEditee = null;
   await chargerTaches();
+  if (aFocaliser){ const f = aFocaliser; aFocaliser = null; focusTaches([f], true); const t2 = tasks.items.find(y => y.file === f); if (t2) focusBlocTache(t2, true); }
 };
+let aFocaliser = null;
 
 /* réglages */
 function ouvrirReglages(premier){

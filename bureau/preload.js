@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('cadence', {
   planifier: (nom, valeur, mtime) => ipcRenderer.invoke('planifier', nom, valeur, mtime),
   creerTache: (tache) => ipcRenderer.invoke('creer-tache', tache),
   ajouterParent: (nom, parent, mtime) => ipcRenderer.invoke('ajouter-parent', nom, parent, mtime),
+  ajouterBloquant: (nom, bloqueur, mtime) => ipcRenderer.invoke('ajouter-bloquant', nom, bloqueur, mtime),
   chercherNotes: (q) => ipcRenderer.invoke('chercher-notes', q),
   modifierTache: (nom, champs, mtime) => ipcRenderer.invoke('modifier-tache', nom, champs, mtime),
   terminer: (nom, mtime) => ipcRenderer.invoke('terminer', nom, mtime),
