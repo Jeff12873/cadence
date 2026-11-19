@@ -320,6 +320,8 @@ label.chk{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:13p
 .ext .eb b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dayhead .agchip{display:block;margin-top:3px;font-size:10px;font-weight:600;letter-spacing:0;background:rgba(255,255,255,.18);border-radius:6px;padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ext{cursor:pointer}
+.chev{position:absolute;box-sizing:border-box;z-index:7;pointer-events:none;border:2px solid #E5484D;border-radius:4px;background:repeating-linear-gradient(135deg,rgba(229,72,77,.22) 0 6px,rgba(229,72,77,.06) 6px 12px)}
+.chev i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:auto;cursor:help;font-style:normal;font-weight:700;font-size:11px;width:16px;height:16px;line-height:16px;text-align:center;border-radius:50%;background:#E5484D;color:#fff;box-shadow:0 0 0 2px var(--card)}
 .ext.mod{cursor:grab}
 .ext.lifted{opacity:.35}
 .ext.cible .eb,.ext.choisi .eb{box-shadow:0 0 0 2px var(--accent)}
@@ -434,6 +436,8 @@ body.retro .agp{border:2px solid var(--px);box-shadow:2px 2px 0 var(--pxs)}
 .ev .gsync, .ext.rdvbloc .gsync{color:#7a7a85;display:inline-flex;align-items:center;justify-content:center}
 .ev .gsync.on, .ext.rdvbloc .gsync{color:var(--fg, #1a73e8);background:var(--card)}
 body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(--px)}
+.chev.focus{animation:chevclign .8s ease-in-out 4}
+@keyframes chevclign{50%{background:rgba(229,72,77,.5)}}
 .task.focus{animation:liserai .8s ease-in-out 4;outline-offset:2px}
 @keyframes liserai{0%,100%{outline:2px solid transparent}50%{outline:2px solid var(--accent)}}
 .dayhead.flash, .ext.flash, .pi.rdv.flash{animation:flash 1.4s steps(4) 2}
@@ -1088,6 +1092,7 @@ const AIDE = [
  {t: '6. Agendas et Google', h: `<p>Dans <b>⚙️ Réglages → Agendas</b>, ajoute tes agendas (lien iCal) et connecte ton <b>Google Agenda</b>.</p>
   <ol><li>Chaque rendez-vous va dans le <b>bloc</b> qu'il chevauche, sous forme de ligne 📆. S'il ne tombe sur aucun bloc, il forme son <b>propre bloc</b> pour ce jour-là.</li>
   <li>L'<b>icône calendrier</b> en bas à gauche de chaque jour d'un bloc : grisée = bloc non synchronisé, ses rendez-vous sont masqués (une petite pastille dit combien ; un rendez-vous qui déborde surtout hors du bloc reste toujours affiché) ; en couleurs = synchronisé : ses rendez-vous s'affichent et le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu).</li>
+  <li><b>Chevauchements</b> : quand deux blocs, ou un bloc et un rendez-vous, se recouvrent, la zone commune est hachurée en <b>rouge</b> avec un <b>!</b> (survole-le pour voir lesquels). Rien n'est interdit : c'est à toi d'ajuster. À chaque ouverture de Cadence, une notification liste ceux qui restent à venir dans la semaine ; « Voir » les fait clignoter.</li>
   <li>Si ton compte Google est connecté, <b>désynchroniser</b> un bloc <b>supprime</b> ses rendez-vous Google de l'agenda (Cadence demande d'abord confirmation et en garde une copie) ; le <b>resynchroniser</b> les recrée à l'identique, avec leurs tâches et notes liées. Les agendas iCal sont seulement masqués.</li>
   <li>Un bloc sur plusieurs jours est séparé par des pointillés : chaque jour a sa propre icône et se synchronise à part.</li>
   <li>Sur un bloc de rendez-vous seul, l'icône calendrier le masque (annulable).</li>
@@ -1343,6 +1348,7 @@ function renderCal(){
   installerAgenda(evs);
   ajusterCases(evs);
   dessinerAgendas(evs);
+  dessinerChevauchements(evs);
   renderEtatAgendas();
   planifierSyncBlocs();
   renderEquilibre();
@@ -1885,7 +1891,7 @@ async function chargerAgendas(force){
   if (!BUREAU) return;
   try { AG = await cadence.agendasGet(); } catch(e){ return; }
   const googleOn = AG.google && AG.google.connecte;
-  if (!AG.agendas.length && !googleOn){ extEv = []; renderCal(); return; }
+  if (!AG.agendas.length && !googleOn){ extEv = []; renderCal(); setTimeout(notifierChevauchements, 2500); return; }
   const de = new Date(weekDays[0]); de.setHours(0, 0, 0, 0); const a = new Date(de); a.setDate(a.getDate() + 7);
   const cle = isoOf(de);
   if (!force && cle === extSemaine && extEv.length) return;
@@ -1911,6 +1917,7 @@ async function chargerAgendas(force){
   extEv = gg.concat(ics); extSemaine = cle;
   const err = extEv.filter(x => x.erreur); if (err.length) console.warn('agendas', err.map(x => x.erreur).join(' ; '));
   renderCal();
+  setTimeout(notifierChevauchements, 2500);
 }
 let rdvPar = {absorbes: {}, seuls: []}, etatAgendas = [], tReessai = null, listeGoogle = null;
 // Menu de la pastille 📆 : cocher / décocher un agenda l'affiche ou le masque tout de suite
@@ -2021,6 +2028,42 @@ function dessinerAgendas(evs){
     evs.appendChild(el);
   });
 }
+/* ---------- Chevauchements : rien n'est interdit, on signale ---------- */
+// Pour chaque jour affiché : paires de blocs / rendez-vous (affichés seuls) qui se recouvrent
+function chevauchements(){
+  const out = [], masques = state.rdvMasques || {};
+  for (let d = 0; d < NC(); d++){
+    const l = dayEvents(d).map(e => ({a: e.start, b: e.end, nom: e.title || 'Bloc', bloc: e.id}))
+      .concat(rdvPar.seuls.filter(r => r.d === d && !masques[r.x.cle]).map(r => ({a: r.m0, b: r.m1, nom: '📆 ' + r.x.titre, rdv: r.x.cle})));
+    for (let i = 0; i < l.length; i++) for (let j = i + 1; j < l.length; j++){
+      const a = Math.max(l[i].a, l[j].a), b = Math.min(l[i].b, l[j].b);
+      if (b > a) out.push({d, a, b, noms: [l[i].nom, l[j].nom]});
+    }
+  }
+  return out;
+}
+function dessinerChevauchements(evs){
+  chevauchements().forEach(c => {
+    const a = Math.max(RS, c.a), b = Math.min(RE, c.b); if (b <= a) return;
+    const el = document.createElement('div'); el.className = 'chev'; el.dataset.m0 = a; el.dataset.m1 = b;
+    el.style.top = yOf(a) + 'px'; el.style.height = hOf(a, b) + 'px'; el.style.left = colX(c.d); el.style.width = colW(1);
+    el.innerHTML = `<i title="Chevauchement ${fmtMin(c.a)} – ${fmtMin(c.b)} :\n${esc(c.noms[0])}\n${esc(c.noms[1])}">!</i>`;
+    evs.appendChild(el);
+  });
+}
+// Au début de chaque session : une notification si des chevauchements restent à venir cette semaine
+let chevNotifie = false;
+function notifierChevauchements(){
+  if (chevNotifie) return;
+  if (document.querySelector('dialog[open]')){ setTimeout(notifierChevauchements, 3000); return; }
+  chevNotifie = true;
+  const auj = new Date(); auj.setHours(0, 0, 0, 0);
+  const l = chevauchements().filter(c => weekDays[c.d] >= auj); if (!l.length) return;
+  const j = (c) => weekDays[c.d].toLocaleDateString('fr-FR', {weekday: 'short'});
+  toast(`⚠ ${l.length} chevauchement${l.length > 1 ? 's' : ''} cette semaine : ` + l.slice(0, 3).map(c => `${j(c)} ${fmtMin(c.a)} (${c.noms.map(n => n.replace(/^📆 /, '')).join(' / ')})`).join(' · ') + (l.length > 3 ? '…' : ''),
+    'Voir', () => { const els = [...document.querySelectorAll('#cal .chev')]; if (els[0]) els[0].scrollIntoView({block: 'center', behavior: 'smooth'}); clignoter(els); });
+}
+
 const dtLocal = (jour, min) => { const p = (v) => String(v).padStart(2, '0'); const d = new Date(jour); d.setHours(0, 0, 0, 0); d.setMinutes(min); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`; };
 function installerRdv(el, x, d, evs){
   el.addEventListener('click', (ev) => { if (ev.target.closest('.etrash') || document.body.classList.contains('dragging-ev')) return; filtrerRdv(x); });
