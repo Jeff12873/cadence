@@ -237,6 +237,28 @@ ipcMain.handle('planifier', async (evenement, nom, valeur, mtime) => {
   return true;
 });
 
+// Déplacer une tâche récurrente : nouvelle date prévue + règle décalée (toutes les prochaines échéances suivent)
+ipcMain.handle('planifier-recurrente', async (evenement, nom, valeur, regle, mtime) => {
+  if (!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(valeur || '')) throw new Error('Date invalide.');
+  if (!/^[A-Z0-9=;:,+-]+$/.test(regle || '')) throw new Error('Règle de récurrence invalide.');
+  const tn = reglagesTaskNotes();
+  const { chemin, texte } = await lireVerifie(nom, mtime);
+  const fm = (texte.match(RE_FM) || [, ''])[1];
+  const lire = (cle) => { const m = fm.match(new RegExp(`^${cle}:\\s*["']?([^"'\\n]*)`, 'm')); return m ? m[1].trim() : ''; };
+  let nouveau = changerCle(texte, champ(tn, 'scheduled'), valeur);
+  nouveau = changerCle(nouveau, champ(tn, 'recurrence'), regle);
+  // fin prévue (scheduledEnd) : on garde la même durée
+  const ancien = lire(champ(tn, 'scheduled')), fin = lire('scheduledEnd');
+  if (fin && ancien.length > 10 && fin.length > 10 && valeur.length > 10) {
+    const dur = new Date(fin) - new Date(ancien), d = new Date(new Date(valeur).getTime() + dur), p = (v) => String(v).padStart(2, '0');
+    if (dur > 0) nouveau = changerCle(nouveau, 'scheduledEnd', `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`);
+  }
+  nouveau = regleRappel(nouveau, tn, valeur);
+  nouveau = changerCle(nouveau, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, nouveau);
+  return true;
+});
+
 // Remplacer la n-ième case « - [ ] » du corps par un simple lien (ligne extraite en tâche)
 ipcMain.handle('remplacer-ligne', async (evenement, nom, index, lien, mtime) => {
   if (typeof lien !== 'string' || /[\n\r]/.test(lien)) throw new Error('Lien invalide.');
