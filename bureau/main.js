@@ -663,9 +663,13 @@ ipcMain.handle('meteo-lieu', async (evenement, nom) => {
   return (d.results || []).map(x => ({ nom: x.name, region: [x.admin2, x.admin1, x.country].filter(Boolean).join(', '), lat: x.latitude, lon: x.longitude }));
 });
 
-// --- Agendas externes (lecture iCal) et Google Agenda (envoi) ---------------------------------
-const etatGoogle = () => { const g = config.google || {}; const sim = process.env.CADENCE_FAUX_GOOGLE === '1'; return { configure: !!(g.clientId && g.clientSecret) || sim, connecte: !!g.refreshToken || sim, simule: sim, clientId: g.clientId || '', calendarId: g.calendarId || 'primary', cible: g.cible || g.calendarId || 'primary', lus: g.lus || [g.calendarId || 'primary'] }; };
-ipcMain.handle('agendas-get', () => ({ agendas: (config.agendas || []).map(a => ({ nom: a.nom, couleur: a.couleur || '', url: a.url, masque: !!a.masque })), google: etatGoogle() }));
+// --- Google Agenda ---------------------------------------------------------------------------
+// Identifiants OAuth intégrés à la construction (bureau/google-client.json, créé par le build à partir
+// des secrets GitHub, jamais dans le dépôt). Une configuration locale (anciens réglages) reste prioritaire.
+const CLIENT_GOOGLE = (() => { try { const c = JSON.parse(fs.readFileSync(path.join(__dirname, 'google-client.json'), 'utf8')); return c.id && c.secret ? c : null; } catch { return null; } })();
+const googleCfg = () => { const g = config.google || {}; return { ...g, clientId: g.clientId || (CLIENT_GOOGLE && CLIENT_GOOGLE.id) || '', clientSecret: g.clientSecret || (CLIENT_GOOGLE && CLIENT_GOOGLE.secret) || '' }; };
+const etatGoogle = () => { const g = googleCfg(); const sim = process.env.CADENCE_FAUX_GOOGLE === '1'; return { configure: !!(g.clientId && g.clientSecret) || sim, connecte: !!g.refreshToken || sim, simule: sim, clientId: g.clientId || '', calendarId: g.calendarId || 'primary', cible: g.cible || g.calendarId || 'primary', lus: g.lus || [g.calendarId || 'primary'] }; };
+ipcMain.handle('agendas-get', () => ({ agendas: [], google: etatGoogle() }));   // les agendas iCal ne sont plus utilisés : tout passe par Google
 // Afficher / masquer à la volée un agenda iCal (par son nom) ou un agenda Google (par son identifiant)
 ipcMain.handle('agenda-afficher', async (evenement, type, cle, afficher) => {
   if (type === 'ical') { const a = (config.agendas || []).find(x => x.nom === cle); if (a) { if (afficher) delete a.masque; else a.masque = true; } }
@@ -683,7 +687,7 @@ const FAUX_AGENDAS = [{ id: 'primary', nom: 'Perso', couleur: '#4285F4', princip
 ipcMain.handle('google-agendas', async () => {
   if (simule()) return FAUX_AGENDAS;
   if (!config.google || !config.google.refreshToken) return [];
-  const l = await agendas.listerAgendasGoogle(config.google);
+  const l = await agendas.listerAgendasGoogle(googleCfg());
   config.google.infos = Object.fromEntries(l.map(x => [x.id, { nom: x.nom, couleur: x.couleur, ecriture: x.ecriture }])); await enregistrerConfig();
   return l;
 });
@@ -701,13 +705,13 @@ ipcMain.handle('google-reglages', async (evenement, clientId, clientSecret, cale
   await enregistrerConfig(); return etatGoogle();
 });
 ipcMain.handle('google-connecter', async () => {
-  const rt = await agendas.connecterGoogle(config.google);
+  const rt = await agendas.connecterGoogle(googleCfg());
   config.google = { ...config.google, refreshToken: rt }; await enregistrerConfig(); return etatGoogle();
 });
 ipcMain.handle('google-deconnecter', async () => { if (config.google) delete config.google.refreshToken; await enregistrerConfig(); return etatGoogle(); });
 // Envoie (crée ou met à jour) l'évènement d'une tâche et retient son identifiant dans la tâche (clé cadenceGoogle)
 ipcMain.handle('google-envoyer', async (evenement, nom, ev, mtime) => {
-  const id = await agendas.envoyerEvenement(config.google, { ...ev, fuseau: Intl.DateTimeFormat().resolvedOptions().timeZone });
+  const id = await agendas.envoyerEvenement(googleCfg(), { ...ev, fuseau: Intl.DateTimeFormat().resolvedOptions().timeZone });
   if (id !== ev.id) {
     const { chemin, texte } = await lireVerifie(nom, null);
     await ecrireAtomique(chemin, changerCle(texte, 'cadenceGoogle', id));
@@ -716,7 +720,7 @@ ipcMain.handle('google-envoyer', async (evenement, nom, ev, mtime) => {
   return id;
 });
 ipcMain.handle('google-retirer', async (evenement, nom, id) => {
-  if (id && id !== 'oui') { await agendas.supprimerEvenement(config.google, id); if (config.googleSync) delete config.googleSync[id]; await enregistrerConfig(); }
+  if (id && id !== 'oui') { await agendas.supprimerEvenement(googleCfg(), id); if (config.googleSync) delete config.googleSync[id]; await enregistrerConfig(); }
   if (nom) { try { const { chemin, texte } = await lireVerifie(nom, null); await ecrireAtomique(chemin, changerCle(texte, 'cadenceGoogle', null)); } catch { /* tâche supprimée */ } }
   return true;
 });
@@ -736,7 +740,7 @@ function fauxGoogle() {
 }
 const simule = () => process.env.CADENCE_FAUX_GOOGLE === '1';
 ipcMain.handle('google-lire', async (evenement, de, a) => {
-  const g = config.google || {}, lus = g.lus || [g.calendarId || 'primary'];
+  const g = googleCfg(), lus = g.lus || [g.calendarId || 'primary'];
   if (simule()) { const inf = Object.fromEntries(FAUX_AGENDAS.map(x => [x.id, x])); return fauxGoogle().filter(x => lus.includes(x.cal) && x.fin > de && x.debut < a).map(x => ({ ...x, agenda: inf[x.cal].nom, couleur: inf[x.cal].couleur, modifiable: inf[x.cal].ecriture })); }
   if (!g.refreshToken) return [];
   const infos = g.infos || {};
@@ -745,7 +749,7 @@ ipcMain.handle('google-lire', async (evenement, de, a) => {
 });
 ipcMain.handle('google-modifier', async (evenement, id, c, cal) => {
   if (simule()) { const x = fauxGoogle().find(y => y.id === id); Object.assign(x, Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined))); return x; }
-  return agendas.modifierRdv(config.google, id, { ...c, fuseau: fuseau() }, cal);
+  return agendas.modifierRdv(googleCfg(), id, { ...c, fuseau: fuseau() }, cal);
 });
 ipcMain.handle('google-creer', async (evenement, c, cal) => {
   const g = config.google || {}, dest = cal || g.cible || g.calendarId || 'primary';
@@ -756,16 +760,16 @@ ipcMain.handle('google-creer', async (evenement, c, cal) => {
 let fauxBlocs = {};
 ipcMain.handle('google-bloc', async (evenement, ev) => {
   if (simule()) { const id = ev.id && fauxBlocs[ev.id] ? ev.id : 'b' + Date.now() + Math.random().toString(36).slice(2, 5); fauxBlocs[id] = { ...ev, id }; return id; }
-  return agendas.envoyerEvenement(config.google, { ...ev, fuseau: fuseau() });
+  return agendas.envoyerEvenement(googleCfg(), { ...ev, fuseau: fuseau() });
 });
 ipcMain.handle('google-bloc-retirer', async (evenement, id, cal) => {
   if (simule()) { delete fauxBlocs[id]; return true; }
-  await agendas.supprimerEvenement(config.google, id, cal); return true;
+  await agendas.supprimerEvenement(googleCfg(), id, cal); return true;
 });
 ipcMain.handle('google-blocs-simules', () => simule() ? fauxBlocs : null);
 ipcMain.handle('google-supprimer', async (evenement, id, cal) => {
   if (simule()) { faux = fauxGoogle().filter(y => y.id !== id); return true; }
-  await agendas.supprimerRdv(config.google, id, cal); return true;
+  await agendas.supprimerRdv(googleCfg(), id, cal); return true;
 });
 
 ipcMain.handle('copier', (evenement, texte) => { if (typeof texte === 'string' && texte.length < 500) clipboard.writeText(texte); return true; });

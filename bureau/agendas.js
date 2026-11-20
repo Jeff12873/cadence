@@ -114,11 +114,12 @@ async function lireAgendas(agendas, deIso, aIso) {
 
 /* ------------------------------------------------------------ Google OAuth */
 
-const SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+// rendez-vous (lecture/écriture) + liste des agendas du compte
+const SCOPE = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly';
 let jeton = null;   // {acces, expire}
 
 function connecterGoogle(g) {
-  if (!g || !g.clientId || !g.clientSecret) return Promise.reject(new Error("Renseigne d'abord l'identifiant et le secret OAuth."));
+  if (!g || !g.clientId || !g.clientSecret) return Promise.reject(new Error("Cette version de Cadence n'a pas d'accès Google intégré : mets-la à jour."));
   const verif = crypto.randomBytes(32).toString('base64url');
   const defi = crypto.createHash('sha256').update(verif).digest('base64url');
   const etat = crypto.randomBytes(12).toString('hex');

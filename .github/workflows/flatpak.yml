@@ -41,6 +41,19 @@ jobs:
       - name: Version
         run: npm version "1.0.${{ github.run_number }}" --no-git-tag-version --allow-same-version
 
+      # Identifiants OAuth Google (secrets du dépôt) : écrits seulement dans le paquet, jamais dans le dépôt
+      - name: Accès Google
+        env:
+          ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          if [ -n "$ID" ] && [ -n "$SECRET" ]; then
+            node -e 'require("fs").writeFileSync("bureau/google-client.json", JSON.stringify({id: process.env.ID, secret: process.env.SECRET}))'
+            echo "Accès Google intégré"
+          else
+            echo "::warning::Secrets GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET absents : pas de bouton Google fonctionnel"
+          fi
+
       - name: Cadence.flatpak
         run: PUBLIER=1 sh outils/flatpak.sh
 
