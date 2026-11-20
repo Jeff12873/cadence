@@ -320,8 +320,8 @@ label.chk{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:13p
 .ext .eb b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dayhead .agchip{display:block;margin-top:3px;font-size:10px;font-weight:600;letter-spacing:0;background:rgba(255,255,255,.18);border-radius:6px;padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ext{cursor:pointer}
-.chev{position:absolute;box-sizing:border-box;z-index:7;pointer-events:none;border:2px solid #E5484D;border-radius:4px;background:repeating-linear-gradient(135deg,rgba(229,72,77,.22) 0 6px,rgba(229,72,77,.06) 6px 12px)}
-.chev i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:auto;cursor:help;font-style:normal;font-weight:700;font-size:11px;width:16px;height:16px;line-height:16px;text-align:center;border-radius:50%;background:#E5484D;color:#fff;box-shadow:0 0 0 2px var(--card)}
+.chevauche{position:absolute;box-sizing:border-box;z-index:7;pointer-events:none;border:2px solid #E5484D;border-radius:4px;background:repeating-linear-gradient(135deg,rgba(229,72,77,.22) 0 6px,rgba(229,72,77,.06) 6px 12px)}
+.chevauche i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:auto;cursor:help;font-style:normal;font-weight:700;font-size:11px;width:16px;height:16px;line-height:16px;text-align:center;border-radius:50%;background:#E5484D;color:#fff;box-shadow:0 0 0 2px var(--card)}
 .ext.mod{cursor:grab}
 .ext.lifted{opacity:.35}
 .ext.cible .eb,.ext.choisi .eb{box-shadow:0 0 0 2px var(--accent)}
@@ -436,7 +436,7 @@ body.retro .agp{border:2px solid var(--px);box-shadow:2px 2px 0 var(--pxs)}
 .ev .gsync, .ext.rdvbloc .gsync{color:#7a7a85;display:inline-flex;align-items:center;justify-content:center}
 .ev .gsync.on, .ext.rdvbloc .gsync{color:var(--fg, #1a73e8);background:var(--card)}
 body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(--px)}
-.chev.focus{animation:chevclign .8s ease-in-out 4}
+.chevauche.focus{animation:chevclign .8s ease-in-out 4}
 @keyframes chevclign{50%{background:rgba(229,72,77,.5)}}
 .task.focus{animation:liserai .8s ease-in-out 4;outline-offset:2px}
 @keyframes liserai{0%,100%{outline:2px solid transparent}50%{outline:2px solid var(--accent)}}
@@ -997,6 +997,8 @@ let hide = (() => { try { return Object.assign({placed:false, blocked:false, lat
 const LATER_DAYS = 30;
 const isLater = (t) => { const src = (t.scheduled || t.due || '').slice(0, 10); if (!src) return false; const lim = new Date(); lim.setDate(lim.getDate() + LATER_DAYS); return src > isoOf(lim); };
 const expanded = new Set();
+// Temporisations (ms) : réglées en un seul endroit
+const TEMPO = {plus: 800, ouvrirEnGlissant: 1200, toast: 4500, toastAction: 6500, clignote: 2400};
 const rid = () => Math.random().toString(36).slice(2, 9);
 let minuteurPersist = null;
 function persist(){
@@ -1059,7 +1061,7 @@ const AIDE = [
   <li>Ta semaine est enregistrée dans un fichier du coffre (par défaut <code>Cadence.json</code>), donc synchronisée comme le reste de tes notes.</li></ol>
   <p class="aide-tip">Toute modification faite dans Obsidian apparaît en direct dans Cadence, et inversement.</p>`},
  {t: '2. La semaine type : les blocs', h: `<p>Un <b>bloc</b> est un créneau de ta semaine : « Bilan de compétences 9h–11h », « Courses », « Cardio boxe »…</p>
-  <ol><li><b>Créer</b> : laisse la souris 3 secondes sur un espace vide, un <b>＋</b> apparaît ; clique dessus.</li>
+  <ol><li><b>Créer</b> : laisse la souris un instant (moins d’une seconde) sur un espace vide, un <b>＋</b> apparaît ; clique dessus.</li>
   <li><b>Modifier</b> : double-clic sur le bloc (titre, horaires, catégorie, tag ou projet, jours).</li>
   <li><b>Déplacer</b> : glisse le bloc. <b>Étirer</b> : tire son bord du bas (par pas de 15 min).</li>
   <li><b>Supprimer</b> : survole-le puis 🗑 ; une notification permet d'<b>annuler</b>.</li></ol>
@@ -1069,7 +1071,7 @@ const AIDE = [
  {t: '3. Les tâches', h: `<p>Le panneau de droite <b>Mes tâches</b> liste tes tâches ouvertes, groupées par tag. Les filtres en haut (tags, projets, lieux, Aujourd'hui, À trier) réduisent la liste.</p>
   <ol><li><b>Créer</b> : bouton <b>＋ Tâche</b>.</li>
   <li><b>Planifier</b> : glisse la tâche sur un bloc du calendrier. Elle reçoit la date et l'heure, avec un rappel 30 min avant.</li>
-  <li>Pas de bloc libre ? Garde la tâche 3 secondes au-dessus d'un espace vide : un créneau s'ouvre.</li>
+  <li>Pas de bloc libre ? Garde la tâche un peu plus d’une seconde au-dessus d'un espace vide : un créneau s'ouvre.</li>
   <li><b>Terminer</b> : clic sur le rond ○ (avec annulation possible).</li>
   <li><b>Modifier</b> : double-clic sur la tâche. <b>Ouvrir dans Obsidian</b> : l'icône violette.</li>
   <li><b>Tâche liée</b> : dans la fenêtre de modification, <b>⤷ Tâche qui en dépend</b> (elle attendra celle-ci) ou <b>⤴ Tâche parente</b> (celle-ci devient sa sous-tâche). Choisis <b>＋ Nouvelle tâche</b> pour la créer, ou une tâche existante pour simplement l'<b>associer</b>.</li>
@@ -1522,7 +1524,7 @@ function evElement(grp){
   return el;
 }
 
-/* ---------- interactions : étirer, déplacer (appui 3 s), « + » au survol, créneau ouvert en glissant une tâche ---------- */
+/* ---------- interactions : étirer, déplacer, « + » au survol, créneau ouvert en glissant une tâche ---------- */
 function posAgenda(evs, x, y){
   const r = evs.getBoundingClientRect();
   const cw = (r.width - 4 * (NC() - 1)) / NC(), px = x - r.left, py = y - r.top;
@@ -1645,7 +1647,7 @@ function cibleDepot(d, m, t, alt){
   const v = voisinFusion(d, m, t);
   if (v) return {ok: true, v, label: `dans « ${v.e.title} » (agrandi) à ${fmtMin(Math.max(m, v.e.start))}`};
   const fin = finCase(d, m);
-  if (fin - m < SNAP) return {ok: false, msg: 'Pas de place ici : maintiens la tâche 3 s pour ouvrir un créneau.'};
+  if (fin - m < SNAP) return {ok: false, msg: 'Pas de place ici : maintiens-la un instant au-dessus d’un espace vide pour ouvrir un créneau.'};
   return {ok: true, neuf: {start: m, end: fin}, label: `dans un nouveau bloc « ${typerSurTache({}, t).title} » à ${fmtMin(m)}`};
 }
 function appliquerDepot(c, t, d, m){
@@ -1782,7 +1784,7 @@ function installerAgenda(evs){
     });
   });
 
-  // --- « + » qui apparaît après 3 s de survol entre deux créneaux (ou dans un espace libre) ---
+  // --- « + » qui apparaît après TEMPO.plus de survol entre deux créneaux (ou dans un espace libre) ---
   let tSurvol = null, ptSurvol = null;
   const cachePlus = () => { clearTimeout(tSurvol); evs.querySelectorAll('.plus,.hovering-hint,.plus-menu').forEach(x => x.remove()); };
   const pointLibre = (p) => {
@@ -1813,11 +1815,11 @@ function installerAgenda(evs){
       };
       const hint = document.createElement('div'); hint.className = 'hovering-hint'; hint.style.left = colX(p.d); hint.style.width = colW(1); hint.style.top = mins2y(m);
       evs.append(hint, b);
-    }, 3000);
+    }, TEMPO.plus);
   };;
   evs.parentElement.onpointerleave = () => { cachePlus(); ptSurvol = null; };
 
-  // --- glisser une tâche : dépôt sur un bloc ou une heure ; maintenue 3 s entre deux créneaux, elle en ouvre un ---
+  // --- glisser une tâche : dépôt sur un bloc ou une heure ; maintenue TEMPO.ouvrirEnGlissant entre deux créneaux, elle en ouvre un ---
   let tTache = null, ptTache = null;
   const zone = evs.parentElement;
   zone.ondragover = (ev) => {
@@ -1841,7 +1843,7 @@ function installerAgenda(evs){
       const n = ouvrirCreneau(p.d, libre, 'Créneau', false);
       if (n && t){ typerSurTache(n, t); dernierNeuf = n.id; save(); renderCal(); }
       if (n) toast(`Créneau ouvert ${DAYS[p.d]} à ${fmtMin(n.start)} : dépose la tâche dessus.`);
-    }, 3000);
+    }, TEMPO.ouvrirEnGlissant);
   };
   zone.ondragleave = (ev) => { if (!zone.contains(ev.relatedTarget)){ clearTimeout(tTache); ptTache = null; clearGhost(evs); } };
   zone.ondrop = (ev) => {
@@ -2049,7 +2051,7 @@ function chevauchements(){
 function dessinerChevauchements(evs){
   chevauchements().forEach(c => {
     const a = Math.max(RS, c.a), b = Math.min(RE, c.b); if (b <= a) return;
-    const el = document.createElement('div'); el.className = 'chev'; el.dataset.m0 = a; el.dataset.m1 = b;
+    const el = document.createElement('div'); el.className = 'chevauche'; el.dataset.m0 = a; el.dataset.m1 = b;
     el.style.top = yOf(a) + 'px'; el.style.height = hOf(a, b) + 'px'; el.style.left = colX(c.d); el.style.width = colW(1);
     el.innerHTML = `<i title="Chevauchement ${fmtMin(c.a)} – ${fmtMin(c.b)} :\n${esc(c.noms[0])}\n${esc(c.noms[1])}">!</i>`;
     evs.appendChild(el);
@@ -2065,7 +2067,7 @@ function notifierChevauchements(){
   const l = chevauchements().filter(c => weekDays[c.d] >= auj); if (!l.length) return;
   const j = (c) => weekDays[c.d].toLocaleDateString('fr-FR', {weekday: 'short'});
   toast(`⚠ ${l.length} chevauchement${l.length > 1 ? 's' : ''} cette semaine : ` + l.slice(0, 3).map(c => `${j(c)} ${fmtMin(c.a)} (${c.noms.map(n => n.replace(/^📆 /, '')).join(' / ')})`).join(' · ') + (l.length > 3 ? '…' : ''),
-    'Voir', () => { const els = [...document.querySelectorAll('#cal .chev')]; if (els[0]) els[0].scrollIntoView({block: 'center', behavior: 'smooth'}); clignoter(els); });
+    'Voir', () => { const els = [...document.querySelectorAll('#cal .chevauche')]; if (els[0]) els[0].scrollIntoView({block: 'center', behavior: 'smooth'}); clignoter(els); });
 }
 
 const dtLocal = (jour, min) => { const p = (v) => String(v).padStart(2, '0'); const d = new Date(jour); d.setHours(0, 0, 0, 0); d.setMinutes(min); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`; };
@@ -2591,7 +2593,7 @@ function toast(msg, action, fn){
   document.querySelectorAll('.toast').forEach(x => x.remove()); clearTimeout(toastTimer);
   const el = document.createElement('div'); el.className = 'toast'; el.innerHTML = `<span>${esc(msg)}</span>`;
   if (action){ const b = document.createElement('button'); b.textContent = action; b.onclick = () => { el.remove(); fn(); }; el.appendChild(b); }
-  document.body.appendChild(el); toastTimer = setTimeout(() => el.remove(), 7000);
+  document.body.appendChild(el); toastTimer = setTimeout(() => el.remove(), action ? TEMPO.toastAction : TEMPO.toast);
 }
 async function valider(t){
   let res;
@@ -2845,7 +2847,7 @@ document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && (e
 function clignoter(els, cls = 'focus'){
   els = els.filter(Boolean); if (!els.length) return;
   els[0].scrollIntoView({behavior: 'smooth', block: 'center'});
-  els.forEach(el => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); clearTimeout(el._tc); el._tc = setTimeout(() => el.classList.remove(cls), 3200); });
+  els.forEach(el => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); clearTimeout(el._tc); el._tc = setTimeout(() => el.classList.remove(cls), TEMPO.clignote); });
 }
 // Tâches du panneau (parente, sous-tâches, tâche attendue…) ; si un filtre les cache, on revient à « Toutes »
 function focusTaches(files, discret){
