@@ -472,6 +472,22 @@ body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(
 .agm-i i{width:11px;height:11px;border-radius:3px;flex:none}
 .agm-i span{flex:1;min-width:0;overflow-wrap:anywhere}
 .agm-i em{font-style:normal;font-size:10.5px;color:var(--muted)}
+.wmod{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wmod.retouche::after{content:' ✎';opacity:.75}
+.mdm{width:320px}
+.mdm-i{display:flex;align-items:center;gap:6px;padding:4px 2px;border-radius:6px}
+.mdm-i.cur{background:color-mix(in srgb, var(--accent) 16%, transparent)}
+.mdm-i .mdm-n{flex:1;min-width:0;overflow-wrap:anywhere;cursor:pointer;background:none;border:none;text-align:left;font:inherit;color:inherit;padding:2px}
+.mdm-i .mdm-p{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.mdm-i .mdm-b{border:none;background:none;cursor:pointer;padding:2px 3px;font-size:12px;opacity:.6;color:inherit}
+.mdm-i .mdm-b:hover{opacity:1}
+.mdm-i .mdm-b.on{opacity:1;color:#E0A800}
+.mdm-i input{flex:1;min-width:0;font:inherit;padding:2px 4px}
+.mdm-a{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+.mdm-a button{text-align:left;white-space:normal}
+.mdm{overflow-x:hidden}
+.mdm-r{display:flex;gap:5px}
+.mdm-r input{flex:1;min-width:0;font:inherit;padding:3px 6px}
 .agm-v{color:var(--muted);font-size:12px;padding:4px 0}
 button.agp{border:none;cursor:pointer;font:inherit;font-size:12px;font-weight:700}
 body.retro .agmenu{border:2px solid var(--px);box-shadow:5px 5px 0 var(--pxs)}
@@ -571,7 +587,7 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
       <div class="xp" id="xp" title="Points gagnés en validant tes tâches"></div>
       <div class="subtitle" id="subtitle">Ta semaine type, reliée à tes tâches Obsidian</div>
     </div>
-    <div class="weeknav"><button class="btn" id="wPrev" title="Semaine précédente">◀</button><span id="wLabel"></span><button class="btn" id="wNext" title="Semaine suivante">▶</button><button class="btn" id="wNow" title="Revenir à la semaine en cours">Auj.</button><span id="agEtat" class="agetat hidden"></span><span class="vuectl"><button class="btn" id="zMoins" title="Dézoomer (Ctrl + molette)">－</button><span id="zVal">100 %</span><button class="btn" id="zPlus" title="Zoomer (Ctrl + molette)">＋</button><button class="btn" id="btnWE" title="Masquer le week-end">Sa·Di</button></span></div>
+    <div class="weeknav"><button class="btn" id="wPrev" title="Semaine précédente">◀</button><span id="wLabel"></span><button class="btn" id="wNext" title="Semaine suivante">▶</button><button class="btn" id="wNow" title="Revenir à la semaine en cours">Auj.</button><button class="btn wmod" id="wModele" type="button" title="Semaine type de cette semaine : choisir, enregistrer, gérer"></button><span id="agEtat" class="agetat hidden"></span><span class="vuectl"><button class="btn" id="zMoins" title="Dézoomer (Ctrl + molette)">－</button><span id="zVal">100 %</span><button class="btn" id="zPlus" title="Zoomer (Ctrl + molette)">＋</button><button class="btn" id="btnWE" title="Masquer le week-end">Sa·Di</button></span></div>
     <div class="recherche"><input type="search" id="q" placeholder="Rechercher… (Ctrl+K)" autocomplete="off" title="Tâches, notes et blocs"></div>
     <div class="toolbar">
       <button class="btn" id="btnTasks" title="Choisir le dossier des tâches TaskNotes du coffre">📂 Charger mes tâches</button>
@@ -1032,8 +1048,115 @@ function migrer(){
   state.events = ev; state.rowsV3 = rows; delete state.rows; state.v = 4; plan = {};
   return true;
 }
-const ensureIds = () => { const m = migrer(); let c = false; state.events.forEach(e => { if (!e.id){ e.id = rid(); c = true; } }); return m || c; };
-const save = () => { if (BUREAU) persist(); else store.set(KEY, JSON.stringify(state)); };
+/* ---------- Semaines types nommées + semaines individualisées ----------
+   state.modeles = [{id, nom, events}] · state.modeleDefaut = id · state.semaines = {lundiIso: {modele?, events?}}
+   state.events = copie de travail de la semaine affichée : la modifier ne touche que cette semaine. */
+function migrerModeles(){
+  if (Array.isArray(state.modeles) && state.modeles.length) { state.semaines = state.semaines || {}; return false; }
+  const id = 'm' + rid();
+  state.modeles = [{id, nom: 'Semaine type', events: clone(state.events || [])}];
+  state.modeleDefaut = id; state.semaines = state.semaines || {};
+  return true;
+}
+let semaineChargee = null;
+const modeleParId = (id) => state.modeles.find(m => m.id === id);
+const modeleDe = (iso) => modeleParId((state.semaines[iso] || {}).modele) || modeleParId(state.modeleDefaut) || state.modeles[0];
+const eventsDe = (iso) => (state.semaines[iso] && state.semaines[iso].events) || modeleDe(iso).events;
+const lundiIso = (date) => { const x = new Date(date); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return isoOf(x); };
+const empreinte = (evs) => JSON.stringify((evs || []).map(e => [e.id, e.d, e.start, e.end, e.title, e.cat, e.sub || '', e.tag || '', e.project || '']).sort());
+const semaineRetouchee = (iso) => !!(state.semaines[iso] && state.semaines[iso].events);
+// Mémorise la semaine affichée : individualisée seulement si elle diffère de sa semaine type
+function memoriserSemaine(){
+  if (!semaineChargee || !state.modeles) return;
+  const iso = semaineChargee, sem = state.semaines[iso] || {};
+  if (empreinte(state.events) === empreinte(modeleDe(iso).events)) delete sem.events; else sem.events = clone(state.events);
+  if (sem.modele === state.modeleDefaut) delete sem.modele;
+  if (Object.keys(sem).length) state.semaines[iso] = sem; else delete state.semaines[iso];
+}
+// Charge les blocs de la semaine affichée (appelé quand on change de semaine)
+function chargerSemaine(iso){
+  if (iso === semaineChargee) return;
+  memoriserSemaine();
+  state.events = clone(eventsDe(iso)); semaineChargee = iso;
+}
+function partPlaisir(evs){ let P = 0, O = 0; evs.forEach(e => { const n = natureBloc(e), m = e.end - e.start; if (n === 'plaisir') P += m; else if (n === 'oblig') O += m; }); return P + O ? P / (P + O) : null; }
+function appliquerModele(id){
+  const iso = semaineChargee, m = modeleParId(id); if (!m) return;
+  if (semaineRetouchee(iso) && !confirm(`Appliquer « ${m.nom} » à cette semaine ?\n\nLes retouches faites sur cette semaine seront remplacées.`)) return false;
+  state.semaines[iso] = id === state.modeleDefaut ? {} : {modele: id};
+  state.events = clone(m.events);
+  const ids = new Set(state.events.map(e => e.id));
+  Object.keys(plan).forEach(k => { if (!k.startsWith('day:') && !ids.has(k)) delete plan[k]; });
+  save(); savePlan(); render();
+  toast(`▤ Cette semaine suit « ${m.nom} ».`);
+  return true;
+}
+function ouvrirMenuModeles(ancre){
+  let menu = $('#mdMenu'); if (menu){ menu.remove(); return; }
+  menu = document.createElement('div'); menu.id = 'mdMenu'; menu.className = 'agmenu mdm'; document.body.appendChild(menu);
+  const r = ancre.getBoundingClientRect(); menu.style.left = Math.max(8, Math.min(innerWidth - 330, r.left)) + 'px'; menu.style.top = (r.bottom + 6) + 'px';
+  const fermer = (ev) => { if (!document.body.contains(menu)) { document.removeEventListener('pointerdown', fermer, true); return; } if (!menu.contains(ev.target) && ev.target !== ancre){ menu.remove(); document.removeEventListener('pointerdown', fermer, true); } };
+  setTimeout(() => document.addEventListener('pointerdown', fermer, true), 0);
+  const dessiner = () => {
+    const iso = semaineChargee, cur = modeleDe(iso), ret = semaineRetouchee(iso);
+    menu.innerHTML = `<div class="agm-t">Semaine du ${weekDays[0].toLocaleDateString('fr-FR', {day: 'numeric', month: 'long'})}</div>`
+      + `<div class="agm-v">${ret ? `Suit « ${esc(cur.nom)} », avec des retouches ✎ propres à cette semaine.` : `Suit « ${esc(cur.nom)} ». Tes changements ne toucheront que cette semaine.`}</div>`
+      + `<div class="agm-s">Semaines types</div><div class="mdm-l"></div>`
+      + `<div class="mdm-a">${ret ? `<button type="button" class="btn" data-a="reset">↺ Annuler les retouches</button><button type="button" class="btn" data-a="remplacer">💾 Mettre ces blocs dans « ${esc(cur.nom)} »</button>` : ''}`
+      + `<div class="agm-s">Enregistrer cette semaine comme nouvelle semaine type</div><div class="mdm-r"><input type="text" id="mdNom" placeholder="Nom (ex. Semaine chargée)" autocomplete="off"><button type="button" class="btn" data-a="nouveau">＋</button></div></div>`;
+    const l = menu.querySelector('.mdm-l');
+    state.modeles.forEach(m => {
+      const p = partPlaisir(m.events), row = document.createElement('div'); row.className = 'mdm-i' + (m.id === cur.id ? ' cur' : '');
+      row.innerHTML = `<button type="button" class="mdm-n" title="Appliquer à cette semaine">${m.id === cur.id ? '● ' : '○ '}${esc(m.nom)}</button>`
+        + `<span class="mdm-p" title="Part de plaisir dans le temps prévu">${p == null ? '' : Math.round(p * 100) + ' % plaisir'}</span>`
+        + `<button type="button" class="mdm-b${m.id === state.modeleDefaut ? ' on' : ''}" data-a="defaut" title="${m.id === state.modeleDefaut ? 'Semaine type par défaut' : 'En faire la semaine type par défaut'}">★</button>`
+        + `<button type="button" class="mdm-b" data-a="renommer" title="Renommer">✎</button>`
+        + `<button type="button" class="mdm-b" data-a="suppr" title="Supprimer">🗑</button>`;
+      row.querySelector('.mdm-n').onclick = () => { if (m.id !== cur.id || ret){ if (appliquerModele(m.id) !== false) dessiner(); } };
+      row.querySelector('[data-a="defaut"]').onclick = () => { if (m.id === state.modeleDefaut) return;
+        // les semaines qui suivaient l'ancien défaut sans le dire le gardent
+        const ancien = state.modeleDefaut; memoriserSemaine();
+        Object.keys(state.semaines).forEach(k => { const x = state.semaines[k]; if (!x.modele) x.modele = ancien; if (x.modele === m.id) delete x.modele; });
+        state.modeleDefaut = m.id; save(); toast(`★ « ${m.nom} » est la semaine type par défaut (pour les semaines pas encore réglées).`); render(); dessiner(); };
+      row.querySelector('[data-a="renommer"]').onclick = () => {
+        const n = row.querySelector('.mdm-n'), inp = document.createElement('input'); inp.value = m.nom; n.replaceWith(inp); inp.focus(); inp.select();
+        const ok = () => { const v = inp.value.trim(); if (v){ m.nom = v; save(); render(); } dessiner(); };
+        inp.onkeydown = (ev) => { if (ev.key === 'Enter') ok(); if (ev.key === 'Escape') dessiner(); }; inp.onblur = ok; };
+      row.querySelector('[data-a="suppr"]').onclick = () => {
+        if (state.modeles.length < 2){ alert('Il faut garder au moins une semaine type.'); return; }
+        if (m.id === state.modeleDefaut){ alert('C\'est la semaine type par défaut : choisis-en une autre par défaut (★) avant de la supprimer.'); return; }
+        if (!confirm(`Supprimer la semaine type « ${m.nom} » ?\n\nLes semaines qui la suivaient passent à la semaine type par défaut (leurs retouches sont gardées).`)) return;
+        memoriserSemaine();
+        Object.keys(state.semaines).forEach(k => { const x = state.semaines[k]; if (x.modele === m.id){ if (!x.events) x.events = clone(m.events); delete x.modele; } });
+        state.modeles = state.modeles.filter(x => x.id !== m.id); save(); render(); dessiner(); };
+      l.appendChild(row);
+    });
+    menu.querySelectorAll('.mdm-a [data-a]').forEach(b => b.onclick = () => {
+      const a = b.dataset.a;
+      if (a === 'reset') appliquerModele(cur.id);
+      else if (a === 'remplacer'){
+        const autres = Object.keys(state.semaines).filter(k => k !== iso && !state.semaines[k].events && (state.semaines[k].modele || state.modeleDefaut) === cur.id).length;
+        if (!confirm(`Remplacer les blocs de « ${cur.nom} » par ceux de cette semaine ?\n\nLes semaines qui suivent « ${cur.nom} » sans retouche suivront aussi ; celles retouchées gardent leurs blocs.`)) return;
+        cur.events = clone(state.events); memoriserSemaine(); save(); render(); toast(`💾 « ${cur.nom} » mise à jour.`);
+      } else if (a === 'nouveau'){
+        const nom = $('#mdNom').value.trim(); if (!nom){ $('#mdNom').focus(); return; }
+        const m = {id: 'm' + rid(), nom, events: clone(state.events)}; state.modeles.push(m);
+        state.semaines[iso] = {modele: m.id}; memoriserSemaine(); save(); render(); toast(`▤ Semaine type « ${nom} » créée ; cette semaine la suit.`);
+      }
+      dessiner();
+    });
+    const inp = menu.querySelector('#mdNom'); inp.onkeydown = (ev) => { if (ev.key === 'Enter') menu.querySelector('[data-a="nouveau"]').click(); };
+  };
+  dessiner();
+}
+function renderModeleBtn(){
+  const b = $('#wModele'); if (!b || !state.modeles) return;
+  const m = modeleDe(semaineChargee), ret = semaineRetouchee(semaineChargee);
+  b.textContent = '▤ ' + m.nom + ' ▾'; b.classList.toggle('retouche', ret);
+  b.title = `Semaine type : « ${m.nom} »${ret ? ' · retouchée pour cette semaine ✎' : ''}\nClic : choisir, enregistrer ou gérer les semaines types`;
+}
+const ensureIds = () => { const m = migrer(); let c = false; state.events.forEach(e => { if (!e.id){ e.id = rid(); c = true; } }); const mm = migrerModeles(); return m || c || mm; };
+const save = () => { memoriserSemaine(); if (BUREAU) persist(); else store.set(KEY, JSON.stringify(state)); };
 
 const PKEY = 'semaine-type-plan-v1';
 let plan = (() => { try { const p = JSON.parse(store.get(PKEY)); if (p && typeof p === 'object') return p; } catch(e){} return {}; })();
@@ -1116,6 +1239,8 @@ const AIDE = [
   <ol><li>Le <b>compteur</b> en haut du panneau de droite compare le temps prévu des deux. Son cadran a 3 zones : trop d'obligations, équilibre (entre un tiers et deux tiers de plaisir), trop de plaisir ; l'aiguille montre où tu en es.</li>
   <li>Un jour sans aucun moment plaisir porte une pastille <b>＋ plaisir</b> : un clic place un créneau d'une heure dans le premier trou libre de l'après-midi.</li>
   <li>Si le plaisir prend beaucoup de place, la jauge propose la plus petite obligation disponible.</li>
+  <li><b>Semaines types</b> : le bouton <b>▤</b> à côté de « Semaine du… » montre la semaine type suivie et ouvre le menu. Tu peux en créer plusieurs, nommées (« Semaine chargée », « Vacances »…), chacune avec sa part de plaisir affichée ; ★ marque celle par défaut, appliquée aux semaines pas encore réglées. Clique sur un nom pour l'appliquer à la semaine affichée.</li>
+  <li><b>Chaque semaine est individuelle</b> : modifier un bloc ne change que la semaine affichée (le bouton prend un ✎). « ↺ Annuler les retouches » revient à la semaine type ; « 💾 Mettre ces blocs dans… » les reporte dans la semaine type, et les semaines qui la suivent sans retouche suivent aussi. Pour créer une semaine type, arrange une semaine puis enregistre-la sous un nouveau nom.</li>
   <li>Une tâche repoussée plusieurs fois affiche <b>↻</b> et le bouton <b>✂ Juste démarrer</b> : il crée une première étape de 15 min pour aujourd'hui.</li></ol>
   <p class="aide-tip">Valider une tâche rapporte des <b>points d'expérience</b> (10 XP, plus un bonus selon la priorité et 5 XP pour une tâche longtemps repoussée) ; cocher une étape, 2 XP. Ton niveau s'affiche sous le titre.</p>`},
  {t: '9. Entourage', h: `<ol><li>Ajoute les personnes dans <b>⚙️ Réglages → Tags, projets et lieux → 💬 Entourage</b>, avec la date du dernier message si tu la connais.</li>
@@ -1297,7 +1422,7 @@ function render(){ appliquerRetro(); renderXP(); renderCal(); renderTasks(); }
 
 function renderCal(){
   const cal = $('#cal'); cal.innerHTML = '';
-  weekDays = weekDates(); computeDated();
+  weekDays = weekDates(); if (state.modeles) chargerSemaine(isoOf(weekDays[0])); computeDated(); renderModeleBtn();
   const todayIso = isoOf(new Date());
   $('#wLabel').textContent = `Semaine du ${weekDays[0].toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}`;
   RS = Math.min(7 * 60, ...state.events.map(e => Math.floor(e.start / 60) * 60));
@@ -2574,6 +2699,7 @@ $('#hideBlocked').onchange = (e) => { hide.blocked = e.target.checked; saveHide(
 $('#wPrev').onclick = () => { weekOffset--; render(); chargerAgendas(); };
 $('#wNext').onclick = () => { weekOffset++; render(); chargerAgendas(); };
 $('#wNow').onclick = () => { weekOffset = 0; render(); chargerAgendas(); };
+$('#wModele').onclick = (ev) => { ev.stopPropagation(); ouvrirMenuModeles(ev.currentTarget); };
 $('#zMoins').onclick = () => zoomer(-1);
 $('#zPlus').onclick = () => zoomer(1);
 $('#btnWE').onclick = () => { state.sansWE = !state.sansWE; if (state.sansWE && /^@jour:[56]$/.test(filter)) filter = ''; save(); renderCal(); };
@@ -2582,7 +2708,7 @@ $('#btnClearPlan').onclick = () => { if (confirm('Retirer toutes les tâches pr�
 $('#btnImport').onclick = () => $('#jsonInput').click();
 $('#jsonInput').onchange = async (e) => {
   const f = e.target.files[0]; if (!f) return;
-  try { let s = JSON.parse(await f.text()); if (s && s.semaine) s = s.semaine; if (!Array.isArray(s.events) && !Array.isArray(s.rows)) throw 0; state = s; ensureIds(); save(); render(); }
+  try { let s = JSON.parse(await f.text()); if (s && s.semaine) s = s.semaine; if (!Array.isArray(s.events) && !Array.isArray(s.rows)) throw 0; state = s; semaineChargee = null; ensureIds(); save(); render(); }
   catch(err){ alert('Fichier non reconnu.'); }
   e.target.value = '';
 };
@@ -2681,9 +2807,9 @@ async function chargerConfig(){
 async function chargerDonnees(){
   const d = await cadence.lireDonnees();
   if (d && d.semaine && (Array.isArray(d.semaine.events) || Array.isArray(d.semaine.rows))){
-    state = d.semaine; plan = d.plan || {}; hide = Object.assign({placed:false, blocked:false, later:true, dated:false}, d.masquer || {});
+    state = d.semaine; semaineChargee = null; plan = d.plan || {}; hide = Object.assign({placed:false, blocked:false, later:true, dated:false}, d.masquer || {});
     if (ensureIds()) persist();
-  } else { state = clone(DEFAULT); plan = {}; ensureIds(); persist(); }
+  } else { state = clone(DEFAULT); semaineChargee = null; plan = {}; ensureIds(); persist(); }
   $('#hidePlaced').checked = hide.placed; $('#hideBlocked').checked = hide.blocked; $('#hideLater').checked = hide.later; $('#hideDated').checked = !!hide.dated;
 }
 const videsProposes = new Set();
@@ -2716,7 +2842,8 @@ function prochainCreneau(t){
   const now = new Date(), mNow = now.getHours() * 60 + now.getMinutes();
   for (let j = 0; j < 14; j++){
     const jour = new Date(now); jour.setDate(now.getDate() + j); const d = (jour.getDay() + 6) % 7;
-    const blocs = state.events.filter(e => e.d === d && dedie(e)).sort((a, b) => a.start - b.start);
+    const evs = state.modeles ? (lundiIso(jour) === semaineChargee ? state.events : eventsDe(lundiIso(jour))) : state.events;
+    const blocs = evs.filter(e => e.d === d && dedie(e)).sort((a, b) => a.start - b.start);
     for (const e of blocs){
       let m = e.start;
       if (j === 0){ if (e.end - 15 <= mNow) continue; m = Math.max(e.start, Math.ceil((mNow + 1) / 15) * 15); }
@@ -3552,7 +3679,7 @@ async function demarrer(){
   ['#btnTasks', '#btnClearPlan'].forEach(s => $(s).classList.add('hidden'));
   ['#btnSettings', '#btnNewTask', '#tabNotes'].forEach(s => $(s).classList.remove('hidden'));
   await chargerConfig();
-  if (!CFG.coffre){ state = clone(DEFAULT); ensureIds(); render(); ouvrirReglages(true); return; }
+  if (!CFG.coffre){ state = clone(DEFAULT); semaineChargee = null; ensureIds(); render(); ouvrirReglages(true); return; }
   await chargerDonnees();
   if (!state.daily){ try { state.daily = await cadence.reglagesDaily(); } catch(e){} }
   render();
