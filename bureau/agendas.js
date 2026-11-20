@@ -220,6 +220,7 @@ const versCadence = (x) => ({
   id: x.id, uid: x.iCalUID || '', titre: x.summary || '(sans titre)', lieu: x.location || '', description: x.description || '',
   debut: x.start.dateTime || x.start.date, fin: x.end.dateTime || x.end.date, allDay: !x.start.dateTime,
   recurrent: !!x.recurringEventId, lien: x.htmlLink || '', modifiable: true,
+  invite: (x.attendees || []).some(a => a.self && a.responseStatus !== 'declined'),   // je suis parmi les participants
 });
 // Lit les agendas choisis (cals = [{id, nom, couleur, ecriture}]) ; un agenda injoignable renvoie {erreur}
 async function lireGoogle(g, de, a, cals) {

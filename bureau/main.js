@@ -668,7 +668,7 @@ ipcMain.handle('meteo-lieu', async (evenement, nom) => {
 // des secrets GitHub, jamais dans le dépôt). Une configuration locale (anciens réglages) reste prioritaire.
 const CLIENT_GOOGLE = (() => { try { const c = JSON.parse(fs.readFileSync(path.join(__dirname, 'google-client.json'), 'utf8')); return c.id && c.secret ? c : null; } catch { return null; } })();
 const googleCfg = () => { const g = config.google || {}; return { ...g, clientId: g.clientId || (CLIENT_GOOGLE && CLIENT_GOOGLE.id) || '', clientSecret: g.clientSecret || (CLIENT_GOOGLE && CLIENT_GOOGLE.secret) || '' }; };
-const etatGoogle = () => { const g = googleCfg(); const sim = process.env.CADENCE_FAUX_GOOGLE === '1'; return { configure: !!(g.clientId && g.clientSecret) || sim, connecte: !!g.refreshToken || sim, simule: sim, clientId: g.clientId || '', calendarId: g.calendarId || 'primary', cible: g.cible || g.calendarId || 'primary', lus: g.lus || [g.calendarId || 'primary'] }; };
+const etatGoogle = () => { const g = googleCfg(); const sim = process.env.CADENCE_FAUX_GOOGLE === '1'; return { configure: !!(g.clientId && g.clientSecret) || sim, connecte: !!g.refreshToken || sim, simule: sim, clientId: g.clientId || '', calendarId: g.calendarId || 'primary', cible: g.cible || g.calendarId || 'primary', info: g.info || [], lus: g.lus || [g.calendarId || 'primary'] }; };
 ipcMain.handle('agendas-get', () => ({ agendas: [], google: etatGoogle() }));   // les agendas iCal ne sont plus utilisés : tout passe par Google
 // Afficher / masquer à la volée un agenda iCal (par son nom) ou un agenda Google (par son identifiant)
 ipcMain.handle('agenda-afficher', async (evenement, type, cle, afficher) => {
@@ -680,6 +680,12 @@ ipcMain.handle('agenda-afficher', async (evenement, type, cle, afficher) => {
     config.google.lus = [...lus];
   }
   await enregistrerConfig(); return true;
+});
+// Agenda « pour info » (ses rendez-vous s'affichent sans bloquer) ou bloquant
+ipcMain.handle('agenda-info', async (evenement, id, info) => {
+  config.google = config.google || {};
+  const l = new Set(config.google.info || []); if (info) l.add(String(id)); else l.delete(String(id));
+  config.google.info = [...l]; await enregistrerConfig(); return etatGoogle();
 });
 // Agenda où Cadence crée ses blocs et les nouveaux rendez-vous
 ipcMain.handle('google-cible', async (evenement, id) => { config.google = config.google || {}; config.google.cible = String(id || 'primary'); await enregistrerConfig(); return etatGoogle(); });
@@ -735,6 +741,8 @@ function fauxGoogle() {
   faux = [
     { id: 'f1', cal: 'primary', uid: 'f1', titre: 'RDV conseillère bilan', lieu: 'Troyes', description: '', debut: at(2, 10), fin: at(2, 11, 30), allDay: false, recurrent: false, modifiable: true },
     { id: 'f2', cal: 'famille', uid: 'f2', titre: 'Dentiste', lieu: '', description: '', debut: at(3, 16), fin: at(3, 17), allDay: false, recurrent: false, modifiable: true },
+    { id: 'f3', cal: 'famille', uid: 'f3', titre: 'Repas de famille', lieu: '', description: '', debut: at(3, 12), fin: at(3, 14), allDay: false, recurrent: false, modifiable: true, invite: true },
+    { id: 'f4', cal: 'primary', uid: 'f4', titre: 'Kiné', lieu: '', description: '', debut: at(2, 10, 30), fin: at(2, 11, 15), allDay: false, recurrent: false, modifiable: true },
   ];
   return faux;
 }

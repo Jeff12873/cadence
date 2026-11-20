@@ -491,6 +491,22 @@ body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(
 .gbtn{display:inline-flex;align-items:center;gap:8px;background:#fff !important;color:#1f1f1f !important;font-weight:600}
 .gbtn svg{flex:none}
 .glus{display:flex;flex-direction:column;gap:2px;margin:4px 0}
+.agm-info{border:1px solid var(--line);background:var(--paper);color:var(--muted);border-radius:6px;font:inherit;font-size:10.5px;padding:1px 6px;cursor:pointer;white-space:nowrap}
+.agm-info.on{color:var(--ink);border-color:var(--accent);font-weight:700}
+.ext.rdvbloc.info{z-index:6}
+.ext.rdvbloc.conflit .eb{outline:3px solid #E5484D;outline-offset:1px;box-shadow:0 0 0 1px var(--card), 0 0 14px rgba(229,72,77,.75)}
+.ext.rdvbloc.conflit .eb b::after{content:' ⚠'}
+.ext.rdvbloc.info .eb{background:color-mix(in srgb, var(--agc) 16%, var(--card));color:var(--ink);border:2px dashed var(--agc);box-shadow:none}
+.ext.rdvbloc.info .eb::before{background:var(--agc)}
+.ext.rdvbloc.info .eb span{color:var(--muted)}
+body.retro .ext.rdvbloc.info .eb{border:2px dashed var(--agc);box-shadow:none}
+.ext .concerne{position:absolute;right:5px;top:5px;z-index:7;border:none;border-radius:6px;background:var(--card);color:var(--ink);font-size:11px;line-height:1;padding:2px 4px;cursor:pointer;opacity:.8}
+.ext .concerne:hover{opacity:1}
+.ext .concerne.on{background:var(--accent);color:#fff}
+.ext.rdvbloc.etroit .eb{padding-left:9px;padding-right:4px}
+.ext.rdvbloc.etroit .eb span{display:none}
+.ext.rdvbloc.etroit .eb b::before{content:none}
+.ext.rdvbloc.etroit .eb b{font-size:10.5px;overflow-wrap:anywhere}
 .agm-v{color:var(--muted);font-size:12px;padding:4px 0}
 button.agp{border:none;cursor:pointer;font:inherit;font-size:12px;font-weight:700}
 body.retro .agmenu{border:2px solid var(--px);box-shadow:5px 5px 0 var(--pxs)}
@@ -1219,7 +1235,8 @@ const AIDE = [
  {t: '6. Agendas et Google', h: `<p>Dans <b>⚙️ Réglages</b>, clique sur <b>« Se connecter avec Google »</b> : une page Google s'ouvre dans ton navigateur, tu acceptes, c'est tout. Coche ensuite les agendas à afficher et choisis l'<b>agenda des blocs</b>, celui où Cadence écrit.</p>
   <ol><li>Les <b>rendez-vous passent avant les blocs</b> : ils sont toujours affichés, par-dessus, en carte pleine à la couleur de leur agenda (📆). Les blocs s'organisent autour d'eux, jamais l'inverse.</li>
   <li>L'<b>icône calendrier</b> en bas à gauche de chaque jour d'un bloc : grisée = bloc non synchronisé ; en couleurs = le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu). Elle ne masque jamais un rendez-vous.</li>
-  <li><b>Chevauchements</b> : quand deux blocs, ou un bloc et un rendez-vous, se recouvrent, la zone commune est hachurée en <b>rouge</b> avec un <b>!</b> (survole-le pour voir lesquels). Rien n'est interdit : c'est à toi d'ajuster. À chaque ouverture de Cadence, une notification liste ceux qui restent à venir dans la semaine ; « Voir » les fait clignoter.</li>
+  <li><b>Chevauchements</b> : des rendez-vous qui se recouvrent se placent <b>côte à côte</b> ; sur un bloc, ils prennent la droite de la colonne pour laisser lire le bloc. Un rendez-vous en conflit est entouré de <b>rouge</b> avec ⚠ (survole-le pour voir avec quoi) ; deux blocs qui se recouvrent sont hachurés en rouge avec un <b>!</b>. Rien n'est interdit : à toi d'ajuster. À chaque ouverture de Cadence, une notification liste les conflits à venir dans la semaine.</li>
+  <li><b>Agenda « pour info »</b> : dans le menu 📆 ou les réglages, le bouton <b>bloquant / pour info</b> de chaque agenda. Les rendez-vous d'un agenda « pour info » (par exemple celui d'un proche) s'affichent en pointillés, sans bloquer ton temps ni compter comme conflit. Ils deviennent bloquants si <b>tu es invité</b> à l'événement, ou si tu cliques sur <b>👤</b> (« ça me concerne »), que Cadence retient.</li>
   <li><b>Désynchroniser</b> un bloc ne retire que le bloc de Google : les rendez-vous qui tombent dedans ne sont jamais supprimés.</li>
   <li>Un bloc sur plusieurs jours est séparé par des pointillés : chaque jour a sa propre icône et se synchronise à part.</li>
   <li>Sur un bloc de rendez-vous seul, l'icône calendrier le masque (annulable).</li>
@@ -2065,12 +2082,12 @@ async function ouvrirMenuAgendas(ancre){
     lab.querySelector('input').onchange = async (ev) => { ev.target.disabled = true;
       try { await cadence.agendaAfficher(type, cle, ev.target.checked); AG = await cadence.agendasGet(); await chargerAgendas(true); } catch(e){ alert(messageErreur(e)); }
       ev.target.disabled = false; };
-    l.appendChild(lab);
+    l.appendChild(lab); return lab;
   };
   if (AG.google && AG.google.connecte){
     const t = document.createElement('div'); t.className = 'agm-s'; t.textContent = 'Google'; l.appendChild(t);
     const lus = AG.google.lus || ['primary'];
-    (listeGoogle || []).forEach(c => ligne('google', c.id, c.nom, c.couleur, lus.includes(c.id), [c.id === (AG.google.cible || 'primary') ? 'blocs' : '', c.ecriture ? '' : 'lecture'].filter(Boolean).join(' · ')));
+    (listeGoogle || []).forEach(c => ligne('google', c.id, c.nom, c.couleur, lus.includes(c.id), [c.id === (AG.google.cible || 'primary') ? 'blocs' : '', c.ecriture ? '' : 'lecture'].filter(Boolean).join(' · ')).appendChild(boutonInfo(c)));
     if (!(listeGoogle || []).length) l.insertAdjacentHTML('beforeend', '<div class="agm-v">Liste indisponible : dans ⚙️ Réglages, déconnecte puis reconnecte Google pour autoriser Cadence à la lire.</div>');
   }
   if ((AG.agendas || []).length){
@@ -2119,6 +2136,17 @@ function repartirRdv(){
   Object.values(rdvPar.absorbes).forEach(l => l.sort((a, b) => a.m0 - b.m0));
 }
 const rdvDuBloc = (eid) => rdvPar.absorbes[eid] || [];
+const estInfoCal = (cal) => !!(AG.google && (AG.google.info || []).includes(cal));
+// Un rendez-vous bloque mon temps s'il vient d'un de mes agendas, si je suis invité, ou si j'ai dit « ça me concerne »
+const rdvBloquant = (x) => !estInfoCal(x.cal) || !!x.invite || !!((state.rdvConcerne || {})[x.cle]);
+// Bouton « pour info / bloquant » d'un agenda Google (menu 📆 et réglages)
+function boutonInfo(c, apres){
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'agm-info';
+  const maj = () => { const i = estInfoCal(c.id); b.textContent = i ? 'pour info' : 'bloquant'; b.classList.toggle('on', !i);
+    b.title = i ? 'Ses rendez-vous s\'affichent sans bloquer ton temps (sauf si tu es invité ou si tu dis « ça me concerne »). Clic : bloquant' : 'Ses rendez-vous bloquent ton temps. Clic : pour info'; };
+  b.onclick = async (ev) => { ev.preventDefault(); ev.stopPropagation(); AG.google = await cadence.agendaInfo(c.id, !estInfoCal(c.id)); maj(); renderCal(); if (apres) apres(); };
+  maj(); return b;
+}
 const tousRdv = () => rdvPar.seuls.concat(...Object.values(rdvPar.absorbes));
 const blocVisible = (e) => !!gBlocs()[cleBloc(e)];
 const liensRdv = (k) => ((state.liensRdv || {})[k]) || {taches: [], notes: []};
@@ -2136,18 +2164,46 @@ function dessinerAgendas(evs){
     }
   });
   const masques = state.rdvMasques || {};
-  tousRdv().filter(r => !masques[r.x.cle] && r.d < NC()).forEach(({x, d, m0, m1}) => {
+  const visibles = tousRdv().filter(r => !masques[r.x.cle] && r.d < NC());
+  const conflits = new Map(); chevauchements().forEach(c => c.rdvs.forEach(k => (conflits.get(k) || conflits.set(k, []).get(k)).push(c)));
+  // Côte à côte : les rendez-vous qui se recouvrent se partagent la largeur ; sur un bloc, ils prennent la droite de la colonne
+  const place = new Map();
+  for (let d = 0; d < NC(); d++){
+    const l = visibles.filter(r => r.d === d).sort((p, q) => p.m0 - q.m0 || q.m1 - p.m1);
+    let grappe = [], fin = -1, couloirs = [];
+    const clore = () => { grappe.forEach(r => place.get(r).n = couloirs.length); grappe = []; couloirs = []; };
+    l.forEach(r => {
+      if (r.m0 >= fin) clore();
+      let k = couloirs.findIndex(f => f <= r.m0); if (k < 0){ k = couloirs.length; couloirs.push(0); } couloirs[k] = r.m1;
+      place.set(r, {k, n: 1, surBloc: dayEvents(d).some(e => e.start < r.m1 && r.m0 < e.end)}); grappe.push(r); fin = Math.max(fin, r.m1);
+    });
+    clore();
+  }
+  visibles.forEach(r => { const {x, d, m0, m1} = r, pl = place.get(r);
     const coul = AG_COUL[x.couleur] || x.couleur || AG_COUL.gris;
     const a = Math.max(RS, m0), b = Math.min(RE, m1); if (b <= a) return;
-    const el = document.createElement('div'); el.className = 'ext rdvbloc' + (x.modifiable ? ' mod' : ''); el.dataset.cle = x.cle;
+    const info = !rdvBloquant(x);
+    const el = document.createElement('div'); el.className = 'ext rdvbloc' + (x.modifiable ? ' mod' : '') + (info ? ' info' : ''); el.dataset.cle = x.cle;
     el.style.top = yOf(a) + 'px'; el.style.height = Math.max(18, hOf(a, b)) + 'px'; el.dataset.m0 = a; el.dataset.m1 = b; if (hOf(a, b) < 44) el.classList.add('court');
-    el.style.left = colX(d); el.style.width = colW(1);
+    const zone = pl.surBloc ? Math.min(1, 0.6 + 0.15 * (pl.n - 1)) : 1, part = zone / pl.n, dx = (1 - zone) + pl.k * part;
+    el.style.left = `calc(${colX(d)} + ${colW(1)} * ${dx.toFixed(4)})`; el.style.width = `calc(${colW(1)} * ${part.toFixed(4)})`;
+    if (part < 0.45) el.classList.add('etroit');
+    const cf = conflits.get(x.cle); if (cf) el.classList.add('conflit');
     el.style.setProperty('--agc', coul);
     const n = nbLiens(x.cle);
     el.innerHTML = `<div class="eb"><b>${esc(x.titre)}</b><span>${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? ' · ' + esc(x.lieu) : ''}${n ? ` · 📎${n}` : ''}</span></div>`
       + (x.modifiable ? '<div class="rz2"></div><button type="button" class="etrash" title="Supprimer le rendez-vous">🗑</button>' : '')
       + `<button type="button" class="gsync on" title="Rendez-vous ${esc(x.agenda)} · clic : le masquer dans Cadence (il reste dans l'agenda)">${svgIcone('calendar-check', 15)}</button>`;
-    el.title = `📆 ${x.agenda} : ${x.titre}\n${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? '\n📍 ' + x.lieu : ''}\nClic : tâches et notes liées · double-clic : ${x.modifiable ? 'modifier' : 'détails'}${x.modifiable ? ' · glisser : déplacer' : ''}`;
+    if (estInfoCal(x.cal) && !x.invite){
+      const c = document.createElement('button'); c.type = 'button'; c.className = 'concerne' + (info ? '' : ' on'); c.textContent = info ? '👤' : '👤✓';
+      c.title = info ? 'Ça me concerne : bloquer ce créneau' : 'Ne me concerne plus : repasser en « pour info »';
+      c.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+      c.addEventListener('click', (ev) => { ev.stopPropagation(); state.rdvConcerne = state.rdvConcerne || {};
+        if (info) state.rdvConcerne[x.cle] = true; else delete state.rdvConcerne[x.cle]; save(); renderCal();
+        toast(info ? `👤 « ${x.titre} » te concerne : il bloque ce créneau.` : `« ${x.titre} » repasse pour info.`); });
+      el.appendChild(c);
+    }
+    el.title = (cf ? `⚠ Chevauche : ${[...new Set(cf.flatMap(c => c.noms))].filter(n => n !== '📆 ' + x.titre).map(n => n.replace(/^📆 /, '')).join(', ')}\n` : '') + `📆 ${x.agenda} : ${x.titre}${info ? ' · pour info' : x.invite && estInfoCal(x.cal) ? ' · tu es invité' : ''}\n${fmtMin(m0)} – ${fmtMin(m1)}${x.lieu ? '\n📍 ' + x.lieu : ''}\nClic : tâches et notes liées · double-clic : ${x.modifiable ? 'modifier' : 'détails'}${x.modifiable ? ' · glisser : déplacer' : ''}`;
     if (state.choixRdv === x.cle) el.classList.add('choisi');
     const gs = el.querySelector('.gsync');
     gs.addEventListener('pointerdown', (ev) => ev.stopPropagation());
@@ -2164,16 +2220,17 @@ function chevauchements(){
   const out = [], masques = state.rdvMasques || {};
   for (let d = 0; d < NC(); d++){
     const l = dayEvents(d).map(e => ({a: e.start, b: e.end, nom: e.title || 'Bloc', bloc: e.id}))
-      .concat(tousRdv().filter(r => r.d === d && !masques[r.x.cle]).map(r => ({a: r.m0, b: r.m1, nom: '📆 ' + r.x.titre, rdv: r.x.cle})));
+      .concat(tousRdv().filter(r => r.d === d && !masques[r.x.cle] && rdvBloquant(r.x)).map(r => ({a: r.m0, b: r.m1, nom: '📆 ' + r.x.titre, rdv: r.x.cle})));
     for (let i = 0; i < l.length; i++) for (let j = i + 1; j < l.length; j++){
       const a = Math.max(l[i].a, l[j].a), b = Math.min(l[i].b, l[j].b);
-      if (b > a) out.push({d, a, b, noms: [l[i].nom, l[j].nom]});
+      if (b > a) out.push({d, a, b, noms: [l[i].nom, l[j].nom], rdvs: [l[i].rdv, l[j].rdv].filter(Boolean)});
     }
   }
   return out;
 }
 function dessinerChevauchements(evs){
   chevauchements().forEach(c => {
+    if (c.rdvs.length) return;   // avec un rendez-vous : c'est la carte du rendez-vous qui est entourée de rouge
     const a = Math.max(RS, c.a), b = Math.min(RE, c.b); if (b <= a) return;
     const el = document.createElement('div'); el.className = 'chevauche'; el.dataset.m0 = a; el.dataset.m1 = b;
     el.style.top = yOf(a) + 'px'; el.style.height = hOf(a, b) + 'px'; el.style.left = colX(c.d); el.style.width = colW(1);
@@ -3618,7 +3675,7 @@ async function remplirCible(g){
   listeGoogle.forEach(c => { const lab = document.createElement('label'); lab.className = 'agm-i';
     lab.innerHTML = `<input type="checkbox"${lus.has(c.id) ? ' checked' : ''}><i style="background:${esc(c.couleur || '#888')}"></i><span>${esc(c.nom)}</span><em>${c.ecriture ? '' : 'lecture'}</em>`;
     lab.querySelector('input').onchange = async (ev) => { await cadence.agendaAfficher('google', c.id, ev.target.checked); AG = await cadence.agendasGet(); chargerAgendas(true); };
-    box.appendChild(lab); });
+    lab.appendChild(boutonInfo(c)); box.appendChild(lab); });
 }
 $('#sGCible').onchange = async () => { AG.google = await cadence.googleCible($('#sGCible').value); toast(`📆 Les cases synchronisées iront maintenant dans « ${$('#sGCible').selectedOptions[0].text} ».`); };
 $('#sGOff').onclick = async () => { AG.google = await cadence.googleDeconnecter(); remplirAgendasReglages(); chargerAgendas(true); };

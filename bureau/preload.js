@@ -49,6 +49,7 @@ contextBridge.exposeInMainWorld('cadence', {
   googleAgendas: () => ipcRenderer.invoke('google-agendas'),
   googleCible: (id) => ipcRenderer.invoke('google-cible', id),
   agendaAfficher: (type, cle, afficher) => ipcRenderer.invoke('agenda-afficher', type, cle, afficher),
+  agendaInfo: (id, info) => ipcRenderer.invoke('agenda-info', id, info),
   googleBlocRetirer: (id, cal) => ipcRenderer.invoke('google-bloc-retirer', id, cal),
   googleBlocsSimules: () => ipcRenderer.invoke('google-blocs-simules'),
   googleEmpreintes: () => ipcRenderer.invoke('google-empreintes'),
