@@ -313,11 +313,13 @@ body.dragging-ev,body.dragging-ev *{cursor:grabbing!important;user-select:none}
 .ag-row input,.ag-row select{border:1px solid var(--line);border-radius:7px;padding:5px 7px;background:var(--paper);color:inherit;font:inherit;font-size:12.5px;min-width:0}
 .ag-row button{border:none;background:none;cursor:pointer;opacity:.6}
 label.chk{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:13px;margin-top:10px}
-.ext{position:absolute;box-sizing:border-box;padding:1px 0;z-index:5;pointer-events:auto}
-.ext .eb{height:100%;border-radius:6px;padding:2px 6px;overflow:hidden;font-size:10.5px;line-height:1.25;color:var(--ink);
-  background:repeating-linear-gradient(135deg, color-mix(in srgb, var(--agc,#64748B) 22%, var(--card)) 0 6px, color-mix(in srgb, var(--agc,#64748B) 12%, var(--card)) 6px 12px);
-  border-left:3px solid var(--agc,#64748B);box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.ext .eb b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ext{position:absolute;box-sizing:border-box;padding:1px 3px;z-index:8;pointer-events:auto}
+.ext .eb{height:100%;border-radius:6px;padding:2px 6px;overflow:hidden;font-size:10.5px;line-height:1.25;color:#fff;
+  background:var(--agc,#64748B);border:2px solid color-mix(in srgb, var(--agc,#64748B) 60%, #000);
+  box-shadow:0 3px 10px rgba(0,0,0,.35), 0 0 0 2px var(--card)}
+.ext .eb b{display:block;font-size:11.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ext .eb b::before{content:'📆 '}
+.ext .eb span{color:rgba(255,255,255,.92)}
 .dayhead .agchip{display:block;margin-top:3px;font-size:10px;font-weight:600;letter-spacing:0;background:rgba(255,255,255,.18);border-radius:6px;padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ext{cursor:pointer}
 .chevauche{position:absolute;box-sizing:border-box;z-index:7;pointer-events:none;border:2px solid #E5484D;border-radius:4px;background:repeating-linear-gradient(135deg,rgba(229,72,77,.22) 0 6px,rgba(229,72,77,.06) 6px 12px)}
@@ -357,8 +359,8 @@ svg.lu{flex:none;display:block}
 .ic-grille{display:grid;grid-template-columns:repeat(auto-fill, minmax(40px, 1fr));gap:6px;max-height:50vh;overflow:auto;width:min(520px, 80vw)}
 .ic-choix{height:40px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);display:grid;place-items:center;cursor:pointer}
 .ic-choix:hover,.ic-choix.on{border-color:var(--accent);color:var(--accent)}
-.ext.rdvbloc .eb{display:flex;flex-direction:column;gap:1px;box-sizing:border-box;padding:5px 8px 5px 12px;border-radius:7px;font-size:11px;background:color-mix(in srgb, var(--agc) 20%, var(--card));color:var(--ink);border:none;position:relative}
-.ext.rdvbloc .eb::before{content:"";position:absolute;left:3px;top:5px;bottom:5px;width:3px;border-radius:2px;background:var(--agc)}
+.ext.rdvbloc .eb{display:flex;flex-direction:column;gap:1px;box-sizing:border-box;padding:5px 8px 5px 12px;border-radius:7px;font-size:11px;background:color-mix(in srgb, var(--agc) 68%, #000);color:#fff;border:2px solid color-mix(in srgb, var(--agc) 40%, #000);position:relative}
+.ext.rdvbloc .eb::before{content:"";position:absolute;left:3px;top:5px;bottom:5px;width:3px;border-radius:2px;background:#fff;opacity:.85}
 .ext.rdvbloc .eb b{font-size:12px;white-space:normal}
 .ext.rdvbloc .gsync{position:absolute;left:5px;bottom:5px;z-index:6;border:none;background:#fff;border-radius:6px;padding:2px;line-height:0;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .ext.rdvbloc .etrash{right:5px;bottom:5px}
@@ -549,7 +551,7 @@ body.retro .dayhead.today{outline:none;background:color-mix(in srgb, var(--head)
 body.retro .col.today{background-color:color-mix(in srgb, #F4B6CF 16%, transparent)}
 body.retro .ev .block{border:2px solid color-mix(in srgb, var(--fg) 70%, var(--px));box-shadow:3px 3px 0 color-mix(in srgb, var(--fg) 30%, transparent)}
 body.retro .ev .block::before{display:none}
-body.retro .ext.rdvbloc .eb{border:2px dashed var(--agc)}
+body.retro .ext.rdvbloc .eb{border:3px solid #1b1530;box-shadow:3px 3px 0 #1b1530}
 body.retro input, body.retro select, body.retro textarea{border:2px solid var(--px) !important}
 body.retro .ne-text, body.retro .md, body.retro #neText, body.retro .nr-body{font-family:"Inter","Noto Sans",system-ui,sans-serif}
 body.retro .badge{box-shadow:1px 1px 0 var(--pxs)}
@@ -1096,15 +1098,15 @@ const AIDE = [
   <li><b>Tâches récurrentes</b> : repérées par l'icône <b>↻ en boucle</b>, avec leur rythme (« chaque vendredi à 13h30 »). Tu peux les glisser sur un autre jour ou changer leur date dans « Modifier » : Cadence demande confirmation, puis <b>toutes les prochaines échéances suivent</b> (jour de la semaine, jour du mois, heure).</li>
   <li>🔗 relie une note à une tâche existante.</li></ol>`},
  {t: '6. Agendas et Google', h: `<p>Dans <b>⚙️ Réglages → Agendas</b>, ajoute tes agendas (lien iCal) et connecte ton <b>Google Agenda</b>.</p>
-  <ol><li>Chaque rendez-vous va dans le <b>bloc</b> qu'il chevauche, sous forme de ligne 📆. S'il ne tombe sur aucun bloc, il forme son <b>propre bloc</b> pour ce jour-là.</li>
-  <li>L'<b>icône calendrier</b> en bas à gauche de chaque jour d'un bloc : grisée = bloc non synchronisé, ses rendez-vous sont masqués (une petite pastille dit combien ; un rendez-vous qui déborde surtout hors du bloc reste toujours affiché) ; en couleurs = synchronisé : ses rendez-vous s'affichent et le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu).</li>
+  <ol><li>Les <b>rendez-vous passent avant les blocs</b> : ils sont toujours affichés, par-dessus, en carte pleine à la couleur de leur agenda (📆). Les blocs s'organisent autour d'eux, jamais l'inverse.</li>
+  <li>L'<b>icône calendrier</b> en bas à gauche de chaque jour d'un bloc : grisée = bloc non synchronisé ; en couleurs = le bloc est envoyé dans Google pour la semaine affichée, avec ses tâches en liste (groupées par lieu). Elle ne masque jamais un rendez-vous.</li>
   <li><b>Chevauchements</b> : quand deux blocs, ou un bloc et un rendez-vous, se recouvrent, la zone commune est hachurée en <b>rouge</b> avec un <b>!</b> (survole-le pour voir lesquels). Rien n'est interdit : c'est à toi d'ajuster. À chaque ouverture de Cadence, une notification liste ceux qui restent à venir dans la semaine ; « Voir » les fait clignoter.</li>
-  <li>Si ton compte Google est connecté, <b>désynchroniser</b> un bloc <b>supprime</b> ses rendez-vous Google de l'agenda (Cadence demande d'abord confirmation et en garde une copie) ; le <b>resynchroniser</b> les recrée à l'identique, avec leurs tâches et notes liées. Les agendas iCal sont seulement masqués.</li>
+  <li><b>Désynchroniser</b> un bloc ne retire que le bloc de Google : les rendez-vous qui tombent dedans ne sont jamais supprimés.</li>
   <li>Un bloc sur plusieurs jours est séparé par des pointillés : chaque jour a sa propre icône et se synchronise à part.</li>
   <li>Sur un bloc de rendez-vous seul, l'icône calendrier le masque (annulable).</li>
   <li>Le bloc en cours porte un liseré rouge doux ; au démarrage puis chaque heure (si tu ne touches à rien), l'agenda se cale sur l'heure actuelle.</li>
   <li>Google connecté : <b>⚙️ Réglages → Agendas → Agenda des blocs</b> choisit l'agenda où Cadence crée les cases synchronisées et les nouveaux rendez-vous.</li>
-  <li>À côté de la semaine, la pastille <b>📆</b> donne le nombre de rendez-vous chargés (survole-la pour le détail et les rendez-vous masqués). <b>Clique dessus</b> pour cocher ou décocher tes agendas (Google et iCal) : ils s'affichent ou se masquent tout de suite. Une pastille rouge <b>⚠ pas d'accès</b> signale un agenda injoignable : clic pour réessayer.</li>
+  <li>À côté de la semaine, la pastille <b>📆</b> donne le nombre de rendez-vous chargés (survole-la pour le détail). <b>Clique dessus</b> pour cocher ou décocher tes agendas (Google et iCal) : ils s'affichent ou se masquent tout de suite. Une pastille rouge <b>⚠ pas d'accès</b> signale un agenda injoignable : clic pour réessayer.</li>
   <li>Rendez-vous Google : glisse pour déplacer, tire le bas pour allonger, double-clic pour le renommer ou le modifier, 🗑 pour le supprimer.</li>
   <li>Glisse une tâche ou une note <b>sur un rendez-vous</b> pour l'y rattacher (📎).</li></ol>
   <p class="aide-tip">Masquer un rendez-vous ne le supprime jamais de ton agenda.</p>`},
@@ -1472,7 +1474,7 @@ function evElement(grp){
     wrap.appendChild(bd); b.appendChild(wrap); b.classList.add('has-badge');
   }
   const keys = grp.map(x => x.id);
-  const rdvVus = (k) => { const e = evById(k); return e && blocVisible(e) ? rdvDuBloc(k) : []; };
+  const rdvVus = () => [];   // les rendez-vous sont toujours dessinés par-dessus les blocs
   if (keys.some(k => dayFiles(k).length || rdvVus(k).length)){
     const row2 = document.createElement('div'); row2.className = 'dayplan'; row2.style.gridTemplateColumns = `repeat(${nd}, 1fr)`;
     keys.forEach(k => {
@@ -1509,14 +1511,14 @@ function evElement(grp){
   for (let k = 1; k < nd; k++){ const sp = document.createElement('div'); sp.className = 'sepjour'; sp.style.left = posJour(k, -2); el.appendChild(sp); }
   if (agendaActif()) el.classList.add('avec-sync');
   if (agendaActif()) grp.forEach((g, k) => {
-    const on = !!gBlocs()[cleBloc(g)], caches = on ? 0 : rdvDuBloc(g.id).length + nbCopies([g]);
+    const on = !!gBlocs()[cleBloc(g)], caches = on ? 0 : nbCopies([g]);
     const gb = document.createElement('button'); gb.type = 'button'; gb.className = 'gsync' + (on ? ' on' : '');
     gb.style.left = posJour(k, 5);
     gb.innerHTML = svgIcone(on ? 'calendar-check' : 'calendar', 15) + (caches ? `<span class="gn">${caches}</span>` : '');
     const jour = nd > 1 ? ` (${DAYS[g.d].toLowerCase()})` : '';
     gb.title = on ? `Synchronisée${jour} : ses rendez-vous d'agenda sont affichés` + (AG.google && AG.google.connecte ? ' et la case est dans Google Agenda' : '') + ' · clic : désynchroniser'
-      + (AG.google && AG.google.connecte && rdvDuBloc(g.id).some(r => r.x.cle && r.x.cle.startsWith('g:')) ? ' (ses rendez-vous Google seront supprimés, copie gardée)' : '')
-      : `Pas synchronisée${jour}` + (caches ? ` · ${caches} rendez-vous masqué${caches > 1 ? 's' : ''} ou mis de côté` : '') + ' · clic : synchroniser' + (nbCopies([g]) ? ' (les rendez-vous mis de côté sont recréés dans Google)' : '');
+     
+      : `Pas synchronisée${jour}` + (caches ? ` · ${caches} rendez-vous mis de côté` : '') + ' · clic : synchroniser' + (nbCopies([g]) ? ' (les rendez-vous mis de côté sont recréés dans Google)' : '');
     gb.addEventListener('pointerdown', (ev) => ev.stopPropagation());
     gb.addEventListener('click', (ev) => { ev.stopPropagation(); basculerSyncBloc([g], !on); });
     el.appendChild(gb);
@@ -1964,7 +1966,7 @@ function renderEtatAgendas(){
   if (!etatAgendas.length && !configures){ box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
   const ko = etatAgendas.filter(x => !x.ok);
-  const masques = Object.entries(rdvPar.absorbes).reduce((n, [k, v]) => { const e = evById(k); return n + (e && !blocVisible(e) ? v.length : 0); }, 0);
+  const masques = 0;   // plus aucun rendez-vous n'est masqué par un bloc
   if (ko.length){
     ko.forEach(x => { const b = document.createElement('button'); b.type = 'button'; b.className = 'agp ko';
       b.textContent = `⚠ ${x.nom} : pas d'accès`; b.title = `${x.nom} : ${x.msg || 'injoignable'}\nClic : réessayer · Cadence réessaie aussi toute seule toutes les 2 minutes.`;
@@ -1996,6 +1998,7 @@ function repartirRdv(){
   Object.values(rdvPar.absorbes).forEach(l => l.sort((a, b) => a.m0 - b.m0));
 }
 const rdvDuBloc = (eid) => rdvPar.absorbes[eid] || [];
+const tousRdv = () => rdvPar.seuls.concat(...Object.values(rdvPar.absorbes));
 const blocVisible = (e) => !!gBlocs()[cleBloc(e)];
 const liensRdv = (k) => ((state.liensRdv || {})[k]) || {taches: [], notes: []};
 const nbLiens = (k) => { const l = liensRdv(k); return (l.taches || []).length + (l.notes || []).length; };
@@ -2012,7 +2015,7 @@ function dessinerAgendas(evs){
     }
   });
   const masques = state.rdvMasques || {};
-  rdvPar.seuls.filter(r => !masques[r.x.cle] && r.d < NC()).forEach(({x, d, m0, m1}) => {
+  tousRdv().filter(r => !masques[r.x.cle] && r.d < NC()).forEach(({x, d, m0, m1}) => {
     const coul = AG_COUL[x.couleur] || x.couleur || AG_COUL.gris;
     const a = Math.max(RS, m0), b = Math.min(RE, m1); if (b <= a) return;
     const el = document.createElement('div'); el.className = 'ext rdvbloc' + (x.modifiable ? ' mod' : ''); el.dataset.cle = x.cle;
@@ -2040,7 +2043,7 @@ function chevauchements(){
   const out = [], masques = state.rdvMasques || {};
   for (let d = 0; d < NC(); d++){
     const l = dayEvents(d).map(e => ({a: e.start, b: e.end, nom: e.title || 'Bloc', bloc: e.id}))
-      .concat(rdvPar.seuls.filter(r => r.d === d && !masques[r.x.cle]).map(r => ({a: r.m0, b: r.m1, nom: '📆 ' + r.x.titre, rdv: r.x.cle})));
+      .concat(tousRdv().filter(r => r.d === d && !masques[r.x.cle]).map(r => ({a: r.m0, b: r.m1, nom: '📆 ' + r.x.titre, rdv: r.x.cle})));
     for (let i = 0; i < l.length; i++) for (let j = i + 1; j < l.length; j++){
       const a = Math.max(l[i].a, l[j].a), b = Math.min(l[i].b, l[j].b);
       if (b > a) out.push({d, a, b, noms: [l[i].nom, l[j].nom]});
@@ -2228,7 +2231,7 @@ async function basculerSyncBloc(grp, activer){
   const m = gBlocs(), g = AG.google && AG.google.connecte;
   let nSuppr = 0, nRecrees = 0;
   if (!activer && g){
-    const aEffacer = grp.flatMap(e => rdvDuBloc(e.id).filter(r => r.x.cle && r.x.cle.startsWith('g:') && r.x.modifiable).map(r => ({e, x: r.x})));
+    const aEffacer = [];   // les rendez-vous d'agenda sont prioritaires : désynchroniser un bloc ne les touche plus
     const vus = new Set(), liste = aEffacer.filter(r => !vus.has(r.x.cle) && vus.add(r.x.cle));
     if (liste.length){
       const fmt = (x) => x.allDay ? 'journée' : new Date(x.debut).toLocaleString('fr-FR', {weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'});
