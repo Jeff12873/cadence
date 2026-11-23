@@ -207,7 +207,6 @@ dialog input[type=time]{width:100%;border:1px solid var(--line);border-radius:8p
 .ev.deborde:hover{z-index:20}
 .ev.deborde:hover .block{height:auto;min-height:100%;overflow:visible;box-shadow:0 8px 22px rgba(0,0,0,.35)}
 .ev.deborde:hover .block::after{display:none}
-.ev.deborde:hover .dp .pi{white-space:normal}
 .ev.short .block::before{top:3px;bottom:3px}
 .ev .rz2{position:absolute;left:0;right:0;bottom:-3px;height:9px;cursor:ns-resize;z-index:4}
 .ev .rz2::after{content:"";position:absolute;left:40%;right:40%;top:3px;height:3px;border-radius:3px;background:var(--fg);opacity:0;transition:opacity .15s}
@@ -1028,7 +1027,7 @@ const LATER_DAYS = 30;
 const isLater = (t) => { const src = (t.scheduled || t.due || '').slice(0, 10); if (!src) return false; const lim = new Date(); lim.setDate(lim.getDate() + LATER_DAYS); return src > isoOf(lim); };
 const expanded = new Set();
 // Temporisations (ms) : réglées en un seul endroit
-const TEMPO = {plus: 800, ouvrirEnGlissant: 1200, toast: 4500, toastAction: 6500, clignote: 2400};
+const TEMPO = {plus: 800, plusReste: 1500, ouvrirEnGlissant: 1200, toast: 4500, toastAction: 6500, clignote: 2400};
 const rid = () => Math.random().toString(36).slice(2, 9);
 let minuteurPersist = null;
 function persist(){
@@ -1084,10 +1083,16 @@ function memoriserSemaine(){
   if (empreinte(state.events) === empreinte(modeleDe(iso).events)) delete sem.events; else sem.events = clone(state.events);
   if (sem.modele === state.modeleDefaut) delete sem.modele;
   if (Object.keys(sem).length) state.semaines[iso] = sem; else delete state.semaines[iso];
+  state.semaineAffichee = iso;
 }
 // Charge les blocs de la semaine affichée (appelé quand on change de semaine)
 function chargerSemaine(iso){
   if (iso === semaineChargee) return;
+  // fichier écrit par une version de Cadence sans semaines types : ses retouches sont dans state.events
+  if (!semaineChargee && state.semaineAffichee && state.events && empreinte(state.events) !== empreinte(eventsDe(state.semaineAffichee))){
+    const k = state.semaineAffichee; state.semaines[k] = {...(state.semaines[k] || {}), events: clone(state.events)};
+    setTimeout(persist, 0);
+  }
   memoriserSemaine();
   state.events = clone(eventsDe(iso)); semaineChargee = iso;
 }
@@ -1202,7 +1207,7 @@ const AIDE = [
   <li><b>Modifier</b> : double-clic sur le bloc (titre, horaires, catégorie, tag ou projet, jours).</li>
   <li><b>Déplacer</b> : glisse le bloc. <b>Étirer</b> : tire son bord du bas (par pas de 15 min).</li>
   <li><b>Supprimer</b> : survole-le puis 🗑 ; une notification permet d'<b>annuler</b>.</li></ol>
-  <p>Les blocs identiques sur des jours qui se suivent sont fusionnés visuellement. Un bloc trop petit pour son contenu s'écrit sur une ligne ; un <b>▾</b> l'indique : au survol, les heures s'<b>écartent</b> pour tout afficher, puis se resserrent.</p>
+  <p>Les blocs identiques sur des jours qui se suivent sont fusionnés visuellement. Un bloc trop petit pour son contenu s'écrit sur une ligne ; un <b>▾</b> l'indique : <b>clique dessus</b> pour voir toutes ses tâches dans la colonne de droite.</p>
   <p><b>Clique sur le nom d'un jour</b> pour voir à droite toutes les tâches de la journée (par bloc) ; la journée en cours est légèrement teintée.</p>
   <p class="aide-tip">Un bloc qui porte un <b>tag</b> ou un <b>projet</b> n'accepte que les tâches correspondantes (voir l'étape 4).</p>`},
  {t: '3. Les tâches', h: `<p>Le panneau de droite <b>Mes tâches</b> liste tes tâches ouvertes, groupées par tag. Les filtres en haut (tags, projets, lieux, Aujourd'hui, À trier) réduisent la liste.</p>
@@ -1578,10 +1583,7 @@ function ajusterCases(evs){
     if (el.classList.contains('short') || deborde()){ el.classList.add('serre'); el.dataset.serre = '1'; const bw = b.querySelector(':scope > .badges'); if (bw) b.prepend(bw); }
     if (deborde()){ el.classList.add('deborde'); el.dataset.deborde = '1'; }
     b.style.overflow = '';
-    if (el.dataset.serre || el.dataset.deborde){
-      el.addEventListener('mouseenter', () => { clearTimeout(el._tf); el._to = setTimeout(() => ouvrirCase(el), 120); });
-      el.addEventListener('mouseleave', () => { clearTimeout(el._to); if (caseOuverte === el) el._tf = setTimeout(() => { if (caseOuverte === el) fermerCase(); }, 80); });
-    }
+    // (plus d'agrandissement au survol : un clic sur la case montre toutes ses tâches dans la colonne de droite)
   });
 }
 function evElement(grp){
@@ -1925,8 +1927,8 @@ function installerAgenda(evs){
   });
 
   // --- « + » qui apparaît après TEMPO.plus de survol entre deux créneaux (ou dans un espace libre) ---
-  let tSurvol = null, ptSurvol = null;
-  const cachePlus = () => { clearTimeout(tSurvol); evs.querySelectorAll('.plus,.hovering-hint,.plus-menu').forEach(x => x.remove()); };
+  let tSurvol = null, ptSurvol = null, tPart = null;
+  const cachePlus = () => { clearTimeout(tSurvol); clearTimeout(tPart); tPart = null; evs.querySelectorAll('.plus,.hovering-hint,.plus-menu').forEach(x => x.remove()); };
   const pointLibre = (p) => {
     const day = dayEvents(p.d);
     for (const e of day){                                  // près d'un bord de bloc : on s'y aligne
@@ -1939,6 +1941,13 @@ function installerAgenda(evs){
     if (document.body.classList.contains('dragging-ev') || ev.buttons) return;
     if (ev.target.closest('.plus') || ev.target.closest('.plus-menu')) return;
     const p = posAgenda(evs, ev.clientX, ev.clientY);
+    // un « + » affiché reste là tant que la souris est proche, puis encore un moment après qu'elle s'éloigne
+    const pb = evs.querySelector('.plus');
+    if (pb){ const r = pb.getBoundingClientRect();
+      if (p.inside && Math.hypot(ev.clientX - (r.x + r.width / 2), ev.clientY - (r.y + r.height / 2)) < 70){ clearTimeout(tPart); tPart = null; return; }
+      if (!tPart) tPart = setTimeout(() => { cachePlus(); ptSurvol = null; }, TEMPO.plusReste);
+      return; }
+    if (evs.querySelector('.plus-menu')) return;
     if (!p.inside){ cachePlus(); return; }
     if (ptSurvol && Math.hypot(ev.clientX - ptSurvol.x, ev.clientY - ptSurvol.y) < 6) return;
     cachePlus(); ptSurvol = {x: ev.clientX, y: ev.clientY};
@@ -1957,7 +1966,7 @@ function installerAgenda(evs){
       evs.append(hint, b);
     }, TEMPO.plus);
   };;
-  evs.parentElement.onpointerleave = () => { cachePlus(); ptSurvol = null; };
+  evs.parentElement.onpointerleave = () => { clearTimeout(tSurvol); if (evs.querySelector('.plus')){ if (!tPart) tPart = setTimeout(() => { cachePlus(); ptSurvol = null; }, TEMPO.plusReste); } else { cachePlus(); ptSurvol = null; } };
 
   // --- glisser une tâche : dépôt sur un bloc ou une heure ; maintenue TEMPO.ouvrirEnGlissant entre deux créneaux, elle en ouvre un ---
   let tTache = null, ptTache = null;
