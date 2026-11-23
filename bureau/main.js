@@ -70,9 +70,21 @@ function fichierTache(nom) {
   if (typeof nom !== 'string' || !nom || /[\\/]/.test(nom) || nom.startsWith('.')) throw new Error('Nom de tâche invalide.');
   return path.join(dossierTaches(), nom.endsWith('.md') ? nom : nom + '.md');
 }
+// Le choix du fichier de la semaine est partagé par tous les ordinateurs : il est noté dans le coffre
+// (.obsidian/cadence.json), et prime sur le réglage local.
+const fichierPartage = () => path.join(config.coffre, '.obsidian', 'cadence.json');
+function donneesPartagees() {
+  if (!config.coffre) return null;
+  try { const d = JSON.parse(fs.readFileSync(fichierPartage(), 'utf8')).donnees; return typeof d === 'string' && d.endsWith('.json') && !d.includes('..') ? d : null; } catch { return null; }
+}
+function noterDonneesPartagees(relatif) {
+  if (!config.coffre || !fs.existsSync(path.join(config.coffre, '.obsidian'))) return;
+  try { fs.writeFileSync(fichierPartage(), JSON.stringify({ donnees: relatif }, null, 2) + '\n'); } catch { /* coffre en lecture seule */ }
+}
+const donneesEffectives = () => donneesPartagees() || config.donnees || 'Cadence.json';
 function fichierDonnees() {
   if (!config.coffre) throw new Error('Aucun coffre Obsidian choisi.');
-  const f = path.normalize(path.join(config.coffre, config.donnees || 'Cadence.json'));
+  const f = path.normalize(path.join(config.coffre, donneesEffectives()));
   if (!f.startsWith(path.normalize(config.coffre) + path.sep) || !f.endsWith('.json')) throw new Error('Fichier de données invalide.');
   return f;
 }
@@ -149,7 +161,7 @@ ipcMain.handle('config', () => {
   const tn = reglagesTaskNotes();
   return {
     coffre: config.coffre, nomCoffre: config.coffre ? path.basename(config.coffre) : null,
-    donnees: config.donnees, tasknotes: tn,
+    donnees: donneesEffectives(), tasknotes: tn,
   };
 });
 
@@ -172,6 +184,7 @@ ipcMain.handle('choisir-coffre', async (evenement) => {
 ipcMain.handle('regler-donnees', async (evenement, relatif) => {
   if (typeof relatif !== 'string' || !relatif.endsWith('.json') || relatif.includes('..')) throw new Error('Chemin invalide (un fichier .json dans le coffre).');
   config.donnees = relatif.replace(/^\/+/, '');
+  noterDonneesPartagees(config.donnees);
   await enregistrerConfig();
   surveiller();
   return config.donnees;
@@ -873,6 +886,8 @@ function capturer(fenetre, sortie) {
 app.setName('Cadence');
 app.whenReady().then(() => {
   chargerConfig();
+  // premier ordinateur mis à jour : il note dans le coffre le fichier de la semaine qu'il utilise
+  if (config.coffre && !donneesPartagees() && fs.existsSync(path.join(config.coffre, config.donnees || 'Cadence.json'))) noterDonneesPartagees(config.donnees || 'Cadence.json');
   servirFichiers();
   servirCoffre();
   creerFenetre();

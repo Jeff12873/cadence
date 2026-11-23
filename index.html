@@ -145,10 +145,9 @@ aside .meta{font-size:11.5px;color:var(--muted);margin-bottom:10px}
 .task .ob{display:inline-flex;align-items:center;padding:0 2px 0 8px}
 .obs{width:15px;height:15px;display:block;filter:saturate(.9)}
 a.ob:hover .obs,.nob:hover .obs{filter:saturate(1.3) drop-shadow(0 0 2px rgba(124,92,224,.6))}
-.task .ttrash{position:absolute;right:6px;bottom:5px;border:none;border-radius:6px;background:transparent;font-size:12px;line-height:1;padding:3px 4px;cursor:pointer;opacity:0;transition:opacity .15s}
+.task .ttrash{flex:none;align-self:center;margin-left:4px;border:none;border-radius:6px;background:transparent;font-size:12px;line-height:1;padding:3px 4px;cursor:pointer;opacity:0;transition:opacity .15s}
 .task:hover .ttrash{opacity:.75}
 .task .ttrash:hover{opacity:1;background:#E5484D}
-.task .tm{padding-right:24px}
 .task .rename{flex:1;min-width:0;font:inherit;font-weight:600;border:1px solid var(--accent);border-radius:6px;padding:1px 5px;background:var(--card);color:var(--ink)}
 .task.blocked{opacity:.55}
 .prio{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
@@ -447,6 +446,7 @@ body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(
 .tm .rec{display:inline-flex;align-items:center;gap:3px;color:var(--accent);font-weight:600}
 .tm .rec .lu,.dp .pi.rec .lu{flex:none;vertical-align:-1px}
 .dp .pi.rec{color:var(--fg)}
+.tm .incoh{color:#E5484D;font-weight:700}
 .tm .go{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
 .tm .go:hover{color:var(--accent)}
 .ev.encours .block{outline:2px solid color-mix(in srgb, #E5484D 60%, transparent);outline-offset:1px;animation:encours 3s ease-in-out infinite}
@@ -1235,6 +1235,7 @@ const AIDE = [
   <li>Clic sur une note pour la lire ; l'éditeur permet de l'écrire, avec aperçu (Ctrl+S enregistre, l'enregistrement est aussi automatique).</li>
   <li><b>Surligne un passage</b> : la bulle <b>« En faire une tâche »</b> crée la tâche et remplace le passage par un lien.</li>
   <li><b>Glisse une note</b> sur le calendrier : elle devient une tâche planifiée à cet endroit, liée à la note.</li>
+  <li><b>Dates incohérentes</b> : une sous-tâche datée alors que sa parente ne l'est pas, ou prévue après elle, et une tâche dépendante prévue avant la tâche qu'elle attend (ou datée alors que celle-ci ne l'est pas) affichent un avertissement <b>⚠ rouge</b> ; clique dessus pour aller à l'autre tâche. À l'ouverture de Cadence, une notification les signale.</li>
   <li><b>Tâches récurrentes</b> : repérées par l'icône <b>↻ en boucle</b>, avec leur rythme (« chaque vendredi à 13h30 »). Tu peux les glisser sur un autre jour ou changer leur date dans « Modifier » : Cadence demande confirmation, puis <b>toutes les prochaines échéances suivent</b> (jour de la semaine, jour du mois, heure).</li>
   <li>🔗 relie une note à une tâche existante.</li></ol>`},
  {t: '6. Agendas et Google', h: `<p>Dans <b>⚙️ Réglages</b>, clique sur <b>« Se connecter avec Google »</b> : une page Google s'ouvre dans ton navigateur, tu acceptes, c'est tout. Coche ensuite les agendas à afficher et choisis l'<b>agenda des blocs</b>, celui où Cadence écrit.</p>
@@ -2518,6 +2519,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>
 
 /* ---------- panneau tâches ---------- */
 function renderTasks(){
+  incoh = incoherences();
   const aside = $('#tasks'), layout = $('#layout');
   if (!tasks){ aside.classList.add('hidden'); layout.classList.remove('with-tasks'); return; }
   aside.classList.remove('hidden'); layout.classList.add('with-tasks');
@@ -2649,6 +2651,7 @@ function renderGroup(g, items, container, rerender){
       if (t.status === 'in-progress') meta.push('en cours');
       if ((t.notes || []).length) meta.push(`📝 ${t.notes.length}`);
       if (t.blocked) meta.push({txt: `⛔ attend : ${t.waitingOn.join(', ')}`, go: t.waitingOn});
+      (incoh[t.file] || []).forEach(x => meta.push({...x, cls: 'incoh'}));
       const parents = (t.projects || []).filter(p => tasks.items.some(x => x.file === p)); if (parents.length && !prof) meta.push({txt: `⤴ sous-tâche de ${parents.join(', ')}`, go: parents});
       const enf = tasks.items.filter(x => (x.projects || []).includes(t.file)).map(x => x.file); if (enf.length) meta.push({txt: `☰ ${enf.length} sous-tâche${enf.length > 1 ? 's' : ''}`, go: enf});
       const suit = tasks.items.filter(x => (x.blockedBy || []).includes(t.file)).map(x => x.file); if (suit.length) meta.push({txt: `⤷ ${suit.length} en attente d'elle`, go: suit});
@@ -2662,9 +2665,9 @@ function renderGroup(g, items, container, rerender){
       a.innerHTML = `<div class="tt">${BUREAU && !t.recurring ? `<button class="done-btn" title="Valider la tâche"></button>` : ''}${t.boxes ? `<span class="chev">${open ? '▾' : '▸'}</span>` : ''}<span class="prio p${prioN(t.priority)}"${prioColor(t.priority) ? ` style="background:${prioColor(t.priority)}"` : ''}></span><span class="tl">${esc(t.title)}</span>`
         + (wk ? `<button class="unplan" title="Retirer du jour prévu">✕</button>` : '')
         + `<a class="ob" href="${url}" title="Ouvrir dans Obsidian">${OBS}</a></div>`
-        + (meta.length ? `<div class="tm">${meta.map(m => typeof m === 'string' ? `<span>${esc(m)}</span>` : m.html ? `<span class="${m.cls || ''}" title="Tâche récurrente : la déplacer décale toutes les prochaines échéances">${m.html}</span>` : `<span class="go" data-go="${esc(m.go.join('|'))}" title="Clic : aller à la tâche">${esc(m.txt)}</span>`).join('')}</div>` : '');
+        + (meta.length ? `<div class="tm">${meta.map(m => typeof m === 'string' ? `<span>${esc(m)}</span>` : m.html ? `<span class="${m.cls || ''}" title="Tâche récurrente : la déplacer décale toutes les prochaines échéances">${m.html}</span>` : `<span class="go${m.cls ? ' ' + m.cls : ''}" data-go="${esc(m.go.join('|'))}" title="Clic : aller à la tâche">${esc(m.txt)}</span>`).join('')}</div>` : '');
       a.dataset.file = t.file; if (prof){ a.classList.add('enfant'); a.style.setProperty('--prof', prof); }
-      if (BUREAU){ const tr = document.createElement('button'); tr.className = 'ttrash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = 'Supprimer la tâche'; a.appendChild(tr); }
+      if (BUREAU){ const tr = document.createElement('button'); tr.className = 'ttrash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = 'Supprimer la tâche'; const tt = a.querySelector('.tt'), ob = tt && tt.querySelector('.ob'); if (ob) tt.insertBefore(tr, ob); else a.appendChild(tr); }
       if (BUREAU && nRep >= 2){ a.classList.add('repoussee'); const cu = document.createElement('button'); cu.className = 'tcut'; cu.type = 'button'; cu.textContent = '✂ Juste démarrer'; cu.title = 'Créer une première étape de 15 minutes pour aujourd\'hui'; a.appendChild(cu); }
       if (t.boxes && open){
         const ul = document.createElement('div'); ul.className = 'subs';
@@ -2851,6 +2854,37 @@ async function deplacerRecurrente(t, valeur, dejaConfirme){
   const t2 = tasks.items.find(y => y.file === t.file); if (t2) setTimeout(() => focusBlocTache(t2, true), 50);
   return true;
 }
+/* ---------- Cohérence des dates : sous-tâches et tâches dépendantes ----------
+   Une sous-tâche doit être prévue avant (ou en même temps que) sa parente, et une parente sans date alors que
+   sa sous-tâche en a une est suspecte. Une tâche dépendante doit venir après la tâche qu'elle attend. */
+const dateDe = (t) => (t && (t.scheduled || t.due) || '').slice(0, 16);
+function incoherences(){
+  const out = {}, add = (f, txt, go) => (out[f] = out[f] || []).push({txt, go: [go]});
+  if (!tasks) return out;
+  const ouvertes = tasks.items.filter(t => t.status !== 'done' && !t.recurring), parFichier = (f) => ouvertes.find(x => x.file === f);
+  ouvertes.forEach(t => {
+    const dt = dateDe(t);
+    (t.projects || []).map(parFichier).filter(Boolean).forEach(p => {
+      const dp = dateDe(p);
+      if (dt && !dp) add(t.file, `⚠ datée, mais pas sa parente « ${p.title} »`, p.file);
+      else if (dt && dp && dt.slice(0, 10) > dp.slice(0, 10)) add(t.file, `⚠ prévue après sa parente « ${p.title} » (${fmt(dp)})`, p.file);
+    });
+    (t.blockedBy || []).map(parFichier).filter(Boolean).forEach(b => {
+      const db = dateDe(b);
+      if (dt && !db) add(t.file, `⚠ datée, mais pas la tâche attendue « ${b.title} »`, b.file);
+      else if (dt && db && dt < db) add(t.file, `⚠ prévue avant la tâche attendue « ${b.title} » (${fmt(db)})`, b.file);
+    });
+  });
+  return out;
+}
+let incoherencesVues = false, incoh = {};
+function notifierIncoherences(){
+  if (incoherencesVues || !tasks) return;
+  if (document.querySelector('dialog[open]') || document.querySelector('.toast')){ setTimeout(notifierIncoherences, 4000); return; }
+  incoherencesVues = true;
+  const inc = incoherences(), files = Object.keys(inc); if (!files.length) return;
+  toast(`⚠ ${files.length} tâche${files.length > 1 ? 's' : ''} aux dates incohérentes avec leur parente ou la tâche qu'elles attendent.`, 'Voir', () => focusTaches(files));
+}
 async function deposer(file, d, m, evId){
   if (!BUREAU){ if (evId) planTask(file, evId); return; }
   const t = tasks && tasks.items.find(x => x.file === file); if (!t) return;
@@ -2892,7 +2926,7 @@ async function chargerTaches(){
   render();
   syncGoogle();
   setTimeout(verifierBlocsVides, 500);
-  if (!rattrapageVu){ rattrapageVu = true; setTimeout(ouvrirRattrapage, 900); }
+  if (!rattrapageVu){ rattrapageVu = true; setTimeout(ouvrirRattrapage, 900); setTimeout(notifierIncoherences, 5000); }
 }
 
 /* ---------- au démarrage : tâches des jours précédents à replacer ou valider ---------- */
