@@ -438,8 +438,8 @@ body.retro .agp{border:2px solid var(--px);box-shadow:2px 2px 0 var(--pxs)}
 body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(--px)}
 .chevauche.focus{animation:chevclign .8s ease-in-out 4}
 @keyframes chevclign{50%{background:rgba(229,72,77,.5)}}
-.task.focus{animation:liserai .8s ease-in-out 4;outline-offset:2px}
-@keyframes liserai{0%,100%{outline:2px solid transparent}50%{outline:2px solid var(--accent)}}
+.task.focus{animation:liserai .9s ease-in-out 3;outline-offset:2px;position:relative;z-index:1}
+@keyframes liserai{0%,100%{outline:2px solid transparent;box-shadow:none}50%{outline:3px solid var(--accent);box-shadow:0 0 0 5px color-mix(in srgb, var(--accent) 28%, transparent), 0 0 22px color-mix(in srgb, var(--accent) 70%, transparent);background:color-mix(in srgb, var(--accent) 16%, var(--paper))}}
 .dayhead.flash, .ext.flash, .pi.rdv.flash{animation:flash 1.4s steps(4) 2}
 .task.enfant{margin-left:calc(var(--prof) * 18px);width:calc(100% - var(--prof) * 18px);position:relative}
 .task.enfant::before{content:"";position:absolute;left:-12px;top:-8px;bottom:50%;width:9px;border-left:2px solid color-mix(in srgb, var(--accent) 55%, transparent);border-bottom:2px solid color-mix(in srgb, var(--accent) 55%, transparent)}
@@ -1027,7 +1027,7 @@ const LATER_DAYS = 30;
 const isLater = (t) => { const src = (t.scheduled || t.due || '').slice(0, 10); if (!src) return false; const lim = new Date(); lim.setDate(lim.getDate() + LATER_DAYS); return src > isoOf(lim); };
 const expanded = new Set();
 // Temporisations (ms) : réglées en un seul endroit
-const TEMPO = {plus: 800, plusReste: 1500, ouvrirEnGlissant: 1200, toast: 4500, toastAction: 6500, clignote: 2400};
+const TEMPO = {plus: 800, plusReste: 1500, ouvrirEnGlissant: 1200, toast: 4500, toastAction: 6500, clignote: 2800};
 const rid = () => Math.random().toString(36).slice(2, 9);
 let minuteurPersist = null;
 function persist(){
@@ -1185,6 +1185,7 @@ const evById = (id) => state.events.find(e => e.id === id);
 const keyLabel = (k) => { if (k.startsWith('day:')) return DAYS[+k.slice(4)]; const e = evById(k); return e ? `${DAYS[e.d]} ${fmtMin(e.start)}` : '?'; };
 const plannedFiles = (k) => (plan[k] || []).filter(f => !tasks || tasks.items.some(t => t.file === f));
 function planTask(file, k){
+  if (k) setTimeout(() => focusTaches([file], true), 60);
   Object.keys(plan).forEach(x => { plan[x] = plan[x].filter(f => f !== file); if (!plan[x].length) delete plan[x]; });
   if (k) (plan[k] = plan[k] || []).push(file);
   savePlan(); render();
@@ -1219,6 +1220,7 @@ const AIDE = [
   <li><b>Tâche liée</b> : dans la fenêtre de modification, <b>⤷ Tâche qui en dépend</b> (elle attendra celle-ci) ou <b>⤴ Tâche parente</b> (celle-ci devient sa sous-tâche). Choisis <b>＋ Nouvelle tâche</b> pour la créer, ou une tâche existante pour simplement l'<b>associer</b>.</li>
   <li>Les sous-tâches s'affichent sous leur parente, en retrait. Les mentions <b>⤴ sous-tâche de</b>, <b>☰ sous-tâches</b>, <b>⛔ attend</b> et <b>⤷ en attente d'elle</b> sont cliquables : la liste défile jusqu'aux tâches concernées, qui clignotent.</li>
   <li>Un clic sur une tâche fait clignoter son bloc dans l'agenda (ou le jour, ou le rendez-vous auquel elle est rattachée). Une tâche créée ou déplacée clignote aussi, pour la retrouver.</li>
+  <li><b>La liste suit la tâche</b> : quand tu modifies une tâche (catégorie, projet, date…) et qu'elle se range ailleurs, la liste défile jusqu'à sa nouvelle place et la fait clignoter. Si un filtre la cache, une notification le dit.</li>
   <li><b>Chercher</b> : la barre <b>Rechercher</b> en haut (ou <b>Ctrl+K</b>) trouve tâches, notes du coffre et blocs ; un clic sur un bloc le fait clignoter dans le calendrier. <b>Échap</b> efface.</li>
   <li><b>Au démarrage</b>, s'il reste des tâches des jours précédents, une fenêtre les liste. Pour chacune : <b>↻ Replacer</b> sur son prochain créneau dédié (bloc du même tag ou projet), <b>Sans date</b> (elle revient dans la liste de droite) ou <b>✓ Fait</b>.</li>
   <li><b>Checklist</b> : clique sur une tâche à étapes pour les voir ; glisse une étape sur le calendrier pour en faire une tâche à part.</li></ol>
@@ -2666,7 +2668,8 @@ function renderGroup(g, items, container, rerender){
         + (wk ? `<button class="unplan" title="Retirer du jour prévu">✕</button>` : '')
         + `<a class="ob" href="${url}" title="Ouvrir dans Obsidian">${OBS}</a></div>`
         + (meta.length ? `<div class="tm">${meta.map(m => typeof m === 'string' ? `<span>${esc(m)}</span>` : m.html ? `<span class="${m.cls || ''}" title="Tâche récurrente : la déplacer décale toutes les prochaines échéances">${m.html}</span>` : `<span class="go${m.cls ? ' ' + m.cls : ''}" data-go="${esc(m.go.join('|'))}" title="Clic : aller à la tâche">${esc(m.txt)}</span>`).join('')}</div>` : '');
-      a.dataset.file = t.file; if (prof){ a.classList.add('enfant'); a.style.setProperty('--prof', prof); }
+      a.dataset.file = t.file; if ((tachesClignotantes.get(t.file) || 0) > Date.now()){ a.classList.add('focus'); setTimeout(() => a.classList.remove('focus'), tachesClignotantes.get(t.file) - Date.now()); }
+      if (prof){ a.classList.add('enfant'); a.style.setProperty('--prof', prof); }
       if (BUREAU){ const tr = document.createElement('button'); tr.className = 'ttrash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = 'Supprimer la tâche'; const tt = a.querySelector('.tt'), ob = tt && tt.querySelector('.ob'); if (ob) tt.insertBefore(tr, ob); else a.appendChild(tr); }
       if (BUREAU && nRep >= 2){ a.classList.add('repoussee'); const cu = document.createElement('button'); cu.className = 'tcut'; cu.type = 'button'; cu.textContent = '✂ Juste démarrer'; cu.title = 'Créer une première étape de 15 minutes pour aujourd\'hui'; a.appendChild(cu); }
       if (t.boxes && open){
@@ -2892,7 +2895,7 @@ async function deposer(file, d, m, evId){
   if (t.recurring){ if (whereIs(file)) planTask(file, null); await deplacerRecurrente(t, valeur); return; }
   if (whereIs(file)) planTask(file, null);
   await ecrire(() => cadence.planifier(file, valeur, t.mtime));
-  const t2 = tasks.items.find(y => y.file === file); if (t2) setTimeout(() => focusBlocTache(t2, true), 50);
+  const t2 = tasks.items.find(y => y.file === file); if (t2) setTimeout(() => { focusBlocTache(t2, true); focusTaches([file], true); }, 50);
 }
 async function chargerConfig(){
   CFG = await cadence.config(); TN = CFG.tasknotes;
@@ -3070,8 +3073,10 @@ $('#q').addEventListener('keydown', (e) => { if (e.key === 'Escape'){ e.preventD
 document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K') && !document.querySelector('dialog[open]')){ e.preventDefault(); $('#q').focus(); $('#q').select(); } });
 
 /* ---------- focalisations : défiler jusqu'à un élément et le faire clignoter doucement ---------- */
+const tachesClignotantes = new Map();   // fichier → fin du clignotement (survit au rechargement de la liste)
 function clignoter(els, cls = 'focus'){
   els = els.filter(Boolean); if (!els.length) return;
+  els.forEach(el => { if (el.dataset && el.dataset.file && el.closest('#taskList')) tachesClignotantes.set(el.dataset.file, Date.now() + TEMPO.clignote); });
   els[0].scrollIntoView({behavior: 'smooth', block: 'center'});
   els.forEach(el => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); clearTimeout(el._tc); el._tc = setTimeout(() => el.classList.remove(cls), TEMPO.clignote); });
 }
@@ -3656,6 +3661,7 @@ $('#newForm').onsubmit = async (e) => {
       }
       const r = await cadence.modifierTache(tacheEditee.file, t, tacheEditee.mtime);
       if (depl){ await chargerTaches(); const x = tasks.items.find(y => y.file === r.nom) || tasks.items.find(y => y.file === tacheEditee.file); if (x) await deplacerRecurrente(x, depl, true); }
+      aFocaliser = r.nom;
       toast(`✏️ « ${r.nom} » mise à jour${r.liens ? ` · liens mis à jour dans ${r.liens} note${r.liens > 1 ? 's' : ''}` : ''}.`);
     } else {
       const rel = relation; if (rel && rel.type === 'dep') t.bloquePar = [rel.t.file];
@@ -3668,7 +3674,7 @@ $('#newForm').onsubmit = async (e) => {
   } catch(err){ alert(messageErreur(err)); }
   tacheEditee = null;
   await chargerTaches();
-  if (aFocaliser){ const f = aFocaliser; aFocaliser = null; focusTaches([f], true); const t2 = tasks.items.find(y => y.file === f); if (t2) focusBlocTache(t2, true); }
+  if (aFocaliser){ const f = aFocaliser; aFocaliser = null; focusTaches([f]); const t2 = tasks.items.find(y => y.file === f); if (t2) focusBlocTache(t2, true); }
 };
 let aFocaliser = null;
 
