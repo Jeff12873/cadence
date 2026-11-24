@@ -328,6 +328,11 @@ ipcMain.handle('modifier-tache', async (evenement, nom, c, mtime) => {
   if (c.priorite) t = changerCle(t, champ(tn, 'priority'), yamlTexte(c.priorite));
   if (c.google === true && !/^cadenceGoogle:/m.test((t.match(RE_FM) || ['', ''])[1])) t = changerCle(t, 'cadenceGoogle', 'oui');
   if (c.google === false) t = changerCle(t, 'cadenceGoogle', null);
+  if (c.recurrence) {
+    if (!/^[A-Z0-9=;:,+-]+$/.test(c.recurrence)) throw new Error('Règle de récurrence invalide.');
+    t = changerCle(t, champ(tn, 'recurrence'), c.recurrence);
+    t = changerCle(t, champ(tn, 'recurrenceAnchor'), 'scheduled');
+  }
   if (c.planifie !== undefined) {
     if (c.planifie != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(c.planifie)) throw new Error('Date invalide.');
     t = changerCle(t, champ(tn, 'scheduled'), c.planifie);
@@ -438,6 +443,32 @@ ipcMain.handle('terminer', async (evenement, nom, mtime) => {
   return { ancien: ancien ? ancien.trim() : yamlTexte(tn.statutParDefaut) };
 });
 
+// Tâche récurrente : cocher l'occurrence du jour (comme TaskNotes) — la date rejoint complete_instances
+// et la date prévue passe à l'échéance suivante (calculée par l'interface, qui connaît la règle).
+const RE_JOUR = /^\d{4}-\d{2}-\d{2}$/;
+ipcMain.handle('valider-occurrence', async (evenement, nom, jour, prochaine, mtime) => {
+  if (!RE_JOUR.test(jour || '') || (prochaine != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(prochaine))) throw new Error('Date invalide.');
+  const tn = reglagesTaskNotes(), cleI = champ(tn, 'completeInstances'), cleS = champ(tn, 'scheduled');
+  const { chemin, texte } = await lireVerifie(nom, mtime);
+  const ancien = ((texte.match(RE_FM) || ['', ''])[1].match(new RegExp(`^${cleS}:\\s*["']?([^"'\\n]*)`, 'm')) || [])[1] || null;
+  const faits = lireListe(texte, cleI).map(x => x.replace(/^["']|["']$/g, ''));
+  let t = changerListe(texte, cleI, [...new Set([...faits, jour])].sort());
+  if (prochaine) { t = changerCle(t, cleS, prochaine); t = regleRappel(t, tn, prochaine); }
+  t = changerCle(t, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, t);
+  return { ancien: ancien ? ancien.trim() : null };
+});
+ipcMain.handle('annuler-occurrence', async (evenement, nom, jour, ancien) => {
+  if (!RE_JOUR.test(jour || '') || (ancien != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(ancien))) throw new Error('Date invalide.');
+  const tn = reglagesTaskNotes(), cleI = champ(tn, 'completeInstances');
+  const { chemin, texte } = await lireVerifie(nom);
+  let t = changerListe(texte, cleI, lireListe(texte, cleI).filter(x => x.replace(/^["']|["']$/g, '') !== jour));
+  if (ancien) { t = changerCle(t, champ(tn, 'scheduled'), ancien); t = regleRappel(t, tn, ancien); }
+  t = changerCle(t, champ(tn, 'dateModified'), maintenant());
+  await ecrireAtomique(chemin, t);
+  return true;
+});
+
 // Annuler une validation : remet l'ancien statut et retire la date de fin
 ipcMain.handle('rouvrir', async (evenement, nom, ancien) => {
   const tn = reglagesTaskNotes();
@@ -465,6 +496,7 @@ ipcMain.handle('creer-tache', async (evenement, t) => {
   ];
   if (t.planifie) l.push(`${champ(tn, 'scheduled')}: ${t.planifie}`);
   if (t.planifie && /T\d{2}:\d{2}$/.test(t.planifie)) l.push(`${champ(tn, 'reminders')}:`, `  - id: rem_${Date.now()}`, '    type: relative', '    relatedTo: scheduled', `    offset: ${RAPPEL_AVANT}`, '    description: Cadence');
+  if (t.recurrence && /^[A-Z0-9=;:,+-]+$/.test(t.recurrence)) l.push(`${champ(tn, 'recurrence')}: ${t.recurrence}`, `${champ(tn, 'recurrenceAnchor')}: scheduled`);
   l.push(`${champ(tn, 'dateCreated')}: ${maintenant()}`);
   if (tn.methode === 'property' && tn.propriete) l.push(`${tn.propriete}: ${JSON.stringify(tn.valeur)}`);
   if (tags.length) l.push('tags:', ...tags.map(x => `  - ${yamlTexte(x)}`));

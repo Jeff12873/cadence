@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('cadence', {
   remplacerLigne: (nom, index, lien, mtime) => ipcRenderer.invoke('remplacer-ligne', nom, index, lien, mtime),
   planifier: (nom, valeur, mtime) => ipcRenderer.invoke('planifier', nom, valeur, mtime),
   planifierRecurrente: (nom, valeur, regle, mtime) => ipcRenderer.invoke('planifier-recurrente', nom, valeur, regle, mtime),
+  validerOccurrence: (nom, jour, prochaine, mtime) => ipcRenderer.invoke('valider-occurrence', nom, jour, prochaine, mtime),
+  annulerOccurrence: (nom, jour, ancien) => ipcRenderer.invoke('annuler-occurrence', nom, jour, ancien),
   creerTache: (tache) => ipcRenderer.invoke('creer-tache', tache),
   ajouterParent: (nom, parent, mtime) => ipcRenderer.invoke('ajouter-parent', nom, parent, mtime),
   ajouterBloquant: (nom, bloqueur, mtime) => ipcRenderer.invoke('ajouter-bloquant', nom, bloqueur, mtime),

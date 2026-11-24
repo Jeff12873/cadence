@@ -506,6 +506,8 @@ body.retro .ext.rdvbloc.info .eb{border:2px dashed var(--agc);box-shadow:none}
 .ext.rdvbloc.etroit .eb span{display:none}
 .ext.rdvbloc.etroit .eb b::before{content:none}
 .ext.rdvbloc.etroit .eb b{font-size:10.5px;overflow-wrap:anywhere}
+.rep-btn{border:1px solid var(--line);background:var(--paper);color:var(--muted);border-radius:6px;font-weight:700;padding:2px 7px;cursor:pointer;opacity:.6}
+.rep-btn.on{color:#fff;background:var(--accent);border-color:var(--accent);opacity:1}
 .agm-v{color:var(--muted);font-size:12px;padding:4px 0}
 button.agp{border:none;cursor:pointer;font:inherit;font-size:12px;font-weight:700}
 body.retro .agmenu{border:2px solid var(--px);box-shadow:5px 5px 0 var(--pxs)}
@@ -691,6 +693,9 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
     <select id="nDay"></select>
     <label for="nTime">Heure (facultatif, ex. 14:00)</label>
     <input type="text" id="nTime" autocomplete="off" placeholder="14:00">
+    <label for="nRep" id="nRepL">Répéter</label>
+    <select id="nRep"></select>
+    <div class="set-hint hidden" id="nRepHint"></div>
     <div class="set-hint hidden" id="nRec">Tâche récurrente : changer sa date décale toutes les prochaines échéances (Cadence te demande confirmation).</div>
     <label for="nNote" id="nNoteL">Note (facultatif)</label>
     <input type="text" id="nNote" autocomplete="off">
@@ -899,6 +904,9 @@ const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche']
 const CATS = {routine:'Routine', sport:'Sport', bilan:'Travail concentré', ordi:'Ordi', corvee:'Corvées', courses:'Courses / cuisine', travaux:'Travaux', loisir:'Loisirs', soir:'Soir', pause:'Pause (discret)'};
 // Tags et projets : définis dans les réglages (enregistrés avec la semaine), complétés par ceux trouvés dans les tâches
 const tagDefs = () => (state && state.tags) || [];
+// Un tag « qui doit se répéter » (Routine par défaut) impose une tâche récurrente
+const tagRepete = (nom) => { const d = tagDefs().find(t => t.name === nom); return d && d.repete != null ? !!d.repete : /^routine$/i.test(String(nom || '')); };
+const doitRepeter = (t) => (t.tags || []).find(tagRepete);
 const projDefs = () => (state && state.projects) || [];
 const projNames = () => projDefs().map(p => p.name);
 function tagsObj(){
@@ -1226,7 +1234,7 @@ const AIDE = [
   <li><b>Checklist</b> : clique sur une tâche à étapes pour les voir ; glisse une étape sur le calendrier pour en faire une tâche à part.</li></ol>
   <p class="aide-tip">Le groupe <b>📥 À trier</b> rassemble les tâches sans tag : commence par lui. Un clic sur un bloc affiche ses tâches dans le panneau.</p>`},
  {t: '4. Tags, projets, lieux, icônes', h: `<p>Dans <b>⚙️ Réglages → Tags, projets et lieux</b> :</p>
-  <ul><li><b>Tags</b> : nom (celui des tâches), libellé affiché, couleur (catégorie) et nature.</li>
+  <ul><li><b>Tags</b> : nom (celui des tâches), libellé affiché, couleur (catégorie), nature et <b>↻ « doit se répéter »</b> (allumé d'office pour Routine ; à toi de l'allumer pour Corvées par exemple) : ses tâches doivent alors être récurrentes.</li>
   <li><b>Projets</b> : le nom de leur note Obsidian ; une pastille 📁 sur les blocs les rappelle.</li>
   <li><b>Lieux</b> : les contextes (magasins, endroits) proposés à la création d'une tâche.</li>
   <li><b>Catégories</b> : l'icône de chaque catégorie de couleur.</li>
@@ -1238,7 +1246,8 @@ const AIDE = [
   <li><b>Surligne un passage</b> : la bulle <b>« En faire une tâche »</b> crée la tâche et remplace le passage par un lien.</li>
   <li><b>Glisse une note</b> sur le calendrier : elle devient une tâche planifiée à cet endroit, liée à la note.</li>
   <li><b>Dates incohérentes</b> : une sous-tâche datée alors que sa parente ne l'est pas, ou prévue après elle, et une tâche dépendante prévue avant la tâche qu'elle attend (ou datée alors que celle-ci ne l'est pas) affichent un avertissement <b>⚠ rouge</b> ; clique dessus pour aller à l'autre tâche. À l'ouverture de Cadence, une notification les signale.</li>
-  <li><b>Tâches récurrentes</b> : repérées par l'icône <b>↻ en boucle</b>, avec leur rythme (« chaque vendredi à 13h30 »). Tu peux les glisser sur un autre jour ou changer leur date dans « Modifier » : Cadence demande confirmation, puis <b>toutes les prochaines échéances suivent</b> (jour de la semaine, jour du mois, heure).</li>
+  <li><b>Tâches récurrentes</b> : repérées par l'icône <b>↻ en boucle</b>, avec leur rythme (« chaque vendredi à 13h30 »). Le rond ✓ coche <b>l'occurrence du jour</b> (comme TaskNotes) : la tâche passe à sa prochaine échéance et tu gagnes tes XP ; « Annuler » revient en arrière. Tu peux aussi les glisser sur un autre jour ou changer leur date dans « Modifier » : Cadence demande confirmation, puis toutes les prochaines échéances suivent.</li>
+  <li><b>Répéter</b> : dans la fenêtre d'une tâche, choisis un rythme (chaque jour, jours de semaine, chaque lundi, chaque mois le 24…). Avec un tag « qui doit se répéter » (Routine), il est obligatoire ; une telle tâche sans rythme affiche ⚠ — clique dessus pour le choisir.</li>
   <li>🔗 relie une note à une tâche existante.</li></ol>`},
  {t: '6. Agendas et Google', h: `<p>Dans <b>⚙️ Réglages</b>, clique sur <b>« Se connecter avec Google »</b> : une page Google s'ouvre dans ton navigateur, tu acceptes, c'est tout. Coche ensuite les agendas à afficher et choisis l'<b>agenda des blocs</b>, celui où Cadence écrit.</p>
   <ol><li>Les <b>rendez-vous passent avant les blocs</b> : ils sont toujours affichés, par-dessus, en carte pleine à la couleur de leur agenda (📆). Les blocs s'organisent autour d'eux, jamais l'inverse.</li>
@@ -1378,7 +1387,7 @@ function parseTask(name, text){
     subs, projects, notes, rappel, contexts, google: sansGuillemets(o.cadenceGoogle || ''), estimate: o.timeEstimate || '',
     file: name.replace(/\.md$/,''), title: o.title && o.title !== '""' ? o.title : name.replace(/\.md$/,''),
     tags: (t => t.length ? t : [A_TRIER])([...new Set(tags.map(x => x === 'Aucun' ? A_TRIER : x))]), priority: o.priority || '', status: o.status || '',
-    scheduled: o.scheduled || '', due: o.due || '', recurring: !!o.recurrence, recurrence: sansGuillemets(o.recurrence || ''),
+    scheduled: o.scheduled || '', due: o.due || '', recurring: !!o.recurrence, recurrence: sansGuillemets(o.recurrence || ''), faits: (Array.isArray(o.complete_instances) ? o.complete_instances : []).map(sansGuillemets),
     blockedBy: o._blocked || [], boxes: boxes.length, done: boxes.filter(b => b[1] !== ' ').length
   };
 }
@@ -2664,10 +2673,10 @@ function renderGroup(g, items, container, rerender){
       a.addEventListener('dragstart', (ev) => { dragFile = t.file; document.body.classList.add('dragging-task'); ev.dataTransfer.setData('text/plain', t.file); ev.dataTransfer.effectAllowed = 'move'; a.classList.add('dragging'); });
       a.addEventListener('dragend', () => { dragFile = null; document.body.classList.remove('dragging-task'); a.classList.remove('dragging'); });
       const open = expanded.has(t.file);
-      a.innerHTML = `<div class="tt">${BUREAU && !t.recurring ? `<button class="done-btn" title="Valider la tâche"></button>` : ''}${t.boxes ? `<span class="chev">${open ? '▾' : '▸'}</span>` : ''}<span class="prio p${prioN(t.priority)}"${prioColor(t.priority) ? ` style="background:${prioColor(t.priority)}"` : ''}></span><span class="tl">${esc(t.title)}</span>`
+      a.innerHTML = `<div class="tt">${BUREAU ? `<button class="done-btn" title="${t.recurring ? 'Faite pour cette fois : passe à la prochaine échéance' : 'Valider la tâche'}"></button>` : ''}${t.boxes ? `<span class="chev">${open ? '▾' : '▸'}</span>` : ''}<span class="prio p${prioN(t.priority)}"${prioColor(t.priority) ? ` style="background:${prioColor(t.priority)}"` : ''}></span><span class="tl">${esc(t.title)}</span>`
         + (wk ? `<button class="unplan" title="Retirer du jour prévu">✕</button>` : '')
         + `<a class="ob" href="${url}" title="Ouvrir dans Obsidian">${OBS}</a></div>`
-        + (meta.length ? `<div class="tm">${meta.map(m => typeof m === 'string' ? `<span>${esc(m)}</span>` : m.html ? `<span class="${m.cls || ''}" title="Tâche récurrente : la déplacer décale toutes les prochaines échéances">${m.html}</span>` : `<span class="go${m.cls ? ' ' + m.cls : ''}" data-go="${esc(m.go.join('|'))}" title="Clic : aller à la tâche">${esc(m.txt)}</span>`).join('')}</div>` : '');
+        + (meta.length ? `<div class="tm">${meta.map(m => typeof m === 'string' ? `<span>${esc(m)}</span>` : m.html ? `<span class="${m.cls || ''}" title="Tâche récurrente : la déplacer décale toutes les prochaines échéances">${m.html}</span>` : `<span class="go${m.cls ? ' ' + m.cls : ''}" data-go="${esc((m.go || []).join('|'))}"${m.edit ? ' data-edit="1"' : ''} title="Clic : aller à la tâche">${esc(m.txt)}</span>`).join('')}</div>` : '');
       a.dataset.file = t.file; if ((tachesClignotantes.get(t.file) || 0) > Date.now()){ a.classList.add('focus'); setTimeout(() => a.classList.remove('focus'), tachesClignotantes.get(t.file) - Date.now()); }
       if (prof){ a.classList.add('enfant'); a.style.setProperty('--prof', prof); }
       if (BUREAU){ const tr = document.createElement('button'); tr.className = 'ttrash'; tr.type = 'button'; tr.textContent = '🗑'; tr.title = 'Supprimer la tâche'; const tt = a.querySelector('.tt'), ob = tt && tt.querySelector('.ob'); if (ob) tt.insertBefore(tr, ob); else a.appendChild(tr); }
@@ -2690,7 +2699,7 @@ function renderGroup(g, items, container, rerender){
       }
       a.addEventListener('click', (ev) => {
         if (ev.target.closest('a.ob') || ev.target.closest('.rename')) return;
-        const go = ev.target.closest('.go'); if (go){ ev.stopPropagation(); focusTaches(go.dataset.go.split('|')); return; }
+        const go = ev.target.closest('.go'); if (go){ ev.stopPropagation(); if (go.dataset.edit){ ouvrirTache(t); setTimeout(() => $('#nRep').focus(), 50); } else focusTaches(go.dataset.go.split('|')); return; }
         if (ev.target.closest('.ttrash')){ ev.stopPropagation(); supprimerTache(t); return; }
         if (ev.target.closest('.tcut')){ ev.stopPropagation(); decouper(t); return; }
         if (ev.target.closest('.done-btn')){ ev.stopPropagation(); valider(t); return; }
@@ -2793,6 +2802,7 @@ function toast(msg, action, fn){
   document.body.appendChild(el); toastTimer = setTimeout(() => el.remove(), action ? TEMPO.toastAction : TEMPO.toast);
 }
 async function valider(t){
+  if (t.recurring) return validerOccurrence(t);
   let res;
   try { res = await cadence.terminer(t.file, t.mtime);
  }
@@ -2802,6 +2812,19 @@ async function valider(t){
   gagnerXP(cle, pts, el);
   await chargerTaches();
   toast(`✓ « ${t.title} » validée · +${pts} XP`, 'Annuler', () => { retirerXP(cle); ecrire(() => cadence.rouvrir(t.file, res.ancien)); });
+}
+// Tâche récurrente : l'occurrence prévue est cochée, la tâche passe à l'échéance suivante
+async function validerOccurrence(t){
+  const src = t.scheduled || t.due || isoOf(new Date()), jour = src.slice(0, 10);
+  const suiv = prochaineOccurrence(t.recurrence, jour, t.faits || []), prochaine = suiv ? suiv + (src.length > 10 ? src.slice(10, 16) : '') : null;
+  let res;
+  try { res = await cadence.validerOccurrence(t.file, jour, prochaine, t.mtime); }
+  catch(e){ alert(messageErreur(e)); await chargerTaches(); return; }
+  const cle = t.file + '@' + jour, pts = 10 + ([0, 10, 6, 3, 0][prioN(t.priority)] || 0);
+  const el = [...document.querySelectorAll('#taskList .task')].find(a => a.dataset.file === t.file);
+  gagnerXP(cle, pts, el);
+  await chargerTaches();
+  toast(`✓ « ${t.title} » faite pour le ${fmt(jour)} · +${pts} XP${prochaine ? ' · prochaine : ' + fmt(prochaine) : ''}`, 'Annuler', () => { retirerXP(cle); ecrire(() => cadence.annulerOccurrence(t.file, jour, res.ancien)); });
 }
 /* ---------- Tâches récurrentes : décrire et décaler la règle (RRULE de TaskNotes) ---------- */
 const RR_J = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'], RR_NOM = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -2844,6 +2867,49 @@ function decalerRegle(rr, ancien, nouveau){
   if (!o.DTSTART) o.DTSTART = ymd;
   return ecrireRegle(rr, o);
 }
+// Champ « Répéter » de la fenêtre de tâche : rythmes proposés selon le jour choisi
+function remplirRepeter(){
+  const sel = $('#nRep'), v = sel.value, j = $('#nDay').value ? dateLocale($('#nDay').value) : new Date();
+  sel.innerHTML = '';
+  [['', 'Ne se répète pas'], ['DAILY', 'Chaque jour'], ['WEEKDAYS', 'Chaque jour de semaine (lun → ven)'], ['WEEKLY', `Chaque ${RR_NOM[j.getDay()]}`],
+   ['MONTHLY', `Chaque mois, le ${j.getDate()}`], ['YEARLY', `Chaque année, le ${j.toLocaleDateString('fr-FR', {day: 'numeric', month: 'long'})}`]].forEach(([k, l]) => sel.add(new Option(l, k)));
+  sel.value = v;
+  const tr = $('#nTag').value && tagRepete($('#nTag').value);
+  $('#nRepHint').classList.toggle('hidden', !tr); if (tr) $('#nRepHint').textContent = `Le tag « ${$('#nTag').value} » demande une tâche qui se répète : choisis son rythme.`;
+}
+function regleDepuis(rythme, jourIso){
+  const j = dateLocale(jourIso), dt = 'DTSTART:' + jourIso.slice(0, 10).replace(/-/g, '') + ';';
+  return dt + ({DAILY: 'FREQ=DAILY', WEEKDAYS: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', WEEKLY: 'FREQ=WEEKLY;BYDAY=' + RR_J[j.getDay()],
+    MONTHLY: 'FREQ=MONTHLY;BYMONTHDAY=' + j.getDate(), YEARLY: 'FREQ=YEARLY'})[rythme];
+}
+// La règle tombe-t-elle ce jour-là ? (DAILY, WEEKLY, MONTHLY, YEARLY, avec INTERVAL, BYDAY, BYMONTHDAY, BYMONTH)
+function tombeLe(o, debut, d){
+  if (d < debut) return false;
+  const n = +(o.INTERVAL || 1), jours = (o.BYDAY || '').split(',').filter(Boolean);
+  if (o.BYMONTH && !o.BYMONTH.split(',').map(Number).includes(d.getMonth() + 1)) return false;
+  const ecartJ = Math.round((d - debut) / 86400000), mois = (d.getFullYear() - debut.getFullYear()) * 12 + d.getMonth() - debut.getMonth();
+  const nieme = (c) => { const m = c.match(/^([+-]?\d+)?([A-Z]{2})$/); if (!m || RR_J.indexOf(m[2]) !== d.getDay()) return false; if (!m[1]) return true;
+    const k = +m[1]; if (k > 0) return Math.ceil(d.getDate() / 7) === k; const fin = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); return Math.ceil((fin - d.getDate() + 1) / 7) === -k; };
+  const jourMois = () => o.BYMONTHDAY ? o.BYMONTHDAY.split(',').map(Number).some(k => k > 0 ? d.getDate() === k : d.getDate() === new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() + k + 1) : null;
+  switch (o.FREQ){
+    case 'DAILY': return ecartJ % n === 0;
+    case 'WEEKLY': { const lun = (x) => { const y = new Date(x); y.setDate(y.getDate() - (y.getDay() + 6) % 7); return y; };
+      if (Math.round((lun(d) - lun(debut)) / 604800000) % n) return false;
+      return jours.length ? jours.some(nieme) : d.getDay() === debut.getDay(); }
+    case 'MONTHLY': if (mois % n) return false; { const jm = jourMois(); if (jm != null) return jm; return jours.length ? jours.some(nieme) : d.getDate() === debut.getDate(); }
+    case 'YEARLY': if ((d.getFullYear() - debut.getFullYear()) % n) return false;
+      if (!o.BYMONTH && d.getMonth() !== debut.getMonth()) return false;
+      { const jm = jourMois(); if (jm != null) return jm; return jours.length ? jours.some(nieme) : d.getDate() === debut.getDate(); }
+  }
+  return false;
+}
+// Prochaine échéance après « apres » (jour), en sautant les occurrences déjà faites
+function prochaineOccurrence(rr, apres, faits = []){
+  const o = lireRegle(rr), debut = o.DTSTART ? dateLocale(o.DTSTART.replace(/^(\d{4})(\d{2})(\d{2}).*/, '$1-$2-$3')) : dateLocale(apres);
+  const d = dateLocale(apres);
+  for (let i = 0; i < 800; i++){ d.setDate(d.getDate() + 1); if (tombeLe(o, debut, d) && !faits.includes(isoOf(d))) return isoOf(d); }
+  return null;
+}
 const messageRecurrente = (t, valeur, regle) => `« ${t.title} » est une tâche récurrente (${decrireRegle(t.recurrence, t.scheduled || t.due)}).\n\n`
   + `La déplacer au ${dateLocale(valeur).toLocaleDateString('fr-FR', {weekday: 'long', day: 'numeric', month: 'long'})}${valeur.length > 10 ? ' à ' + fmtMin(tmin(valeur.slice(11))) : ''} ?\n\n`
   + `Toutes les prochaines échéances suivront : ${decrireRegle(regle, valeur)}.`;
@@ -2864,9 +2930,10 @@ const dateDe = (t) => (t && (t.scheduled || t.due) || '').slice(0, 16);
 function incoherences(){
   const out = {}, add = (f, txt, go) => (out[f] = out[f] || []).push({txt, go: [go]});
   if (!tasks) return out;
-  const ouvertes = tasks.items.filter(t => t.status !== 'done' && !t.recurring), parFichier = (f) => ouvertes.find(x => x.file === f);
+  const ouvertes = tasks.items.filter(t => t.status !== 'done' && !t.recurring), parFichier = (f) => tasks.items.find(x => x.file === f && x.status !== 'done');
   ouvertes.forEach(t => {
-    const dt = dateDe(t);
+    const dt = dateDe(t), tr = doitRepeter(t);
+    if (tr) (out[t.file] = out[t.file] || []).push({txt: `⚠ tag « ${tr} » : cette tâche devrait se répéter · clic pour choisir son rythme`, edit: true});
     (t.projects || []).map(parFichier).filter(Boolean).forEach(p => {
       const dp = dateDe(p);
       if (dt && !dp) add(t.file, `⚠ datée, mais pas sa parente « ${p.title} »`, p.file);
@@ -2886,7 +2953,7 @@ function notifierIncoherences(){
   if (document.querySelector('dialog[open]') || document.querySelector('.toast')){ setTimeout(notifierIncoherences, 4000); return; }
   incoherencesVues = true;
   const inc = incoherences(), files = Object.keys(inc); if (!files.length) return;
-  toast(`⚠ ${files.length} tâche${files.length > 1 ? 's' : ''} aux dates incohérentes avec leur parente ou la tâche qu'elles attendent.`, 'Voir', () => focusTaches(files));
+  toast(`⚠ ${files.length} tâche${files.length > 1 ? 's' : ''} à revoir (dates incohérentes ou tâche qui devrait se répéter).`, 'Voir', () => focusTaches(files));
 }
 async function deposer(file, d, m, evId){
   if (!BUREAU){ if (evId) planTask(file, evId); return; }
@@ -3269,13 +3336,15 @@ function dessinerCategories(){
       + (k === 'tags' ? `<input data-f="label" value="${esc(sansEmoji(it.label || ''))}" placeholder="Achats">` : '')
       + (k !== 'contexts' ? sel : '')
       + (k !== 'contexts' ? `<select data-f="nature">${[['', `Auto · ${NATURES[NATURE_CAT[cat]] || 'Neutre'}`], ['plaisir', 'Plaisir'], ['oblig', 'Obligation'], ['neutre', 'Neutre']].map(([v, l]) => `<option value="${v}"${(it.nature || '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>` : '')
+      + (k === 'tags' ? `<button type="button" class="rep-btn${tagRepete(it.name) && it.repete !== false ? ' on' : ''}" title="Doit se répéter : ses tâches doivent être récurrentes (clic pour changer)">↻</button>` : '')
       + `<span class="n${it.neuf ? ' neuf' : ''}" title="${it.neuf ? 'Trouvé dans les tâches, pas encore déclaré' : ''}">${n}</span><button type="button" title="Retirer de la liste">🗑</button>`;
     r.querySelectorAll('[data-f]').forEach(inp => inp.addEventListener('input', () => {
       it[inp.dataset.f] = inp.value; delete it.neuf;
       if (inp.dataset.f === 'cat') r.querySelector('.ic-btn').style.cssText = `--bg:var(--${inp.value}-bg);--fg:var(--${inp.value}-fg)`;
     }));
     if (k !== 'contexts') r.querySelector('.ic-btn').onclick = () => choisirIcone(icA, (v) => { it.icon = v; delete it.neuf; dessinerCategories(); });
-    r.querySelector('button:not(.ic-btn)').onclick = () => {
+    const rb = r.querySelector('.rep-btn'); if (rb) rb.onclick = () => { it.repete = !rb.classList.contains('on'); rb.classList.toggle('on', it.repete); };
+    r.querySelector('button[title="Retirer de la liste"]').onclick = () => {
       if (n && !confirm(`« ${it.name} » est utilisé par ${n} tâche${n > 1 ? 's' : ''}. Il sera seulement retiré de la liste (les tâches gardent leur ${k === 'tags' ? 'tag' : k === 'projects' ? 'projet' : 'lieu'}). Continuer ?`)) return;
       catEdit[k].splice(i, 1); dessinerCategories();
     };
@@ -3288,7 +3357,7 @@ $('#catCancel').onclick = () => $('#dlgCat').close();
 $('#catForm').onsubmit = (e) => {
   e.preventDefault();
   const propre = (l) => { const vu = new Set(); return l.map(x => ({...x, name: String(x.name || '').trim()})).filter(x => x.name && !vu.has(x.name) && vu.add(x.name)); };
-  state.tags = propre(catEdit.tags).map(t => ({name: t.name, label: sansEmoji((t.label || '').trim()) || t.name, cat: CATS[t.cat] ? t.cat : 'routine', icon: t.icon || emojiVersIcone(t.label) || '', nature: t.nature || ''}));
+  state.tags = propre(catEdit.tags).map(t => ({name: t.name, label: sansEmoji((t.label || '').trim()) || t.name, cat: CATS[t.cat] ? t.cat : 'routine', icon: t.icon || emojiVersIcone(t.label) || '', nature: t.nature || '', ...(t.repete != null ? {repete: !!t.repete} : {})}));
   state.projects = propre(catEdit.projects).map(p => ({name: p.name, cat: CATS[p.cat] ? p.cat : 'routine', icon: p.icon || '', nature: p.nature || ''}));
   state.entourage = propre(catEdit.people).map(p => ({nom: p.name, dernier: p.dernier || ''}));
   state.catIcons = Object.fromEntries(catEdit.cats.filter(c => c.icon).map(c => [c.cat, c.icon]));
@@ -3620,6 +3689,7 @@ function ouvrirTache(te){
   $('#nHead').textContent = edition ? 'Modifier la tâche' : 'Nouvelle tâche'; $('#nOk').textContent = edition ? 'Enregistrer' : 'Créer';
   $('#nNote').classList.toggle('hidden', edition); $('#nNoteL').classList.toggle('hidden', edition);
   $('#nRec').classList.toggle('hidden', !(edition && te.recurring));
+  $('#nRep').value = ''; const rec = edition && te.recurring; $('#nRep').classList.toggle('hidden', rec); $('#nRepL').classList.toggle('hidden', rec);
   if (edition){
     $('#nTitle').value = te.title;
     const tag = tacheTag(te); if (tag && ![...nTag.options].some(o => o.value === tag)) nTag.add(new Option(tag, tag)); nTag.value = tag;
@@ -3629,9 +3699,11 @@ function ouvrirTache(te){
     const sc = te.scheduled || '';
     if (sc){ const d = sc.slice(0, 10); if (![...nDay.options].some(o => o.value === d)) nDay.add(new Option(fmt(d), d), 1); nDay.value = d; if (sc.length > 10) $('#nTime').value = sc.slice(11, 16); }
   }
+  remplirRepeter(); if (rec) $('#nRepHint').classList.add('hidden');
   $('#dlgNew').showModal(); $('#nTitle').focus(); if (edition) $('#nTitle').select();
 }
 $('#nCancel').onclick = () => $('#dlgNew').close();
+$('#nDay').addEventListener('change', () => remplirRepeter()); $('#nTag').addEventListener('change', () => { if (!$('#nRep').classList.contains('hidden')) remplirRepeter(); });
 $('#newForm').onsubmit = async (e) => {
   e.preventDefault();
   if (relation && $('#nLien').value){
@@ -3646,8 +3718,12 @@ $('#newForm').onsubmit = async (e) => {
   const jour = $('#nDay').value, heure = $('#nTime').value.trim().replace('h', ':');
   if (heure && !/^\d{1,2}:\d{2}$/.test(heure)){ alert('Heure au format 14:00'); return; }
   const planifie = jour ? jour + (heure ? 'T' + heure.padStart(5, '0') : '') : null;
+  const rythme = $('#nRep').classList.contains('hidden') ? '' : $('#nRep').value;
+  if (!rythme && !(tacheEditee && tacheEditee.recurring) && $('#nTag').value && tagRepete($('#nTag').value)){
+    alert(`Le tag « ${$('#nTag').value} » demande une tâche qui se répète : choisis son rythme dans « Répéter ».`); $('#nRep').focus(); return; }
   const t = {titre: $('#nTitle').value, tags: $('#nTag').value ? [$('#nTag').value] : [A_TRIER], projets: $('#nProj').value ? [$('#nProj').value] : [],
-             priorite: $('#nPrio').value, planifie, note: $('#nNote').value, contextes: $('#nCtx').value.trim() ? [$('#nCtx').value.trim()] : []};
+             priorite: $('#nPrio').value, planifie: rythme && !planifie ? isoOf(new Date()) : planifie, note: $('#nNote').value, contextes: $('#nCtx').value.trim() ? [$('#nCtx').value.trim()] : []};
+  if (rythme) t.recurrence = regleDepuis(rythme, t.planifie);
   try {
     if (tacheEditee){
       let depl = null;
