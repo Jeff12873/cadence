@@ -553,12 +553,15 @@ ipcMain.handle('lister-notes', async (evenement, relatif) => {
 
 // Écrit (ou remplace) la section Cadence d'une note, entre deux balises de commentaire Obsidian
 const DEBUT = '%% cadence:debut %%', FIN = '%% cadence:fin %%';
-ipcMain.handle('ecrire-section', async (evenement, relatif, nom, section) => {
+ipcMain.handle('ecrire-section', async (evenement, relatif, nom, section, siChange) => {
   const chemin = fichierNote(relatif, nom);
   const bloc = `${DEBUT}\n${String(section).trim()}\n${FIN}`;
   let texte = '';
   try { texte = await fsp.readFile(chemin, 'utf8'); } catch (e) { if (e.code !== 'ENOENT') throw e; }
   const i = texte.indexOf(DEBUT), j = texte.indexOf(FIN);
+  // mise à jour automatique : rien n'est écrit si seul l'horodatage changerait (évite les conflits de synchro)
+  const sansDate = (x) => String(x).split('\n').filter(l => !l.includes('Mis à jour par Cadence')).join('\n').trim();
+  if (siChange && i >= 0 && j > i && sansDate(texte.slice(i + DEBUT.length, j)) === sansDate(section)) return { cree: false, inchange: true };
   let nouveau;
   if (i >= 0 && j > i) nouveau = texte.slice(0, i) + bloc + texte.slice(j + FIN.length);
   else nouveau = (texte.trim() ? texte.replace(/\s*$/, '\n\n') : '') + bloc + '\n';

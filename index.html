@@ -201,11 +201,8 @@ dialog input[type=time]{width:100%;border:1px solid var(--line);border-radius:8p
 .ev.serre .s::before{content:" · "}
 .ev.serre .badges{float:right;margin:0 -3px 0 6px}
 .ev.serre .dayplan{margin-top:2px}
-/* ça ne tient toujours pas : la case se déplie au survol, rien n'est coupé */
+/* ça ne tient toujours pas : ▾ l indique ; un clic montre ses tâches à droite */
 .ev.deborde .block::after{content:"▾";position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);font-size:10px;color:var(--fg);opacity:.75;pointer-events:none}
-.ev.deborde:hover{z-index:20}
-.ev.deborde:hover .block{height:auto;min-height:100%;overflow:visible;box-shadow:0 8px 22px rgba(0,0,0,.35)}
-.ev.deborde:hover .block::after{display:none}
 .ev.short .block::before{top:3px;bottom:3px}
 .ev .rz2{position:absolute;left:0;right:0;bottom:-3px;height:9px;cursor:ns-resize;z-index:4}
 .ev .rz2::after{content:"";position:absolute;left:40%;right:40%;top:3px;height:3px;border-radius:3px;background:var(--fg);opacity:0;transition:opacity .15s}
@@ -1181,11 +1178,11 @@ function renderModeleBtn(){
   b.title = `Semaine type : « ${m.nom} »${ret ? ' · retouchée pour cette semaine ✎' : ''}\nClic : choisir, enregistrer ou gérer les semaines types`;
 }
 const ensureIds = () => { const m = migrer(); let c = false; state.events.forEach(e => { if (!e.id){ e.id = rid(); c = true; } }); const mm = migrerModeles(); return m || c || mm; };
-const save = () => { memoriserSemaine(); if (BUREAU) persist(); else store.set(KEY, JSON.stringify(state)); };
+const save = () => { memoriserSemaine(); if (BUREAU){ persist(); majDailyAuto(); } else store.set(KEY, JSON.stringify(state)); };
 
 const PKEY = 'semaine-type-plan-v1';
 let plan = (() => { try { const p = JSON.parse(store.get(PKEY)); if (p && typeof p === 'object') return p; } catch(e){} return {}; })();
-const savePlan = () => { if (BUREAU) persist(); else store.set(PKEY, JSON.stringify(plan)); };
+const savePlan = () => { if (BUREAU){ persist(); majDailyAuto(); } else store.set(PKEY, JSON.stringify(plan)); };
 const saveHide = () => { if (BUREAU) persist(); else store.set(HKEY, JSON.stringify(hide)); };
 const whereIs = (file) => Object.keys(plan).find(k => plan[k].includes(file));
 const fmtMin = (m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
@@ -1212,7 +1209,7 @@ const AIDE = [
   <li>Ta semaine est enregistrée dans un fichier du coffre (par défaut <code>Cadence.json</code>), donc synchronisée comme le reste de tes notes.</li></ol>
   <p class="aide-tip">Toute modification faite dans Obsidian apparaît en direct dans Cadence, et inversement.</p>`},
  {t: '2. La semaine type : les blocs', h: `<p>Un <b>bloc</b> est un créneau de ta semaine : « Bilan de compétences 9h–11h », « Courses », « Cardio boxe »…</p>
-  <ol><li><b>Créer</b> : laisse la souris un instant (moins d’une seconde) sur un espace vide, un <b>＋</b> apparaît ; clique dessus.</li>
+  <ol><li><b>Créer</b> : dans un espace vide, <b>clique et glisse</b> vers le haut ou le bas ; la plage suit ta souris avec ses heures, et le bloc est créé sur cette durée quand tu relâches (Google connecté : tu choisis bloc Cadence ou rendez-vous Google).</li>
   <li><b>Modifier</b> : double-clic sur le bloc (titre, horaires, catégorie, tag ou projet, jours).</li>
   <li><b>Déplacer</b> : glisse le bloc. <b>Étirer</b> : tire son bord du bas (par pas de 15 min).</li>
   <li><b>Supprimer</b> : survole-le puis 🗑 ; une notification permet d'<b>annuler</b>.</li></ol>
@@ -1241,7 +1238,7 @@ const AIDE = [
   <li><b>Entourage</b> : voir l'étape 9.</li></ul>
   <p>Clique sur l'<b>icône ronde</b> d'une ligne pour en choisir une autre parmi la bibliothèque Lucide (recherche en anglais : <i>cart, hammer, book…</i>). Elle s'affiche dans les cercles en haut à droite des blocs.</p>`},
  {t: '5. Les notes', h: `<p>L'onglet <b>Notes</b> (à côté de Mes tâches) liste tes notes du jour.</p>
-  <ol><li><b>CADENCE</b>, en tête, est ton programme du jour, mis à jour automatiquement.</li>
+  <ol><li><b>CADENCE</b>, en tête, est ton programme du jour : seulement ce qui est prévu aujourd'hui (tâches datées du jour ou placées à la main), écrit à plat pour se lire facilement sur téléphone. Il se met à jour tout seul dès qu'un bloc, une tâche ou un placement de la journée change.</li>
   <li>Clic sur une note pour la lire ; l'éditeur permet de l'écrire, avec aperçu (Ctrl+S enregistre, l'enregistrement est aussi automatique).</li>
   <li><b>Surligne un passage</b> : la bulle <b>« En faire une tâche »</b> crée la tâche et remplace le passage par un lien.</li>
   <li><b>Glisse une note</b> sur le calendrier : elle devient une tâche planifiée à cet endroit, liée à la note.</li>
@@ -1697,6 +1694,11 @@ function ghost(evs, d, start, end, n, bad, label){
 }
 const clearGhost = (evs) => evs.querySelectorAll('.ghost').forEach(g => g.remove());
 
+// Plage tracée au cliquer-glisser : bloc de cette durée, puis sa fenêtre de réglage
+function creerPlage(d, a, b){
+  const e = {id: rid(), d, start: a, end: b, title: 'Nouveau créneau', cat: 'routine', sub: '', tag: '', project: ''};
+  state.events.push(e); dernierNeuf = e.id; save(); renderCal(); openDlg([e]);
+}
 // Créer un créneau à (jour, minute). Si on est pile entre deux blocs collés, on « ouvre » 30 min en décalant la suite.
 function ouvrirCreneau(d, m, titre, ouvrirDialogue){
   m = snap(m);
@@ -1938,9 +1940,8 @@ function installerAgenda(evs){
     });
   });
 
-  // --- « + » qui apparaît après TEMPO.plus de survol entre deux créneaux (ou dans un espace libre) ---
-  let tSurvol = null, ptSurvol = null, tPart = null;
-  const cachePlus = () => { clearTimeout(tSurvol); clearTimeout(tPart); tPart = null; evs.querySelectorAll('.plus,.hovering-hint,.plus-menu').forEach(x => x.remove()); };
+  // --- cliquer-glisser dans un espace libre : trace une nouvelle plage de la durée voulue ---
+  let trace = null;
   const pointLibre = (p) => {
     const day = dayEvents(p.d);
     for (const e of day){                                  // près d'un bord de bloc : on s'y aligne
@@ -1949,36 +1950,42 @@ function installerAgenda(evs){
     const m = snap(p.m);
     return day.some(e => e.start < m && m < e.end) ? null : m;
   };
-  evs.parentElement.onpointermove = (ev) => {
-    if (document.body.classList.contains('dragging-ev') || ev.buttons) return;
-    if (ev.target.closest('.plus') || ev.target.closest('.plus-menu')) return;
-    const p = posAgenda(evs, ev.clientX, ev.clientY);
-    // un « + » affiché reste là tant que la souris est proche, puis encore un moment après qu'elle s'éloigne
-    const pb = evs.querySelector('.plus');
-    if (pb){ const r = pb.getBoundingClientRect();
-      if (p.inside && Math.hypot(ev.clientX - (r.x + r.width / 2), ev.clientY - (r.y + r.height / 2)) < 70){ clearTimeout(tPart); tPart = null; return; }
-      if (!tPart) tPart = setTimeout(() => { cachePlus(); ptSurvol = null; }, TEMPO.plusReste);
-      return; }
-    if (evs.querySelector('.plus-menu')) return;
-    if (!p.inside){ cachePlus(); return; }
-    if (ptSurvol && Math.hypot(ev.clientX - ptSurvol.x, ev.clientY - ptSurvol.y) < 6) return;
-    cachePlus(); ptSurvol = {x: ev.clientX, y: ev.clientY};
-    const m = pointLibre(p); if (m == null) return;
-    tSurvol = setTimeout(() => {
-      const b = document.createElement('button'); b.className = 'plus'; b.textContent = '+'; b.title = `Nouveau créneau ${DAYS[p.d]} à ${fmtMin(m)}`;
-      b.style.left = `calc(${colX(p.d)} + ${p.cw / 2}px)`; b.style.top = mins2y(m);
-      b.onclick = (e) => { e.stopPropagation();
-        if (!(AG.google && AG.google.connecte)){ cachePlus(); ouvrirCreneau(p.d, m, '', true); return; }
-        const menu = document.createElement('div'); menu.className = 'plus-menu'; menu.style.left = b.style.left; menu.style.top = b.style.top;
-        menu.innerHTML = '<button type="button" data-k="c">＋ Bloc Cadence</button><button type="button" data-k="g">📆 Rendez-vous Google</button>';
-        menu.onclick = (ev2) => { const k = ev2.target.dataset.k; if (!k) return; ev2.stopPropagation(); cachePlus(); menu.remove(); if (k === 'c') ouvrirCreneau(p.d, m, '', true); else creerRdvGoogle(p.d, m); };
-        b.remove(); evs.appendChild(menu);
-      };
-      const hint = document.createElement('div'); hint.className = 'hovering-hint'; hint.style.left = colX(p.d); hint.style.width = colW(1); hint.style.top = mins2y(m);
-      evs.append(hint, b);
-    }, TEMPO.plus);
-  };;
-  evs.parentElement.onpointerleave = () => { clearTimeout(tSurvol); if (evs.querySelector('.plus')){ if (!tPart) tPart = setTimeout(() => { cachePlus(); ptSurvol = null; }, TEMPO.plusReste); } else { cachePlus(); ptSurvol = null; } };
+  const zoneT = evs.parentElement;
+  const fermerMenuPlage = () => evs.querySelectorAll('.plus-menu').forEach(x => x.remove());
+  zoneT.onpointerdown = (ev) => {
+    fermerMenuPlage();
+    if (ev.button !== 0 || document.body.classList.contains('dragging-ev') || ev.target.closest('.ev,.ext,.plus-menu,.chevauche i,button,a,input,select')) return;
+    const p = posAgenda(evs, ev.clientX, ev.clientY); if (!p.inside) return;
+    const m0 = pointLibre(p); if (m0 == null) return;
+    const day = dayEvents(p.d);
+    trace = {d: p.d, m0, a: m0, b: m0, min: Math.max(0, ...day.filter(e => e.end <= m0).map(e => e.end)), max: Math.min(24 * 60, ...day.filter(e => e.start >= m0).map(e => e.start)), x: ev.clientX, y: ev.clientY, bouge: false};
+    try { zoneT.setPointerCapture(ev.pointerId); } catch(e){}
+    ev.preventDefault();
+  };
+  zoneT.onpointermove = (ev) => {
+    if (!trace) return;
+    if (!trace.bouge && Math.hypot(ev.clientX - trace.x, ev.clientY - trace.y) < 5) return;
+    trace.bouge = true;
+    const m = Math.max(trace.min, Math.min(trace.max, snap(posAgenda(evs, ev.clientX, ev.clientY).m)));
+    trace.a = Math.min(trace.m0, m); trace.b = Math.max(trace.m0, m);
+    if (trace.b - trace.a < SNAP){ if (trace.a + SNAP <= trace.max) trace.b = trace.a + SNAP; else trace.a = trace.b - SNAP; }
+    ghost(evs, trace.d, trace.a, trace.b, 1, false, 'Nouvelle plage');
+  };
+  const finTrace = (ev) => {
+    if (!trace) return;
+    const t = trace; trace = null; clearGhost(evs);
+    try { zoneT.releasePointerCapture(ev.pointerId); } catch(e){}
+    if (!t.bouge || t.b - t.a < SNAP) return;
+    if (!(AG.google && AG.google.connecte)){ creerPlage(t.d, t.a, t.b); return; }
+    const menu = document.createElement('div'); menu.className = 'plus-menu';
+    menu.style.left = `calc(${colX(t.d)} + ${colW(1)} * 0.5)`; menu.style.top = mins2y(t.a);
+    menu.innerHTML = `<button type="button" data-k="c">＋ Bloc Cadence · ${fmtMin(t.a)} – ${fmtMin(t.b)}</button><button type="button" data-k="g">📆 Rendez-vous Google</button>`;
+    menu.addEventListener('pointerdown', (e2) => e2.stopPropagation());
+    menu.onclick = (e2) => { const k = e2.target.dataset.k; if (!k) return; e2.stopPropagation(); menu.remove(); if (k === 'c') creerPlage(t.d, t.a, t.b); else creerRdvGoogle(t.d, t.a, t.b); };
+    evs.appendChild(menu);
+  };
+  zoneT.onpointerup = finTrace;
+  zoneT.onpointercancel = (ev) => { trace = null; clearGhost(evs); };
 
   // --- glisser une tâche : dépôt sur un bloc ou une heure ; maintenue TEMPO.ouvrirEnGlissant entre deux créneaux, elle en ouvre un ---
   let tTache = null, ptTache = null;
@@ -2400,9 +2407,9 @@ $('#rvForm').onsubmit = async (ev) => {
   catch(e){ alert(messageErreur(e)); }
   chargerAgendas(true);
 };
-async function creerRdvGoogle(d, m){
+async function creerRdvGoogle(d, m, f){
   try {
-    const r = await cadence.googleCreer({titre: 'Nouveau rendez-vous', debut: dtLocal(weekDays[d], m), fin: dtLocal(weekDays[d], m + 60), allDay: false});
+    const r = await cadence.googleCreer({titre: 'Nouveau rendez-vous', debut: dtLocal(weekDays[d], m), fin: dtLocal(weekDays[d], f || m + 60), allDay: false});
     await chargerAgendas(true);
     const x = extEv.find(y => y.id === r.id); if (x) ouvrirRdv(x);
   } catch(e){ alert(messageErreur(e)); }
@@ -2996,6 +3003,7 @@ async function chargerTaches(){
   render();
   syncGoogle();
   setTimeout(verifierBlocsVides, 500);
+  majDailyAuto();
   if (!rattrapageVu){ rattrapageVu = true; setTimeout(ouvrirRattrapage, 900); setTimeout(notifierIncoherences, 5000); }
 }
 
@@ -3619,37 +3627,37 @@ $('#linkForm').onsubmit = async (e) => {
 };
 
 /* ---------- daily : programme du jour, bloc par bloc ---------- */
+// Blocs d'un jour donné, pris dans la bonne semaine (semaines individualisées)
+function blocsDuJour(jour){
+  const d = (jour.getDay() + 6) % 7, lun = lundiIso(jour);
+  const evs = state.modeles ? (lun === semaineChargee ? state.events : eventsDe(lun)) : state.events;
+  return evs.filter(e => e.d === d).sort((x, y) => x.start - y.start);
+}
+// Programme du jour : seulement ce qui est prévu ce jour-là (tâches datées du jour ou placées à la main),
+// écrit court et à plat pour se lire sur un téléphone.
 function programmeDuJour(jour = new Date()){
-  const iso = isoOf(jour), d = (jour.getDay() + 6) % 7;
+  const iso = isoOf(jour);
   const lien = (t) => `[[${t.file}${t.file !== t.title ? '|' + t.title.replace(/[\[\]|]/g, '') : ''}]]`;
-  const datees = tasks ? tasks.items.filter(t => (t.scheduled || t.due || '').slice(0, 10) === iso) : [];
+  const ouverte = (t) => t.status !== 'done';
+  const datees = tasks ? tasks.items.filter(t => ouverte(t) && (t.scheduled || t.due || '').slice(0, 10) === iso) : [];
   const heure = (t) => { const s = t.scheduled || t.due || ''; return s.length > 10 ? tmin(s.slice(11)) : null; };
   const pris = new Set(), L = [];
   const titreJour = jour.toLocaleDateString('fr-FR', {weekday: 'long', day: 'numeric', month: 'long'});
-  L.push(`> [!example] 📅 Programme du ${titreJour} · Cadence`);
-  dayEvents(d).forEach(e => {
-    L.push(`> - **${fmtMin(e.start)} – ${fmtMin(e.end)}** · ${e.title}${e.sub ? ` — ${e.sub}` : ''}`);
+  L.push(`> [!example] 📅 ${titreJour.charAt(0).toUpperCase() + titreJour.slice(1)}`);
+  const ligneTache = (t, e) => `> - ${heure(t) != null && (!e || heure(t) !== e.start) ? fmtMin(heure(t)) + ' · ' : ''}${lien(t)}${t.recurring ? ' ↻' : ''}${t.boxes ? ` (${t.done}/${t.boxes})` : ''}`;
+  blocsDuJour(jour).forEach(e => {
     const ici = datees.filter(t => !pris.has(t.file) && ((h => h != null && h >= e.start && h < e.end)(heure(t)) || (heure(t) == null && e.tag && t.tags.includes(e.tag))));
-    ici.forEach(t => pris.add(t.file));
-    const lignesBloc = ici.map(t => [t, `📅 ${lien(t)}${t.boxes ? ` (${t.done}/${t.boxes})` : ''}`]);
-    const pretes = tasks && (e.tag || e.project) ? tasks.items.filter(t => !pris.has(t.file) && !t.blocked && !isLater(t) && !t.recurring && !(t.scheduled || t.due)
-      && ((e.tag && t.tags.includes(e.tag)) || (e.project && (t.projects || []).includes(e.project)))).sort((a, b) => (prioN(a.priority) || 9) - (prioN(b.priority) || 9)) : [];
-    pretes.slice(0, 5).forEach(t => lignesBloc.push([t, lien(t)]));
-    // Sous-blocs par lieu (contexte) seulement s'il y en a : la note reste courte
-    const parLieu = new Map();
-    lignesBloc.forEach(([t, txt]) => { const c = (t.contexts || [])[0] || ''; if (!parLieu.has(c)) parLieu.set(c, []); parLieu.get(c).push(txt); });
-    const lieux = [...parLieu.keys()].filter(Boolean);
-    if (!lieux.length) lignesBloc.forEach(([, txt]) => L.push(`>     - ${txt}`));
-    else {
-      (parLieu.get('') || []).forEach(txt => L.push(`>     - ${txt}`));
-      lieux.sort((a, b) => a.localeCompare(b, 'fr')).forEach(c => { L.push(`>     - 📍 **${c}**`); parLieu.get(c).forEach(txt => L.push(`>         - ${txt}`)); });
-    }
-    if (pretes.length > 5) L.push(`>     - … et ${pretes.length - 5} autre${pretes.length - 5 > 1 ? 's' : ''}`);
+    const places = (plan[e.id] || []).map(f => tasks && tasks.items.find(t => t.file === f)).filter(t => t && ouverte(t) && !pris.has(t.file) && !ici.includes(t));
+    const liste = ici.concat(places).sort((x, y) => (heure(x) ?? 9999) - (heure(y) ?? 9999)); liste.forEach(t => pris.add(t.file));
+    L.push('>', `> **${fmtMin(e.start)} – ${fmtMin(e.end)}** · ${e.title}${e.sub ? ` *— ${e.sub}*` : ''}`);
+    const parLieu = new Map(); liste.forEach(t => { const c = (t.contexts || [])[0] || ''; if (!parLieu.has(c)) parLieu.set(c, []); parLieu.get(c).push(t); });
+    (parLieu.get('') || []).forEach(t => L.push(ligneTache(t, e)));
+    [...parLieu.keys()].filter(Boolean).sort((x, y) => x.localeCompare(y, 'fr')).forEach(c => { L.push(`> 📍 *${c}*`); parLieu.get(c).forEach(t => L.push(ligneTache(t, e))); });
   });
   const reste = datees.filter(t => !pris.has(t.file));
-  if (reste.length){ L.push('>', '> **Aussi aujourd\'hui**'); reste.forEach(t => L.push(`> - 📅 ${lien(t)}`)); }
+  if (reste.length){ L.push('>', '> **Aussi aujourd\'hui**'); reste.forEach(t => L.push(ligneTache(t))); }
   const n = new Date();
-  L.push('>', `> *Mis à jour par Cadence le ${n.toLocaleDateString('fr-FR')} à ${n.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}*`);
+  L.push('>', `> <small>Mis à jour par Cadence le ${n.toLocaleDateString('fr-FR')} à ${n.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</small>`);
   return L.join('\n');
 }
 async function majDaily(){
@@ -3662,6 +3670,14 @@ async function majDaily(){
   } catch(e){ alert(messageErreur(e)); }
   chargerNotes();
 }
+// Mise à jour automatique dès que la journée change (blocs, tâches, placements) : écrite seulement si le contenu a changé
+let tDailyAuto = null;
+function majDailyAuto(){
+  if (!BUREAU || !CFG || !CFG.coffre || !tasks || !state) return;
+  clearTimeout(tDailyAuto);
+  tDailyAuto = setTimeout(async () => { const pc = progCfg(); try { await cadence.ecrireSection(pc.dossier, pc.nom, programmeDuJour(), true); } catch(e){ console.warn('programme du jour', e); } }, 2500);
+}
+setInterval(() => { if (isoOf(new Date()) !== majDailyAuto.jour){ majDailyAuto.jour = isoOf(new Date()); majDailyAuto(); } }, 60000);
 $('#btnDaily').onclick = majDaily;
 
 /* nouvelle tâche / modifier une tâche (même fenêtre) */

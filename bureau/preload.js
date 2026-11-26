@@ -28,7 +28,7 @@ contextBridge.exposeInMainWorld('cadence', {
   rouvrir: (nom, ancien) => ipcRenderer.invoke('rouvrir', nom, ancien),
   reglagesDaily: () => ipcRenderer.invoke('reglages-daily'),
   listerNotes: (dossier) => ipcRenderer.invoke('lister-notes', dossier),
-  ecrireSection: (dossier, nom, section) => ipcRenderer.invoke('ecrire-section', dossier, nom, section),
+  ecrireSection: (dossier, nom, section, siChange) => ipcRenderer.invoke('ecrire-section', dossier, nom, section, !!siChange),
   lierNote: (tache, note, mtime) => ipcRenderer.invoke('lier-note', tache, note, mtime),
   suivreNotes: (dossier) => ipcRenderer.invoke('suivre-notes', dossier),
   surChangementNotes: (fn) => ipcRenderer.on('notes-changees', () => fn()),
