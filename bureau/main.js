@@ -333,7 +333,10 @@ ipcMain.handle('modifier-tache', async (evenement, nom, c, mtime) => {
     t = changerCle(t, champ(tn, 'recurrence'), c.recurrence);
     t = changerCle(t, champ(tn, 'recurrenceAnchor'), 'scheduled');
   }
-  if (c.planifie !== undefined) {
+  if (c.echeance !== undefined) {   // tâche qui n'a qu'une échéance (due) : on modifie l'échéance, pas la date prévue
+    if (c.echeance != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(c.echeance)) throw new Error('Date invalide.');
+    t = changerCle(t, champ(tn, 'due'), c.echeance);
+  } else if (c.planifie !== undefined) {
     if (c.planifie != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(c.planifie)) throw new Error('Date invalide.');
     t = changerCle(t, champ(tn, 'scheduled'), c.planifie);
     t = regleRappel(t, tn, c.planifie);

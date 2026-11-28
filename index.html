@@ -568,6 +568,32 @@ aside .equilibre .eq-msg{grid-column:2}
 .xp-flottant{position:fixed;z-index:9999;pointer-events:none;font:700 18px "VT323",monospace;color:#3E9E6E;text-shadow:2px 2px 0 #fff;animation:monte 1.3s steps(10) forwards}
 @keyframes monte{from{transform:translateY(0);opacity:1}to{transform:translateY(-40px);opacity:0}}
 
+/* ---------- ambiances (Réglages → Thème) : palette et décor ; #_ pour passer devant le style rétro ---------- */
+:root[data-amb="printemps"][data-ton="clair"], :root[data-amb="printemps"][data-ton="clair"] body:not(#_){--paper:#F6FAF3;--card:#FFFFFF;--ink:#1F2A22;--muted:#6B7A6E;--line:#DCE8D6;--head:#4E8A5B;--headwe:#A9C9A4;--accent:#D4588C;--weekend:#EEF5EA}
+:root[data-amb="printemps"][data-ton="sombre"], :root[data-amb="printemps"][data-ton="sombre"] body:not(#_){--paper:#141A16;--card:#1B231D;--ink:#E6EFE6;--muted:#9FB3A3;--line:#2A372D;--head:#3E6B49;--headwe:#2A372D;--accent:#F08DB5;--weekend:#18201A}
+:root[data-amb="printemps"] body:not(#_){background-color:var(--paper);background-image:radial-gradient(circle at 12% 18%, rgba(240,141,181,.16) 0 2px, transparent 3px), radial-gradient(circle at 70% 60%, rgba(120,190,110,.14) 0 2px, transparent 3px); background-size:46px 46px, 62px 62px;background-attachment:fixed}
+:root[data-amb="printemps"] #title::after{content:" 🌸";font-size:.8em}
+:root[data-amb="ete"][data-ton="clair"], :root[data-amb="ete"][data-ton="clair"] body:not(#_){--paper:#FFF9EE;--card:#FFFFFF;--ink:#2A2418;--muted:#7D715A;--line:#F0E3C6;--head:#D9801A;--headwe:#F2C27A;--accent:#0E8FA8;--weekend:#FFF2DA}
+:root[data-amb="ete"][data-ton="sombre"], :root[data-amb="ete"][data-ton="sombre"] body:not(#_){--paper:#1A1610;--card:#231E15;--ink:#F3EAD8;--muted:#B8A888;--line:#3A3122;--head:#A8661A;--headwe:#3A3122;--accent:#4FC3D9;--weekend:#1F1A12}
+:root[data-amb="ete"] body:not(#_){background-color:var(--paper);background-image:radial-gradient(circle at 92% -8%, rgba(255,196,60,.35), transparent 38%), radial-gradient(circle at 5% 110%, rgba(14,143,168,.12), transparent 40%); background-size:auto;background-attachment:fixed}
+:root[data-amb="ete"] #title::after{content:" ☀️";font-size:.8em}
+:root[data-amb="automne"][data-ton="clair"], :root[data-amb="automne"][data-ton="clair"] body:not(#_){--paper:#FBF4EC;--card:#FFFDF9;--ink:#2E2119;--muted:#84705F;--line:#EAD9C6;--head:#A0472A;--headwe:#D49A6A;--accent:#B8621B;--weekend:#F5E9DC}
+:root[data-amb="automne"][data-ton="sombre"], :root[data-amb="automne"][data-ton="sombre"] body:not(#_){--paper:#1B1410;--card:#241B16;--ink:#F1E4D8;--muted:#B59C88;--line:#3B2C22;--head:#8A3C24;--headwe:#3B2C22;--accent:#E89A4E;--weekend:#201814}
+:root[data-amb="automne"] body:not(#_){background-color:var(--paper);background-image:radial-gradient(ellipse at 20% 30%, rgba(200,90,30,.12) 0 3px, transparent 4px), radial-gradient(ellipse at 75% 70%, rgba(180,130,40,.12) 0 3px, transparent 4px), linear-gradient(180deg, transparent 60%, rgba(160,71,42,.08)); background-size:58px 58px, 74px 74px, auto;background-attachment:fixed}
+:root[data-amb="automne"] #title::after{content:" 🍂";font-size:.8em}
+:root[data-amb="hiver"][data-ton="clair"], :root[data-amb="hiver"][data-ton="clair"] body:not(#_){--paper:#F3F7FB;--card:#FFFFFF;--ink:#1D2733;--muted:#687789;--line:#DCE5EF;--head:#3D6A96;--headwe:#A8BED6;--accent:#2F7FC1;--weekend:#EAF1F8}
+:root[data-amb="hiver"][data-ton="sombre"], :root[data-amb="hiver"][data-ton="sombre"] body:not(#_){--paper:#10161D;--card:#172029;--ink:#E4EDF6;--muted:#98A9BC;--line:#263342;--head:#2F5478;--headwe:#263342;--accent:#8CC4F2;--weekend:#131B24}
+:root[data-amb="hiver"] body:not(#_){background-color:var(--paper);background-image:radial-gradient(circle, rgba(150,190,230,.35) 0 1.5px, transparent 2px), radial-gradient(circle, rgba(150,190,230,.22) 0 1px, transparent 1.5px), linear-gradient(180deg, rgba(47,127,193,.06), transparent 50%); background-size:38px 38px, 23px 23px, auto; background-position:0 0, 11px 17px, 0 0;background-attachment:fixed}
+:root[data-amb="hiver"] #title::after{content:" ❄️";font-size:.8em}
+:root[data-amb="espace"], :root[data-amb="espace"] body:not(#_){--paper:#07081A;--card:#11132B;--ink:#E8E9FF;--muted:#9EA2D6;--line:#23264A;--head:#3A2F7A;--headwe:#23264A;--accent:#8F7CFF;--weekend:#0B0C22}
+:root[data-amb="espace"] body:not(#_){background-color:var(--paper);background-image:radial-gradient(circle, rgba(255,255,255,.85) 0 1px, transparent 1.4px), radial-gradient(circle, rgba(200,210,255,.55) 0 .8px, transparent 1.2px), radial-gradient(circle, rgba(255,240,220,.4) 0 1.4px, transparent 2px), radial-gradient(ellipse at 80% 20%, rgba(143,124,255,.22), transparent 45%), radial-gradient(ellipse at 10% 85%, rgba(220,80,180,.14), transparent 40%); background-size:97px 89px, 53px 61px, 173px 151px, auto, auto; background-position:0 0, 21px 37px, 61px 13px, 0 0, 0 0;background-attachment:fixed}
+:root[data-amb="espace"] #title::after{content:" 🚀";font-size:.8em}
+:root[data-amb="cthulhu"], :root[data-amb="cthulhu"] body:not(#_){--paper:#050F0D;--card:#0C1A17;--ink:#D9EBDD;--muted:#7FA394;--line:#17302A;--head:#1F4A3E;--headwe:#17302A;--accent:#5FD3A0;--weekend:#081512}
+:root[data-amb="cthulhu"] body:not(#_){background-color:var(--paper);background-image:radial-gradient(ellipse at 50% 120%, rgba(95,211,160,.20), transparent 55%), repeating-radial-gradient(circle at 50% 130%, transparent 0 38px, rgba(95,211,160,.045) 39px 41px), radial-gradient(circle at 85% 15%, rgba(120,255,190,.08), transparent 30%); background-size:auto;background-attachment:fixed}
+:root[data-amb="cthulhu"] #title::after{content:" 🐙";font-size:.8em}
+:root[data-amb="espace"] #title{text-shadow:0 0 12px rgba(143,124,255,.7)}
+:root[data-amb="cthulhu"] #title{letter-spacing:.06em;text-shadow:0 0 10px rgba(95,211,160,.55), 0 2px 0 #000}
+:root[data-amb="cthulhu"] .dayhead{box-shadow:inset 0 -2px 0 rgba(95,211,160,.35)}
 /* ---------- style rétro 16 bits pastel ---------- */
 @font-face{font-family:"VT323";src:url("bureau/police/VT323.ttf") format("truetype");font-display:swap}
 body.retro{--px:#3B3156;--pxs:color-mix(in srgb, #3B3156 30%, transparent);--paper:#F3EEFB;--card:#FFFDF8;--ink:#2B2340;--muted:#7A6E96;--line:#D9CFEE;--head:#7464B4;--headwe:#B4A8D8;--accent:#6E5BD3;--weekend:#EDE7F8;
@@ -697,10 +723,10 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
     <datalist id="ctxList"></datalist>
     <label for="nPrio">Priorité</label>
     <select id="nPrio"></select>
-    <label for="nDay">Jour (facultatif)</label>
+    <label for="nDay" id="nDayL">Jour (facultatif)</label>
     <select id="nDay"></select>
-    <label for="nTime">Heure (facultatif, ex. 14:00)</label>
-    <input type="text" id="nTime" autocomplete="off" placeholder="14:00">
+    <label for="nTime" id="nTimeL">Heure (facultatif, ex. 14:00)</label>
+    <input type="text" id="nTime" autocomplete="off" placeholder="hh:mm">
     <label for="nRep" id="nRepL">Répéter</label>
     <select id="nRep"></select>
     <div class="set-hint hidden" id="nRepHint"></div>
@@ -848,6 +874,9 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
     <div class="set-hint">Dans le nom : YYYY = année, MM = mois, DD = jour (ex. « YYYYMMDD - Inbox »).</div>
     <label for="sProg">Note du programme (↻ Daily), unique et sans date</label>
     <input type="text" id="sProg" autocomplete="off" placeholder="CADENCE">
+    <label for="sAmb">Thème</label>
+    <select id="sAmb"></select>
+    <div class="set-hint">Les saisons suivent aussi le bouton 🌓 (clair / sombre). Espace et Cthulhu sont toujours sombres. « Au fil des saisons » change tout seul aux équinoxes et aux solstices.</div>
     <label for="sPas">Pas de la grille (créer, déplacer, étirer un bloc)</label>
     <select id="sPas"><option value="30">30 minutes</option><option value="15">15 minutes</option><option value="1">1 minute (au plus près)</option></select>
     <label>Météo (pour savoir si on peut travailler dehors)</label>
@@ -1126,6 +1155,17 @@ function appliquerModele(id){
   toast(`▤ Cette semaine suit « ${m.nom} ».`);
   return true;
 }
+// Vider la semaine affichée : tous ses blocs partent (copies Google comprises) ; « Annuler » remet tout
+function viderSemaine(){
+  const n = state.events.length; if (!n){ toast('Cette semaine est déjà vide.'); return; }
+  const m = gBlocs(), ids = new Set(state.events.map(e => e.id)), nG = Object.keys(m).filter(k => ids.has(k.split('@')[0]) && k.endsWith('@' + isoOf(weekDays[0]))).length;
+  if (!confirm(`Vider la semaine du ${weekDays[0].toLocaleDateString('fr-FR', {day: 'numeric', month: 'long'})} ?\n\n${n} bloc${n > 1 ? 's' : ''} ser${n > 1 ? 'ont' : 'a'} retiré${n > 1 ? 's' : ''}${nG ? `, et ${nG} copie${nG > 1 ? 's' : ''} dans Google Agenda effacée${nG > 1 ? 's' : ''}` : ''}. Les autres semaines, les semaines types, les tâches et les rendez-vous d'agenda ne bougent pas.`)) return;
+  const copie = clone(state.events), plans = {}, gb = {};
+  Object.keys(plan).forEach(k => { if (ids.has(k)) plans[k] = plan[k]; });
+  Object.keys(m).forEach(k => { if (ids.has(k.split('@')[0])) gb[k] = {cal: m[k].cal}; });   // à l'annulation, les copies Google sont recréées
+  state.events = []; save(); render();
+  toast(`🧹 Semaine vidée (${n} bloc${n > 1 ? 's' : ''}).`, 'Annuler', () => { state.events = copie; Object.assign(plan, plans); savePlan(); const g = gBlocs(); Object.keys(gb).forEach(k => { if (!g[k]) g[k] = gb[k]; }); save(); render(); });
+}
 function ouvrirMenuModeles(ancre){
   let menu = $('#mdMenu'); if (menu){ menu.remove(); return; }
   menu = document.createElement('div'); menu.id = 'mdMenu'; menu.className = 'agmenu mdm'; document.body.appendChild(menu);
@@ -1138,6 +1178,7 @@ function ouvrirMenuModeles(ancre){
       + `<div class="agm-v">${ret ? `Suit « ${esc(cur.nom)} », avec des retouches ✎ propres à cette semaine.` : `Suit « ${esc(cur.nom)} ». Tes changements ne toucheront que cette semaine.`}</div>`
       + `<div class="agm-s">Semaines types</div><div class="mdm-l"></div>`
       + `<div class="mdm-a">${ret ? `<button type="button" class="btn" data-a="reset">↺ Annuler les retouches</button><button type="button" class="btn" data-a="remplacer">💾 Mettre ces blocs dans « ${esc(cur.nom)} »</button>` : ''}`
+      + `<button type="button" class="btn" data-a="vider" title="Retirer tous les blocs de cette semaine (les autres semaines et les semaines types ne bougent pas)">🧹 Vider la semaine</button>`
       + `<div class="agm-s">Enregistrer cette semaine comme nouvelle semaine type</div><div class="mdm-r"><input type="text" id="mdNom" placeholder="Nom (ex. Semaine chargée)" autocomplete="off"><button type="button" class="btn" data-a="nouveau">＋</button></div></div>`;
     const l = menu.querySelector('.mdm-l');
     state.modeles.forEach(m => {
@@ -1168,6 +1209,7 @@ function ouvrirMenuModeles(ancre){
     });
     menu.querySelectorAll('.mdm-a [data-a]').forEach(b => b.onclick = () => {
       const a = b.dataset.a;
+      if (a === 'vider'){ viderSemaine(); menu.remove(); return; }
       if (a === 'reset') appliquerModele(cur.id);
       else if (a === 'remplacer'){
         const autres = Object.keys(state.semaines).filter(k => k !== iso && !state.semaines[k].events && (state.semaines[k].modele || state.modeleDefaut) === cur.id).length;
@@ -1211,7 +1253,21 @@ function planTask(file, k){
 
 /* ---------- thème ---------- */
 const applyTheme = (t) => { if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); };
-applyTheme(store.get(THKEY));
+// Ambiances : classique, une par saison (ou « au fil des saisons »), espace, Cthulhu. Espace et Cthulhu sont toujours sombres.
+const AMBKEY = 'cadence-ambiance', AMB_SOMBRES = ['espace', 'cthulhu'];
+const AMBIANCES = {'': 'Classique', saisons: '🗓 Au fil des saisons', printemps: '🌸 Printemps', ete: '☀️ Été', automne: '🍂 Automne', hiver: '❄️ Hiver', espace: '🚀 Espace', cthulhu: '🐙 Cthulhu'};
+const saisonDu = (d) => { const x = (d.getMonth() + 1) * 100 + d.getDate(); return x >= 1221 || x < 320 ? 'hiver' : x < 621 ? 'printemps' : x < 923 ? 'ete' : 'automne'; };
+function appliquerAmbiance(){
+  let a = store.get(AMBKEY) || ''; if (!(a in AMBIANCES)) a = '';
+  if (a === 'saisons') a = saisonDu(new Date());
+  const h = document.documentElement;
+  if (a) h.setAttribute('data-amb', a); else h.removeAttribute('data-amb');
+  applyTheme(AMB_SOMBRES.includes(a) ? 'dark' : store.get(THKEY));
+  const sombre = (h.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
+  h.setAttribute('data-ton', sombre ? 'sombre' : 'clair');
+}
+appliquerAmbiance();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', appliquerAmbiance);
 /* ---------- guide intégré ---------- */
 const AIDE = [
  {t: 'Bienvenue', h: `<p>Cadence organise ta <b>semaine type</b> en blocs (routines, travail, loisirs…) et y range tes <b>tâches Obsidian</b>. Tout ce que tu fais ici est écrit directement dans ton coffre : rien n'est stocké ailleurs.</p>
@@ -1281,7 +1337,7 @@ const AIDE = [
   <li>Un jour sans aucun moment plaisir porte une pastille <b>＋ plaisir</b> : un clic place un créneau d'une heure dans le premier trou libre de l'après-midi.</li>
   <li>Si le plaisir prend beaucoup de place, la jauge propose la plus petite obligation disponible.</li>
   <li><b>Semaines types</b> : le bouton <b>▤</b> à côté de « Semaine du… » montre la semaine type suivie et ouvre le menu. Tu peux en créer plusieurs, nommées (« Semaine chargée », « Vacances »…), chacune avec sa part de plaisir affichée ; ★ marque celle par défaut, appliquée aux semaines pas encore réglées. Clique sur un nom pour l'appliquer à la semaine affichée.</li>
-  <li><b>Chaque semaine est individuelle</b> : modifier un bloc ne change que la semaine affichée (le bouton prend un ✎). « ↺ Annuler les retouches » revient à la semaine type ; « 💾 Mettre ces blocs dans… » les reporte dans la semaine type, et les semaines qui la suivent sans retouche suivent aussi. Pour créer une semaine type, arrange une semaine puis enregistre-la sous un nouveau nom.</li>
+  <li><b>Chaque semaine est individuelle</b> : modifier un bloc ne change que la semaine affichée (le bouton prend un ✎). « ↺ Annuler les retouches » revient à la semaine type ; « 🧹 Vider la semaine » retire tous ses blocs (après confirmation, annulable) ; « 💾 Mettre ces blocs dans… » les reporte dans la semaine type, et les semaines qui la suivent sans retouche suivent aussi. Pour créer une semaine type, arrange une semaine puis enregistre-la sous un nouveau nom.</li>
   <li>Une tâche repoussée plusieurs fois affiche <b>↻</b> et le bouton <b>✂ Juste démarrer</b> : il crée une première étape de 15 min pour aujourd'hui.</li></ol>
   <p class="aide-tip">Valider une tâche rapporte des <b>points d'expérience</b> (10 XP, plus un bonus selon la priorité et 5 XP pour une tâche longtemps repoussée) ; cocher une étape, 2 XP. Ton niveau s'affiche sous le titre.</p>`},
  {t: '9. Entourage', h: `<ol><li>Ajoute les personnes dans <b>⚙️ Réglages → Tags, projets et lieux → 💬 Entourage</b>, avec la date du dernier message si tu la connais.</li>
@@ -1291,6 +1347,7 @@ const AIDE = [
  {t: 'Astuces et raccourcis', h: `<ul><li><b>F1</b> : ouvrir ce guide. <b>Échap</b> : fermer une fenêtre.</li>
   <li>Déposer une tâche sur un bloc d'une autre catégorie : Cadence demande confirmation.</li>
   <li><b>Ctrl+S</b> dans une note : enregistrer tout de suite.</li>
+  <li><b>Thème</b> : dans <b>⚙️ Réglages → Thème</b>, choisis Classique, une saison (Printemps, Été, Automne, Hiver), « Au fil des saisons » (change tout seul), Espace ou Cthulhu. Le bouton 🌓 passe en clair ou sombre (sauf Espace et Cthulhu, toujours sombres).</li>
   <li>◀ ▶ : changer de semaine. <b>Auj.</b> : revenir à la semaine qui contient aujourd'hui (même le week-end). <b>Ctrl+K</b> : rechercher.</li>
   <li><b>👾</b> : style rétro 16 bits (activé par défaut) ou style classique.</li>
   <li><b>－ ＋</b> (ou <b>Ctrl + molette</b> sur le calendrier) : zoomer. <b>Sa·Di</b> : afficher ou masquer le week-end.</li>
@@ -1318,7 +1375,8 @@ document.addEventListener('keydown', (e) => { if (e.key === 'F1'){ e.preventDefa
 $('#btnTheme').onclick = () => {
   const dark = matchMedia('(prefers-color-scheme: dark)').matches;
   const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
-  const next = cur === 'dark' ? 'light' : 'dark'; applyTheme(next); store.set(THKEY, next);
+  if (AMB_SOMBRES.includes(document.documentElement.getAttribute('data-amb'))){ toast('Ce thème est toujours sombre : change de thème dans ⚙️ Réglages.'); return; }
+  const next = cur === 'dark' ? 'light' : 'dark'; store.set(THKEY, next); appliquerAmbiance();
 };
 
 /* ---------- tâches ---------- */
@@ -2259,6 +2317,7 @@ function dessinerAgendas(evs){
     evs.appendChild(el);
   });
 }
+$('#sAmb').onchange = (ev) => { store.set(AMBKEY, ev.target.value); appliquerAmbiance(); };
 $('#sPas').onchange = (ev) => { state.pas = +ev.target.value; save(); toast(`Pas de la grille : ${state.pas} min.`); };
 /* ---------- Tâches datées à l'heure : un mini-bloc de 30 min dans la colonne du jour ---------- */
 const DUREE_TACHE = 30;
@@ -3802,6 +3861,7 @@ function ouvrirTache(te){
   if (TN) nPrio.value = TN.prioriteParDefaut;
   nDay.innerHTML = ''; nDay.add(new Option('Aucun', ''));
   weekDays.forEach((x, i) => nDay.add(new Option(`${DAYS[i]} ${x.getDate()}/${String(x.getMonth() + 1).padStart(2, '0')}`, isoOf(x))));
+  const parEch = !!(te && !te.scheduled && te.due); $('#nDayL').textContent = parEch ? '⏳ Échéance : jour' : 'Jour (facultatif)'; $('#nTimeL').textContent = parEch ? '⏳ Échéance : heure' : 'Heure (facultatif, ex. 14:00)';
   $('#nTitle').value = ''; $('#nTime').value = ''; $('#nNote').value = ''; $('#nCtx').value = filter.startsWith('c:') ? filter.slice(2) : '';
   remplirLieux();
   const edition = !!te;
@@ -3815,7 +3875,7 @@ function ouvrirTache(te){
     const pr = tacheProj(te); if (pr && ![...nProj.options].some(o => o.value === pr)) nProj.add(new Option('📁 ' + pr, pr)); nProj.value = pr;
     $('#nCtx').value = (te.contexts || [])[0] || '';
     const pv = sansGuillemets(te.priority); if (pv && ![...nPrio.options].some(o => o.value === pv)) nPrio.add(new Option(pv, pv)); if (pv) nPrio.value = pv;
-    const sc = te.scheduled || '';
+    const sc = te.scheduled || te.due || '';   // sans date prévue, on montre (et modifie) l'échéance
     if (sc){ const d = sc.slice(0, 10); if (![...nDay.options].some(o => o.value === d)) nDay.add(new Option(fmt(d), d), 1); nDay.value = d; if (sc.length > 10) $('#nTime').value = sc.slice(11, 16); }
   }
   remplirRepeter(); if (rec) $('#nRepHint').classList.add('hidden');
@@ -3854,6 +3914,7 @@ $('#newForm').onsubmit = async (e) => {
         }
         delete t.planifie;
       }
+      if (!tacheEditee.recurring && !tacheEditee.scheduled && tacheEditee.due){ t.echeance = t.planifie; delete t.planifie; }
       const r = await cadence.modifierTache(tacheEditee.file, t, tacheEditee.mtime);
       if (depl){ await chargerTaches(); const x = tasks.items.find(y => y.file === r.nom) || tasks.items.find(y => y.file === tacheEditee.file); if (x) await deplacerRecurrente(x, depl, true); }
       aFocaliser = r.nom;
@@ -3887,6 +3948,7 @@ function ouvrirReglages(premier){
   $('#sWxTags').value = tagsDehors().join(', ');
   $('#sDailyDir').value = dailyCfg().dossier; $('#sDailyFmt').value = dailyCfg().format; $('#sProg').value = progCfg().chemin;
 
+  $('#sAmb').innerHTML = ''; Object.entries(AMBIANCES).forEach(([k, v]) => $('#sAmb').add(new Option(v, k))); $('#sAmb').value = store.get(AMBKEY) || '';
   $('#sPas').value = String(pasGrille());
   $('#dlgSet').showModal();
 }
