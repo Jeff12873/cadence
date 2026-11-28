@@ -490,6 +490,12 @@ body.retro .ev .gsync.on{box-shadow:2px 2px 0 var(--pxs);border:1.5px solid var(
 .agm-info{border:1px solid var(--line);background:var(--paper);color:var(--muted);border-radius:6px;font:inherit;font-size:10.5px;padding:1px 6px;cursor:pointer;white-space:nowrap}
 .agm-info.on{color:var(--ink);border-color:var(--accent);font-weight:700}
 .ext.rdvbloc.info{z-index:6}
+.ext.tachebloc{z-index:9}
+.ext.tachebloc .eb{background:color-mix(in srgb, var(--accent) 22%, var(--card));color:var(--ink);border:1.5px solid var(--accent);border-left-width:4px;padding:1px 5px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.ext.tachebloc .eb b::before{content:none}
+.ext.tachebloc .eb span{color:var(--muted, inherit);opacity:.85}
+.ext.tachebloc.echeance .eb{border-color:#E8A33D;background:color-mix(in srgb, #E8A33D 20%, var(--card))}
+.ext.tachebloc.bloquee .eb{opacity:.6;border-style:dashed}
 .ext.rdvbloc.conflit .eb{outline:3px solid #E5484D;outline-offset:1px;box-shadow:0 0 0 1px var(--card), 0 0 14px rgba(229,72,77,.75)}
 .ext.rdvbloc.conflit .eb b::after{content:' ⚠'}
 .ext.rdvbloc.info .eb{background:color-mix(in srgb, var(--agc) 16%, var(--card));color:var(--ink);border:2px dashed var(--agc);box-shadow:none}
@@ -670,6 +676,11 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
   <div class="actions"><button type="button" class="btn" id="rtPlusTard">Plus tard</button><button type="button" class="btn on" id="rtTout">↻ Tout replacer</button></div>
 </dialog>
 
+<dialog id="dlgChoix">
+  <form method="dialog"><h3 id="chTitre"></h3><p class="set-hint" id="chTexte"></p>
+  <div class="actions" id="chBoutons" style="flex-wrap:wrap"></div></form>
+</dialog>
+
 <dialog id="dlgNew">
   <form method="dialog" id="newForm">
     <h3 id="nHead">Nouvelle tâche</h3>
@@ -837,6 +848,8 @@ body.retro ::-webkit-scrollbar-track{background:var(--paper)}
     <div class="set-hint">Dans le nom : YYYY = année, MM = mois, DD = jour (ex. « YYYYMMDD - Inbox »).</div>
     <label for="sProg">Note du programme (↻ Daily), unique et sans date</label>
     <input type="text" id="sProg" autocomplete="off" placeholder="CADENCE">
+    <label for="sPas">Pas de la grille (créer, déplacer, étirer un bloc)</label>
+    <select id="sPas"><option value="30">30 minutes</option><option value="15">15 minutes</option><option value="1">1 minute (au plus près)</option></select>
     <label>Météo (pour savoir si on peut travailler dehors)</label>
     <div class="set-row"><input type="text" id="sWxCity" autocomplete="off" placeholder="Ville, ex. Macey"><button type="button" class="btn" id="sWxFind">Chercher</button></div>
     <select id="sWxPick" class="hidden" style="margin-top:6px"></select>
@@ -982,7 +995,7 @@ function compteur(part){
 // Ajoute un créneau plaisir d'une heure dans le premier trou libre (12h–21h) du jour, avec le plaisir le moins présent de la semaine
 function ajouterPlaisir(d){
   let m = null;
-  for (let x = 12 * 60; x <= 21 * 60; x += SNAP) if (!dayEvents(d).some(e => e.start < x + 60 && e.end > x)){ m = x; break; }
+  for (let x = 12 * 60; x <= 21 * 60; x += 15) if (!dayEvents(d).some(e => e.start < x + 60 && e.end > x)){ m = x; break; }
   if (m == null){ toast(`Pas de créneau libre d'une heure ${DAYS[d].toLowerCase()} après-midi : agrandis ou déplace un bloc.`); return; }
   const choix = projDefs().filter(p => natureProj(p.name) === 'plaisir').map(p => ({project: p.name, tag: '', cat: p.cat, title: p.name}))
     .concat(tagDefs().filter(t => natureTag(t.name) === 'plaisir').map(t => ({project: '', tag: t.name, cat: t.cat, title: sansEmoji(t.label || t.name)})));
@@ -1211,7 +1224,8 @@ const AIDE = [
  {t: '2. La semaine type : les blocs', h: `<p>Un <b>bloc</b> est un créneau de ta semaine : « Bilan de compétences 9h–11h », « Courses », « Cardio boxe »…</p>
   <ol><li><b>Créer</b> : dans un espace vide, <b>clique et glisse</b> vers le haut ou le bas ; la plage suit ta souris avec ses heures, et le bloc est créé sur cette durée quand tu relâches (Google connecté : tu choisis bloc Cadence ou rendez-vous Google).</li>
   <li><b>Modifier</b> : double-clic sur le bloc (titre, horaires, catégorie, tag ou projet, jours).</li>
-  <li><b>Déplacer</b> : glisse le bloc. <b>Étirer</b> : tire son bord du bas (par pas de 15 min).</li>
+  <li><b>Déplacer</b> : glisse le bloc. <b>Étirer</b> : tire son bord du bas. Le pas (30, 15 ou 1 min) se règle dans <b>⚙️ Réglages → Pas de la grille</b>.</li>
+  <li><b>Tâches datées à l'heure</b> (date prévue ou échéance avec une heure, posée dans Cadence ou TaskForge) : elles apparaissent comme un <b>mini-bloc de 30 min</b> dans la colonne du jour (📌 prévue, ⏳ échéance, sur le côté droit si un bloc ou un rendez-vous occupe déjà l'heure). Clic : la retrouver dans la liste ; double-clic : la modifier. Sans heure, elles restent comptées par la pastille 📅 en tête du jour.</li>
   <li><b>Supprimer</b> : survole-le puis 🗑 ; une notification permet d'<b>annuler</b>.</li></ol>
   <p>Les blocs identiques sur des jours qui se suivent sont fusionnés visuellement. Un bloc trop petit pour son contenu s'écrit sur une ligne ; un <b>▾</b> l'indique : <b>clique dessus</b> pour voir toutes ses tâches dans la colonne de droite.</p>
   <p><b>Clique sur le nom d'un jour</b> pour voir à droite toutes les tâches de la journée (par bloc) ; la journée en cours est légèrement teintée.</p>
@@ -1243,7 +1257,7 @@ const AIDE = [
   <li><b>Surligne un passage</b> : la bulle <b>« En faire une tâche »</b> crée la tâche et remplace le passage par un lien.</li>
   <li><b>Glisse une note</b> sur le calendrier : elle devient une tâche planifiée à cet endroit, liée à la note.</li>
   <li><b>Dates incohérentes</b> : une sous-tâche datée alors que sa parente ne l'est pas, ou prévue après elle, et une tâche dépendante prévue avant la tâche qu'elle attend (ou datée alors que celle-ci ne l'est pas) affichent un avertissement <b>⚠ rouge</b> ; clique dessus pour aller à l'autre tâche. À l'ouverture de Cadence, une notification les signale.</li>
-  <li><b>Tâches récurrentes</b> : repérées par l'icône <b>↻ en boucle</b>, avec leur rythme (« chaque vendredi à 13h30 »). Le rond ✓ coche <b>l'occurrence du jour</b> (comme TaskNotes) : la tâche passe à sa prochaine échéance et tu gagnes tes XP ; « Annuler » revient en arrière. Tu peux aussi les glisser sur un autre jour ou changer leur date dans « Modifier » : Cadence demande confirmation, puis toutes les prochaines échéances suivent.</li>
+  <li><b>Tâches récurrentes</b> : repérées par l'icône <b>↻ en boucle</b>, avec leur rythme (« chaque vendredi à 13h30 »). Le rond ✓ coche <b>l'occurrence du jour</b> (comme TaskNotes) : la tâche passe à sa prochaine échéance et tu gagnes tes XP ; « Annuler » revient en arrière. <b>Occurrences oubliées</b> : s'il reste plusieurs occurrences passées sans ✓, le rond demande une fois « seulement la dernière » (les autres sont marquées sautées, comme dans TaskNotes) ou « toutes faites », puis la tâche repart à sa prochaine échéance. Au démarrage, la fenêtre des tâches en retard liste aussi les récurrentes oubliées (⤼ Sauter ou ✓ Fait). Tu peux aussi les glisser sur un autre jour ou changer leur date dans « Modifier » : Cadence demande confirmation, puis toutes les prochaines échéances suivent.</li>
   <li><b>Répéter</b> : dans la fenêtre d'une tâche, choisis un rythme (chaque jour, jours de semaine, chaque lundi, chaque mois le 24…). Avec un tag « qui doit se répéter » (Routine), il est obligatoire ; une telle tâche sans rythme affiche ⚠ — clique dessus pour le choisir.</li>
   <li>🔗 relie une note à une tâche existante.</li></ol>`},
  {t: '6. Agendas et Google', h: `<p>Dans <b>⚙️ Réglages</b>, clique sur <b>« Se connecter avec Google »</b> : une page Google s'ouvre dans ton navigateur, tu acceptes, c'est tout. Coche ensuite les agendas à afficher et choisis l'<b>agenda des blocs</b>, celui où Cadence écrit.</p>
@@ -1275,7 +1289,7 @@ const AIDE = [
   <li><b>✓ C'est fait</b> note la date ; <b>Un autre</b> propose quelqu'un d'autre pour aujourd'hui.</li>
   <li>Au-delà de 3 semaines, la personne passe en orange.</li></ol>`},
  {t: 'Astuces et raccourcis', h: `<ul><li><b>F1</b> : ouvrir ce guide. <b>Échap</b> : fermer une fenêtre.</li>
-  <li><b>Alt</b> en déposant une tâche : forcer un bloc d'une autre catégorie.</li>
+  <li>Déposer une tâche sur un bloc d'une autre catégorie : Cadence demande confirmation.</li>
   <li><b>Ctrl+S</b> dans une note : enregistrer tout de suite.</li>
   <li>◀ ▶ et <b>Auj.</b> : changer de semaine. <b>Ctrl+K</b> : rechercher.</li>
   <li><b>👾</b> : style rétro 16 bits (activé par défaut) ou style classique.</li>
@@ -1384,7 +1398,7 @@ function parseTask(name, text){
     subs, projects, notes, rappel, contexts, google: sansGuillemets(o.cadenceGoogle || ''), estimate: o.timeEstimate || '',
     file: name.replace(/\.md$/,''), title: o.title && o.title !== '""' ? o.title : name.replace(/\.md$/,''),
     tags: (t => t.length ? t : [A_TRIER])([...new Set(tags.map(x => x === 'Aucun' ? A_TRIER : x))]), priority: o.priority || '', status: o.status || '',
-    scheduled: o.scheduled || '', due: o.due || '', recurring: !!o.recurrence, recurrence: sansGuillemets(o.recurrence || ''), faits: (Array.isArray(o.complete_instances) ? o.complete_instances : []).map(sansGuillemets),
+    scheduled: o.scheduled || '', due: o.due || '', recurring: !!o.recurrence, recurrence: sansGuillemets(o.recurrence || ''), faits: (Array.isArray(o.complete_instances) ? o.complete_instances : []).map(sansGuillemets), sautes: (Array.isArray(o.skipped_instances) ? o.skipped_instances : []).map(sansGuillemets),
     blockedBy: o._blocked || [], boxes: boxes.length, done: boxes.filter(b => b[1] !== ' ').length
   };
 }
@@ -1428,9 +1442,11 @@ $('#dirInput').onchange = async (e) => {
 const PXH0 = 54;                                   // pixels par heure (zoom 1)
 let PXH = PXH0;
 let ECART = null;                                  // plage d'heures écartée au survol : {a, b, extra}
-const SNAP = 15;                                   // pas de 15 minutes
+// Pas de la grille (réglable : 30, 15 ou 1 min) ; un bloc fait au moins 15 min
+const pasGrille = () => [1, 15, 30].includes(+state.pas) ? +state.pas : 15;
+const minBloc = () => Math.max(pasGrille(), 15);
 let RS = 7 * 60, RE = 22 * 60;                     // plage affichée (recalculée)
-const snap = (m) => Math.round(m / SNAP) * SNAP;
+const snap = (m) => Math.round(m / pasGrille()) * pasGrille();
 const yOf = (m) => (m - RS) / 60 * PXH + (ECART ? ECART.extra * Math.max(0, Math.min(1, (m - ECART.a) / (ECART.b - ECART.a))) : 0);
 const hOf = (a, b) => yOf(b) - yOf(a);
 const mOf = (y) => {                               // inverse de yOf
@@ -1476,8 +1492,8 @@ function renderCal(){
     }
     if (dayEvents(i).length && !jourAPlaisir(i)){ const c = document.createElement('button'); c.type = 'button'; c.className = 'dplaisir'; c.textContent = '＋ plaisir';
       c.title = 'Aucun moment plaisir prévu ce jour : clic pour en ajouter un'; c.onclick = (ev) => { ev.stopPropagation(); ajouterPlaisir(i); }; h.appendChild(c); }
-    const hors = dated['day:' + i] || [];
-    if (hors.length){ const c = document.createElement('span'); c.className = 'dchip'; c.textContent = '📅 ' + hors.length; c.title = 'Tâches datées ce jour, hors créneau';
+    const hors = (dated['day:' + i] || []).filter(f => { const t = tasks && tasks.items.find(x => x.file === f); return !(t && heureTache(t) != null); });   // celles à l'heure ont leur mini-bloc
+    if (hors.length){ const c = document.createElement('span'); c.className = 'dchip'; c.textContent = '📅 ' + hors.length; c.title = 'Tâches datées ce jour, sans heure';
       c.onclick = (ev) => { ev.stopPropagation(); filter = '@plan:day:' + i; renderTasks(); }; h.appendChild(c); }
     cal.appendChild(h);
   });
@@ -1508,6 +1524,7 @@ function renderCal(){
   installerAgenda(evs);
   ajusterCases(evs);
   dessinerAgendas(evs);
+  dessinerTachesDatees(evs);
   dessinerChevauchements(evs);
   renderEtatAgendas();
   planifierSyncBlocs();
@@ -1706,7 +1723,7 @@ function ouvrirCreneau(d, m, titre, ouvrirDialogue){
   if (dedans) return null;
   const suivant = day.find(e => e.start >= m);
   let end = Math.min(m + 60, suivant ? suivant.start : 24 * 60);
-  if (end - m < SNAP){
+  if (end - m < minBloc()){
     const decal = 30, aDecaler = day.filter(e => e.start >= m);
     if (aDecaler.some(e => e.end + decal > 24 * 60)){ toast('Pas de place pour ouvrir un créneau ici.'); return null; }
     aDecaler.forEach(e => { e.start += decal; e.end += decal; });
@@ -1794,16 +1811,15 @@ const elementGlisse = () => {
   return dragFile && tasks ? tasks.items.find(x => x.file === dragFile) : null;
 };
 // Où va une tâche déposée à (jour, minute) : bloc existant, bloc voisin agrandi, ou nouveau bloc
-function cibleDepot(d, m, t, alt){
+function cibleDepot(d, m, t){
   const e = dayEvents(d).find(x => x.start <= m && m < x.end);
   if (e){
-    if (!compatible(e, t) && !alt) return {ok: false, msg: `« ${e.title} » n'est pas la catégorie de cette tâche (maintiens Alt pour forcer).`};
-    return {ok: true, e, label: `dans « ${e.title} » à ${fmtMin(e.start)}`};
+    return {ok: true, e, autre: !compatible(e, t), label: `dans « ${e.title} » à ${fmtMin(e.start)}`};
   }
   const v = voisinFusion(d, m, t);
   if (v) return {ok: true, v, label: `dans « ${v.e.title} » (agrandi) à ${fmtMin(Math.max(m, v.e.start))}`};
   const fin = finCase(d, m);
-  if (fin - m < SNAP) return {ok: false, msg: 'Pas de place ici : maintiens-la un instant au-dessus d’un espace vide pour ouvrir un créneau.'};
+  if (fin - m < minBloc()) return {ok: false, msg: 'Pas de place ici : maintiens-la un instant au-dessus d’un espace vide pour ouvrir un créneau.'};
   return {ok: true, neuf: {start: m, end: fin}, label: `dans un nouveau bloc « ${typerSurTache({}, t).title} » à ${fmtMin(m)}`};
 }
 function appliquerDepot(c, t, d, m){
@@ -1893,7 +1909,7 @@ function installerAgenda(evs){
       const tip = document.createElement('div'); tip.className = 'tip'; evs.appendChild(tip);
       const move = (mv) => {
         const p = posAgenda(evs, mv.clientX, mv.clientY);
-        fin = Math.max(e0.start + SNAP, Math.min(limite, snap(p.m)));
+        fin = Math.max(e0.start + minBloc(), Math.min(limite, snap(p.m)));
         el.style.height = hOf(e0.start, fin) + 'px';
         tip.style.left = (p.px) + 'px'; tip.style.top = mins2y(fin); tip.textContent = `jusqu'à ${fmtMin(fin)}`;
       };
@@ -1968,14 +1984,14 @@ function installerAgenda(evs){
     trace.bouge = true;
     const m = Math.max(trace.min, Math.min(trace.max, snap(posAgenda(evs, ev.clientX, ev.clientY).m)));
     trace.a = Math.min(trace.m0, m); trace.b = Math.max(trace.m0, m);
-    if (trace.b - trace.a < SNAP){ if (trace.a + SNAP <= trace.max) trace.b = trace.a + SNAP; else trace.a = trace.b - SNAP; }
+    if (trace.b - trace.a < minBloc()){ if (trace.a + minBloc() <= trace.max) trace.b = trace.a + minBloc(); else trace.a = trace.b - minBloc(); }
     ghost(evs, trace.d, trace.a, trace.b, 1, false, 'Nouvelle plage');
   };
   const finTrace = (ev) => {
     if (!trace) return;
     const t = trace; trace = null; clearGhost(evs);
     try { zoneT.releasePointerCapture(ev.pointerId); } catch(e){}
-    if (!t.bouge || t.b - t.a < SNAP) return;
+    if (!t.bouge || t.b - t.a < minBloc()) return;
     if (!(AG.google && AG.google.connecte)){ creerPlage(t.d, t.a, t.b); return; }
     const menu = document.createElement('div'); menu.className = 'plus-menu';
     menu.style.left = `calc(${colX(t.d)} + ${colW(1)} * 0.5)`; menu.style.top = mins2y(t.a);
@@ -1996,11 +2012,11 @@ function installerAgenda(evs){
     const p = posAgenda(evs, ev.clientX, ev.clientY); if (!p.inside) return;
     const m = snap(p.m), e = dayEvents(p.d).find(x => x.start <= m && m < x.end);
     const tg = elementGlisse();
-    if (e){ const ok = !tg || compatible(e, tg) || ev.altKey; ghost(evs, p.d, e.start, e.end, 1, !ok, ok ? `→ ${e.title}` : 'Catégorie différente · Alt pour forcer'); }
+    if (e){ const ok = !tg || compatible(e, tg); ghost(evs, p.d, e.start, e.end, 1, !ok, ok ? `→ ${e.title}` : `→ ${e.title} · autre catégorie (confirmation)`); }
     else if (tg){
       const v = voisinFusion(p.d, m, tg);
       if (v){ const tmp = {...v.e}; fusionner({e: tmp, cote: v.cote}, p.d, m); ghost(evs, p.d, tmp.start, tmp.end, 1, false, `⤢ ${v.e.title}`); }
-      else { const f2 = finCase(p.d, m); if (f2 - m >= SNAP) ghost(evs, p.d, m, f2, 1, false, `＋ ${typerSurTache({}, tg).title}`); else clearGhost(evs); }
+      else { const f2 = finCase(p.d, m); if (f2 - m >= minBloc()) ghost(evs, p.d, m, f2, 1, false, `＋ ${typerSurTache({}, tg).title}`); else clearGhost(evs); }
     } else clearGhost(evs);
     if (ptTache && Math.hypot(ev.clientX - ptTache.x, ev.clientY - ptTache.y) < 8) return;
     clearTimeout(tTache); ptTache = {x: ev.clientX, y: ev.clientY};
@@ -2020,8 +2036,9 @@ function installerAgenda(evs){
     dragFile = null; dragSub = null; dragNote = null; document.body.classList.remove('dragging-task');
     if (!t) return;
     const p = posAgenda(evs, ev.clientX, ev.clientY), m = snap(p.m);
-    const c = cibleDepot(p.d, m, t, ev.altKey);
+    const c = cibleDepot(p.d, m, t);
     if (!c.ok){ toast(c.msg); return; }
+    if (c.autre && !confirm(`« ${c.e.title} » n'est pas un bloc de la catégorie de « ${t.title} ».\n\nLa placer quand même dans ce bloc ?`)) return;
     if (sub){ ouvrirExtraction(sub, t, p.d, m, c); return; }
     if (note){ ouvrirExtraction({note}, t, p.d, m, c); return; }
     const r = appliquerDepot(c, t, p.d, m);
@@ -2242,6 +2259,44 @@ function dessinerAgendas(evs){
     evs.appendChild(el);
   });
 }
+$('#sPas').onchange = (ev) => { state.pas = +ev.target.value; save(); toast(`Pas de la grille : ${state.pas} min.`); };
+/* ---------- Tâches datées à l'heure : un mini-bloc de 30 min dans la colonne du jour ---------- */
+const DUREE_TACHE = 30;
+const heureTache = (t) => { const s = t.scheduled || t.due || ''; return s.length > 10 ? tmin(s.slice(11)) : null; };
+function dessinerTachesDatees(evs){
+  if (!tasks) return;
+  const isos = weekDays.map(isoOf), masques = state.rdvMasques || {};
+  const l = tasks.items.filter(t => t.status !== 'done').map(t => {
+    const d = isos.indexOf((t.scheduled || t.due || '').slice(0, 10)), m0 = heureTache(t);
+    return d < 0 || d >= NC() || m0 == null ? null : {t, d, m0, m1: Math.min(24 * 60, m0 + DUREE_TACHE)};
+  }).filter(Boolean);
+  for (let d = 0; d < NC(); d++){
+    const jour = l.filter(r => r.d === d).sort((p, q) => p.m0 - q.m0);
+    let grappe = [], fin = -1, couloirs = [];
+    const clore = () => { grappe.forEach(r => r.n = couloirs.length); grappe = []; couloirs = []; };
+    jour.forEach(r => {
+      if (r.m0 >= fin) clore();
+      let k = couloirs.findIndex(f => f <= r.m0); if (k < 0){ k = couloirs.length; couloirs.push(0); } couloirs[k] = r.m1;
+      r.k = k; r.sur = dayEvents(d).some(e => e.start < r.m1 && r.m0 < e.end) || tousRdv().some(x => x.d === d && !masques[x.x.cle] && x.m0 < r.m1 && r.m0 < x.m1);
+      grappe.push(r); fin = Math.max(fin, r.m1);
+    });
+    clore();
+  }
+  l.forEach(r => { const {t, d, m0, m1} = r;
+    const a = Math.max(RS, m0), b = Math.min(RE, m1); if (b <= a) return;
+    const zone = r.sur ? 0.55 : 1, part = zone / r.n, dx = (1 - zone) + r.k * part;
+    const el = document.createElement('div'); el.className = 'ext tachebloc' + (t.due && !t.scheduled ? ' echeance' : '') + (t.blocked ? ' bloquee' : '');
+    el.style.top = yOf(a) + 'px'; el.style.height = Math.max(18, hOf(a, b)) + 'px'; el.dataset.m0 = a; el.dataset.m1 = b; el.dataset.file = t.file;
+    el.style.left = `calc(${colX(d)} + ${colW(1)} * ${dx.toFixed(4)})`; el.style.width = `calc(${colW(1)} * ${part.toFixed(4)})`;
+    const ic = t.due && !t.scheduled ? '⏳' : '📌';
+    el.innerHTML = `<div class="eb"><b>${ic} ${esc(t.title)}</b><span>${fmtMin(m0)}${t.recurring ? ' · ↻' : ''}</span></div>`;
+    el.title = `${t.due && !t.scheduled ? 'Échéance' : 'Tâche prévue'} : ${t.title}\n${fmtMin(m0)}${t.recurring ? ' · ' + decrireRegle(t.recurrence, t.scheduled || t.due) : ''}\nClic : la retrouver dans la liste · double-clic : la modifier`;
+    el.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+    el.addEventListener('click', (ev) => { ev.stopPropagation(); focusTaches([t.file]); });
+    if (BUREAU) el.addEventListener('dblclick', (ev) => { ev.stopPropagation(); ouvrirTache(t); });
+    evs.appendChild(el);
+  });
+}
 /* ---------- Chevauchements : rien n'est interdit, on signale ---------- */
 // Pour chaque jour affiché : paires de blocs / rendez-vous (affichés seuls) qui se recouvrent
 function chevauchements(){
@@ -2300,7 +2355,7 @@ function installerRdv(el, x, d, evs){
     const m0 = debut0.getHours() * 60 + debut0.getMinutes(); let fin = m0 + dur;
     try { ev.target.setPointerCapture(ev.pointerId); } catch(_){}
     const tip = document.createElement('div'); tip.className = 'tip'; evs.appendChild(tip);
-    const move = (mv) => { const p = posAgenda(evs, mv.clientX, mv.clientY); fin = Math.max(m0 + SNAP, Math.min(24 * 60, snap(p.m)));
+    const move = (mv) => { const p = posAgenda(evs, mv.clientX, mv.clientY); fin = Math.max(m0 + minBloc(), Math.min(24 * 60, snap(p.m)));
       el.style.height = hOf(m0, fin) + 'px'; tip.style.left = p.px + 'px'; tip.style.top = mins2y(fin); tip.textContent = `jusqu'à ${fmtMin(fin)}`; };
     const up = async () => { ev.target.removeEventListener('pointermove', move); ev.target.removeEventListener('pointerup', up); tip.remove();
       if (fin !== m0 + dur){ try { await cadence.googleModifier(x.id, {debut: dtLocal(debut0, m0), fin: dtLocal(debut0, fin), allDay: false}, x.cal); } catch(e){ alert(messageErreur(e)); } }
@@ -2821,17 +2876,51 @@ async function valider(t){
   toast(`✓ « ${t.title} » validée · +${pts} XP`, 'Annuler', () => { retirerXP(cle); ecrire(() => cadence.rouvrir(t.file, res.ancien)); });
 }
 // Tâche récurrente : l'occurrence prévue est cochée, la tâche passe à l'échéance suivante
-async function validerOccurrence(t){
-  const src = t.scheduled || t.due || isoOf(new Date()), jour = src.slice(0, 10);
-  const suiv = prochaineOccurrence(t.recurrence, jour, t.faits || []), prochaine = suiv ? suiv + (src.length > 10 ? src.slice(10, 16) : '') : null;
+// Occurrences d'une récurrente restées sans ✓ jusqu'à « limite » (incluse), depuis son échéance actuelle
+function occurrencesEnRetard(t, limite){
+  const src = (t.scheduled || t.due || '').slice(0, 10); if (!src || !t.recurrence || src > limite) return [];
+  const vus = (t.faits || []).concat(t.sautes || []), out = [];
+  let x = vus.includes(src) ? prochaineOccurrence(t.recurrence, src, vus) : src;
+  while (x && x <= limite && out.length < 60){ out.push(x); x = prochaineOccurrence(t.recurrence, x, vus); }
+  return out;
+}
+const jjmm = (iso) => dateLocale(iso).toLocaleDateString('fr-FR', {weekday: 'short', day: 'numeric', month: 'numeric'});
+// Petite fenêtre à boutons : renvoie la valeur du bouton choisi (null si on ferme)
+function choisir(titre, texte, boutons){
+  return new Promise(res => {
+    const dl = $('#dlgChoix'); $('#chTitre').textContent = titre; $('#chTexte').textContent = texte;
+    const box = $('#chBoutons'); box.innerHTML = '';
+    boutons.concat([{v: null, l: 'Annuler'}]).forEach(o => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (o.on ? ' on' : ''); b.textContent = o.l; if (o.title) b.title = o.title;
+      b.onclick = () => { dl.onclose = null; dl.close(); res(o.v); }; box.appendChild(b); });
+    dl.onclose = () => res(null);
+    dl.showModal();
+  });
+}
+// Valider une récurrente. S'il reste plusieurs occurrences passées sans ✓, on demande une fois : toutes faites, ou seule la dernière (les autres sautées)
+async function validerOccurrence(t, choixImpose, limite){
+  const auj = limite || isoOf(new Date()), src = t.scheduled || t.due || auj, heure = src.length > 10 ? src.slice(10, 16) : '';
+  const retard = occurrencesEnRetard(t, auj);
+  let faits = [src.slice(0, 10)], sautes = [];
+  if (choixImpose && retard.length){
+    if (choixImpose === 'toutes') faits = retard; else { faits = []; sautes = retard; }
+  } else if (retard.length > 1){
+    const choix = await choisir(`↻ ${t.title}`, `${retard.length} occurrences n'ont pas été cochées : ${retard.map(jjmm).join(', ')}.`, [
+      {v: 'derniere', l: `✓ Seulement le ${jjmm(retard[retard.length - 1])}`, on: true, title: 'Les précédentes sont marquées « sautées » (TaskNotes)'},
+      {v: 'toutes', l: '✓ Toutes faites'}]);
+    if (!choix) return;
+    if (choix === 'toutes') faits = retard; else { faits = retard.slice(-1); sautes = retard.slice(0, -1); }
+  } else if (retard.length === 1) faits = retard;
+  const vus = (t.faits || []).concat(t.sautes || [], faits, sautes), dernier = (retard.length ? retard[retard.length - 1] : src.slice(0, 10));
+  const suiv = prochaineOccurrence(t.recurrence, dernier, vus), prochaine = suiv ? suiv + heure : null;
   let res;
-  try { res = await cadence.validerOccurrence(t.file, jour, prochaine, t.mtime); }
+  try { res = await cadence.validerOccurrence(t.file, faits, prochaine, t.mtime, sautes); }
   catch(e){ alert(messageErreur(e)); await chargerTaches(); return; }
-  const cle = t.file + '@' + jour, pts = 10 + ([0, 10, 6, 3, 0][prioN(t.priority)] || 0);
-  const el = [...document.querySelectorAll('#taskList .task')].find(a => a.dataset.file === t.file);
-  gagnerXP(cle, pts, el);
+  const pts = faits.length ? 10 + ([0, 10, 6, 3, 0][prioN(t.priority)] || 0) : 0, cle = t.file + '@' + (faits[faits.length - 1] || '');
+  if (pts){ const el = [...document.querySelectorAll('#taskList .task')].find(a => a.dataset.file === t.file); gagnerXP(cle, pts, el); }
   await chargerTaches();
-  toast(`✓ « ${t.title} » faite pour le ${fmt(jour)} · +${pts} XP${prochaine ? ' · prochaine : ' + fmt(prochaine) : ''}`, 'Annuler', () => { retirerXP(cle); ecrire(() => cadence.annulerOccurrence(t.file, jour, res.ancien)); });
+  const quoi = faits.length > 1 ? `${faits.length} occurrences faites` : faits.length ? `faite pour le ${fmt(faits[0])}` : `${sautes.length} occurrence${sautes.length > 1 ? 's' : ''} sautée${sautes.length > 1 ? 's' : ''}`;
+  toast(`✓ « ${t.title} » ${quoi}${sautes.length && faits.length ? ` · ${sautes.length} sautée${sautes.length > 1 ? 's' : ''}` : ''}${pts ? ` · +${pts} XP` : ''}${prochaine ? ' · prochaine : ' + fmt(prochaine) : ''}`, 'Annuler',
+    () => { if (pts) retirerXP(cle); ecrire(() => cadence.annulerOccurrence(t.file, faits, res.ancien, sautes)); });
 }
 /* ---------- Tâches récurrentes : décrire et décaler la règle (RRULE de TaskNotes) ---------- */
 const RR_J = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'], RR_NOM = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -3009,6 +3098,8 @@ async function chargerTaches(){
 
 /* ---------- au démarrage : tâches des jours précédents à replacer ou valider ---------- */
 let rattrapageVu = false;
+const hier = () => isoOf(new Date(Date.now() - 864e5));
+const recurrentesEnRetard = () => (tasks ? tasks.items : []).filter(t => t.recurring && t.status !== 'done' && occurrencesEnRetard(t, hier()).length);
 const enRetard = () => { const auj = isoOf(new Date()); return (tasks ? tasks.items : []).filter(t => !t.recurring && t.status !== 'done' && (t.scheduled || t.due) && (t.scheduled || t.due).slice(0, 10) < auj); };
 // Prochain créneau dédié : bloc de la semaine type qui porte le tag ou le projet de la tâche, à partir de maintenant (14 jours)
 function prochainCreneau(t){
@@ -3029,10 +3120,22 @@ function prochainCreneau(t){
 const libJour = (date) => { const auj = new Date(), dem = new Date(); dem.setDate(auj.getDate() + 1);
   return isoOf(date) === isoOf(auj) ? "aujourd'hui" : isoOf(date) === isoOf(dem) ? 'demain' : date.toLocaleDateString('fr-FR', {weekday: 'long', day: 'numeric', month: 'numeric'}); };
 function ouvrirRattrapage(){
-  if (!BUREAU || document.querySelector('dialog[open]')) { if (BUREAU && enRetard().length) setTimeout(ouvrirRattrapage, 3000); return; }
-  const liste = enRetard(); if (!liste.length) return;
+  if (!BUREAU || document.querySelector('dialog[open]')) { if (BUREAU && (enRetard().length || recurrentesEnRetard().length)) setTimeout(ouvrirRattrapage, 3000); return; }
+  const liste = enRetard(), recs = recurrentesEnRetard(); if (!liste.length && !recs.length) return;
   const box = $('#rtListe'); box.innerHTML = '';
-  $('#rtIntro').textContent = liste.length === 1 ? "Une tâche n'a pas encore trouvé son moment. On la replace sur son prochain créneau, on retire sa date, ou elle est déjà faite ?"
+  // Récurrentes : occurrences passées sans ✓ → toutes faites, ou sautées (la tâche reprend à sa prochaine échéance)
+  recs.forEach(t => {
+    const ret = occurrencesEnRetard(t, hier()), vus = (t.faits || []).concat(t.sautes || [], ret);
+    const suiv = prochaineOccurrence(t.recurrence, hier(), vus), row = document.createElement('div'); row.className = 'rt-l';
+    row.innerHTML = `<div class="rt-t"><b>↻ ${esc(t.title)}</b><span>${ret.length} occurrence${ret.length > 1 ? 's' : ''} sans ✓ : ${esc(ret.map(jjmm).join(', '))}${suiv ? ` → reprend <em>${esc(libJour(dateLocale(suiv)))}</em>` : ''}</span></div>
+      <div class="rt-b"><button type="button" class="btn rt-saute" title="Marquer ces occurrences comme sautées (TaskNotes)">⤼ Sauter</button><button type="button" class="btn rt-ok" title="Marquer ces occurrences comme faites">✓ ${ret.length > 1 ? 'Toutes faites' : 'Fait'}</button></div>`;
+    const go = async (choix, txt) => { marquer(row, txt); const x = tasks.items.find(y => y.file === t.file) || t; await validerOccurrence(x, choix, hier()); };
+    row.querySelector('.rt-saute').onclick = () => go('sauter', '⤼ sautée' + (ret.length > 1 ? 's' : ''));
+    row.querySelector('.rt-ok').onclick = () => go('toutes', '✓ faite' + (ret.length > 1 ? 's' : ''));
+    box.appendChild(row);
+  });
+  $('#rtIntro').textContent = !liste.length ? 'Des tâches récurrentes ont des occurrences passées sans ✓. Faites, ou sautées ? Elles reprennent ensuite à leur prochaine échéance.'
+    : liste.length === 1 ? "Une tâche n'a pas encore trouvé son moment. On la replace sur son prochain créneau, on retire sa date, ou elle est déjà faite ?"
     : `${liste.length} tâches n'ont pas encore trouvé leur moment. Pour chacune : la replacer sur son prochain créneau, retirer sa date (elle revient dans la liste), ou la valider si c'est fait.`;
   liste.sort((a, b) => (a.scheduled || a.due).localeCompare(b.scheduled || b.due)).forEach(t => {
     const c = prochainCreneau(t), row = document.createElement('div'); row.className = 'rt-l';
@@ -3784,6 +3887,7 @@ function ouvrirReglages(premier){
   $('#sWxTags').value = tagsDehors().join(', ');
   $('#sDailyDir').value = dailyCfg().dossier; $('#sDailyFmt').value = dailyCfg().format; $('#sProg').value = progCfg().chemin;
 
+  $('#sPas').value = String(pasGrille());
   $('#dlgSet').showModal();
 }
 $('#btnSettings').onclick = () => ouvrirReglages(false);

@@ -446,23 +446,30 @@ ipcMain.handle('terminer', async (evenement, nom, mtime) => {
 // Tâche récurrente : cocher l'occurrence du jour (comme TaskNotes) — la date rejoint complete_instances
 // et la date prévue passe à l'échéance suivante (calculée par l'interface, qui connaît la règle).
 const RE_JOUR = /^\d{4}-\d{2}-\d{2}$/;
-ipcMain.handle('valider-occurrence', async (evenement, nom, jour, prochaine, mtime) => {
-  if (!RE_JOUR.test(jour || '') || (prochaine != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(prochaine))) throw new Error('Date invalide.');
-  const tn = reglagesTaskNotes(), cleI = champ(tn, 'completeInstances'), cleS = champ(tn, 'scheduled');
+// jours : une date ou une liste (occurrences faites) ; sautes : occurrences en retard passées (skipped_instances)
+const listeJours = (x) => (Array.isArray(x) ? x : x == null ? [] : [x]);
+ipcMain.handle('valider-occurrence', async (evenement, nom, jours, prochaine, mtime, sautes) => {
+  const faitsN = listeJours(jours), sautesN = listeJours(sautes);
+  if (!(faitsN.length || sautesN.length) || ![...faitsN, ...sautesN].every(j => RE_JOUR.test(j || '')) || (prochaine != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(prochaine))) throw new Error('Date invalide.');
+  const tn = reglagesTaskNotes(), cleI = champ(tn, 'completeInstances'), cleK = champ(tn, 'skippedInstances'), cleS = champ(tn, 'scheduled');
   const { chemin, texte } = await lireVerifie(nom, mtime);
   const ancien = ((texte.match(RE_FM) || ['', ''])[1].match(new RegExp(`^${cleS}:\\s*["']?([^"'\\n]*)`, 'm')) || [])[1] || null;
-  const faits = lireListe(texte, cleI).map(x => x.replace(/^["']|["']$/g, ''));
-  let t = changerListe(texte, cleI, [...new Set([...faits, jour])].sort());
+  const net = (l) => l.map(x => x.replace(/^["']|["']$/g, ''));
+  let t = changerListe(texte, cleI, [...new Set([...net(lireListe(texte, cleI)), ...faitsN])].sort());
+  if (sautesN.length) t = changerListe(t, cleK, [...new Set([...net(lireListe(t, cleK)), ...sautesN])].sort());
   if (prochaine) { t = changerCle(t, cleS, prochaine); t = regleRappel(t, tn, prochaine); }
   t = changerCle(t, champ(tn, 'dateModified'), maintenant());
   await ecrireAtomique(chemin, t);
   return { ancien: ancien ? ancien.trim() : null };
 });
-ipcMain.handle('annuler-occurrence', async (evenement, nom, jour, ancien) => {
-  if (!RE_JOUR.test(jour || '') || (ancien != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(ancien))) throw new Error('Date invalide.');
-  const tn = reglagesTaskNotes(), cleI = champ(tn, 'completeInstances');
+ipcMain.handle('annuler-occurrence', async (evenement, nom, jours, ancien, sautes) => {
+  const faitsN = listeJours(jours), sautesN = listeJours(sautes);
+  if (![...faitsN, ...sautesN].every(j => RE_JOUR.test(j || '')) || (ancien != null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(ancien))) throw new Error('Date invalide.');
+  const tn = reglagesTaskNotes(), cleI = champ(tn, 'completeInstances'), cleK = champ(tn, 'skippedInstances');
   const { chemin, texte } = await lireVerifie(nom);
-  let t = changerListe(texte, cleI, lireListe(texte, cleI).filter(x => x.replace(/^["']|["']$/g, '') !== jour));
+  const sans = (l, x) => l.filter(v => !x.includes(v.replace(/^["']|["']$/g, '')));
+  let t = changerListe(texte, cleI, sans(lireListe(texte, cleI), faitsN));
+  if (sautesN.length) t = changerListe(t, cleK, sans(lireListe(t, cleK), sautesN));
   if (ancien) { t = changerCle(t, champ(tn, 'scheduled'), ancien); t = regleRappel(t, tn, ancien); }
   t = changerCle(t, champ(tn, 'dateModified'), maintenant());
   await ecrireAtomique(chemin, t);
