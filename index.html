@@ -1291,7 +1291,7 @@ const AIDE = [
  {t: 'Astuces et raccourcis', h: `<ul><li><b>F1</b> : ouvrir ce guide. <b>Échap</b> : fermer une fenêtre.</li>
   <li>Déposer une tâche sur un bloc d'une autre catégorie : Cadence demande confirmation.</li>
   <li><b>Ctrl+S</b> dans une note : enregistrer tout de suite.</li>
-  <li>◀ ▶ et <b>Auj.</b> : changer de semaine. <b>Ctrl+K</b> : rechercher.</li>
+  <li>◀ ▶ : changer de semaine. <b>Auj.</b> : revenir à la semaine qui contient aujourd'hui (même le week-end). <b>Ctrl+K</b> : rechercher.</li>
   <li><b>👾</b> : style rétro 16 bits (activé par défaut) ou style classique.</li>
   <li><b>－ ＋</b> (ou <b>Ctrl + molette</b> sur le calendrier) : zoomer. <b>Sa·Di</b> : afficher ou masquer le week-end.</li>
   <li><b>🖨️ Imprimer</b>, <b>💾 Exporter</b> / <b>📥 Importer</b> : garder une copie de ta semaine.</li>
@@ -1338,8 +1338,8 @@ let weekOffset = 0, dated = {}, weekDays = [];
 const isoOf = (x) => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
 function weekDates(){
   const t = new Date(); t.setHours(12,0,0,0);
-  const dow = (t.getDay() + 6) % 7;                       // le week-end, on montre la semaine qui vient
-  const mon = new Date(t); mon.setDate(t.getDate() - dow + (dow >= 5 ? 7 : 0) + 7 * weekOffset);
+  const dow = (t.getDay() + 6) % 7;                       // toujours la semaine qui contient aujourd'hui (▶ pour la suivante)
+  const mon = new Date(t); mon.setDate(t.getDate() - dow + 7 * weekOffset);
   return [...Array(7)].map((_, i) => { const x = new Date(mon); x.setDate(mon.getDate() + i); return x; });
 }
 const tmin = (s) => { const m = String(s).match(/(\d{1,2})\s*[h:]\s*(\d{2})?/); return m ? (+m[1]) * 60 + (+(m[2] || 0)) : null; };
